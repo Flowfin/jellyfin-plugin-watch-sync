@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Jellyfin.Plugin.WatchSync.Tests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <!-- The packaging step publishes the solution into one output directory and
+         copies the files build.yaml names out of it. IsPublishable keeps the test
+         assembly and its runner out of that directory in the first place. -->
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="Moq" Version="4.20.72" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jellyfin.Plugin.WatchSync\Jellyfin.Plugin.WatchSync.csproj" />
+  </ItemGroup>
+
+  <!-- The plugin excludes the runtime assets of these two, because a server already
+       carries them and shipping a second copy inside the plugin is how a plugin ends
+       up loading types the server does not recognise. Nothing carries them into a test
+       host, so the test project asks for them itself. These are a floor rather than a
+       pin: NuGet resolves to the highest version any project asks for, so raising the
+       plugin's own reference raises what the tests run against and never the reverse. -->
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Controller" Version="10.9.11" />
+    <PackageReference Include="Jellyfin.Model" Version="10.9.11" />
+  </ItemGroup>
+
+</Project>
