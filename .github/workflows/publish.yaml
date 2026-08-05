@@ -6,9 +6,16 @@ on:
       - released
   workflow_dispatch:
 
+# Deny by default at the workflow level; the job below grants only the scopes
+# it needs. The shared workflow this calls declares no permissions of its own,
+# so what the caller grants is the whole of what it gets.
+permissions: {}
+
 jobs:
   call:
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/publish.yaml@master
+    permissions:
+      contents: write # attach the built asset to the release
+    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/publish.yaml@eb99033a7ff644881b014bc0b4169916c854a68b # master, 2026-07-29
     with:
       version: ${{ github.event.release.tag_name }}
       is-unstable: ${{ github.event.release.prerelease }}
