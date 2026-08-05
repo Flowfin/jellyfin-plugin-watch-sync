@@ -1,0 +1,3 @@
+This file exists only to carry one commit that deliberately omits its
+Signed-off-by trailer, so that the sign-off check can be seen refusing one.
+The pull request carrying it is closed without merging.
