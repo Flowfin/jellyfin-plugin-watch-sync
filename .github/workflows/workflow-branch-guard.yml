@@ -1,0 +1,49 @@
+# Refuses a workflow trigger that names a branch this repository does not have.
+#
+# A trigger naming a branch that does not exist never fires, and a workflow that
+# never fires leaves the same empty runs list as one that fired and found
+# nothing. That is the failure this guard exists for: it makes the absence
+# loud instead of letting it read as a pass.
+#
+# The parsing and the verdict live in .github/check-workflow-branches.py so the
+# same file can be run against a clone by hand. This workflow only supplies the
+# set of branches that exist and reports the exit code.
+name: Workflow branch guard
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+# Read-only: the guard reads the workflow files and the branch list, and writes
+# nothing.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  branches:
+    name: Refuse a trigger naming a branch that does not exist
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # checkout, and list the branches through the API
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Every literal branch a trigger names exists
+        # The branch list comes from the API rather than from the checkout so a
+        # shallow clone cannot shrink it and pass the guard by accident.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${REPOSITORY}/branches" --paginate --jq '.[].name' \
+            | python3 .github/check-workflow-branches.py
