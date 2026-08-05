@@ -4,12 +4,19 @@ guid: "eb5d7894-8eef-4b36-aa6f-5d124e828ce1"
 version: "1.0.0.0"
 targetAbi: "10.9.0.0"
 framework: "net8.0"
-overview: "Short description about your plugin"
+overview: "Moves watch history between Jellyfin servers that the same operator has paired."
 description: >
-  This is a longer description that can span more than one
-  line and include details about your plugin.
+  Watch Sync carries the state a server holds about what has been watched
+  between servers that the same operator has paired, for the users that
+  operator has mapped to each other.
+
+  Two refusals stand and are not settings. No media file is ever copied:
+  only the watched state moves, never a byte of the item it is about.
+  Nothing moves except between servers the same operator has paired, and a
+  pairing that is absent, disabled or revoked stops the transfer rather
+  than falling back to anything.
 category: "General"
-owner: "jellyfin"
+owner: "iderex"
 artifacts:
 - "Jellyfin.Plugin.WatchSync.dll"
 changelog: >
