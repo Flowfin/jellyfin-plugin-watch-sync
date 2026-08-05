@@ -1,6 +1,6 @@
 using MediaBrowser.Model.Plugins;
 
-namespace Jellyfin.Plugin.Template.Configuration;
+namespace Jellyfin.Plugin.WatchSync.Configuration;
 
 /// <summary>
 /// The configuration options.
