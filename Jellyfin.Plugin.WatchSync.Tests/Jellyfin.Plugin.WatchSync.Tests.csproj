@@ -26,6 +26,13 @@
     <ProjectReference Include="..\Jellyfin.Plugin.WatchSync\Jellyfin.Plugin.WatchSync.csproj" />
   </ItemGroup>
 
+  <!-- The build manifest is one of three places that have to agree on the plugin
+       identifier, so a test reads it. Copying the real file rather than a fixture is
+       deliberate: a fixture would prove the state of a copy on the day it was written. -->
+  <ItemGroup>
+    <None Include="..\build.yaml" Link="build.yaml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- The plugin excludes the runtime assets of these two, because a server already
        carries them and shipping a second copy inside the plugin is how a plugin ends
        up loading types the server does not recognise. Nothing carries them into a test
