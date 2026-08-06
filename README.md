@@ -33,22 +33,16 @@ nothing, and says which state it is in on its configuration page.
 ## Which servers it runs on
 
 Two server lines, and they sit on different frameworks, which is why the artifact
-is built once per line rather than once. The build declares them:
+is built once per line rather than once.
 
-    grep -A4 '^targets:' build.yaml
-    targets:
-    - framework: "net9.0"
-      targetAbi: "10.11.11.0"
-    - framework: "net10.0"
-      targetAbi: "12.0.0.0"
+Which lines those are, what has been checked on each and what has not, is in
+[docs/compatibility.md](docs/compatibility.md). The versions are not repeated
+here, because two lists of the same thing drift and the one in this file is the
+one a visitor would believe.
 
-The 10.11 line builds against the released server assemblies. The 12.0 line
-builds against a release candidate of them, which is what is available today.
-
-Those are the lines the build compiles against. They are not lines this plugin
-has been run and checked on, and nothing here says they are. No version has been
-evaluated yet. The compatibility matrix in #113 is where a version that has been
-tried gets written down, together with what was not tried.
+What that file says today, and what this one will not soften: no line has been
+run on a server, so neither is supported. Both are compiled against and nothing
+more.
 
 ## State of this repository
 

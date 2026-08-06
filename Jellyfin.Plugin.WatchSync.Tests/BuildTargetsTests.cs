@@ -94,7 +94,12 @@ public class BuildTargetsTests
             .Select(target => $"{target.Framework} declares the ABI {target.TargetAbi}, which is a line this plugin does not support."));
     }
 
-    private static class BuildFacts
+    /// <summary>
+    /// The reads of the build manifest and of what the project actually built. Internal rather
+    /// than private because the compatibility matrix is held to the same manifest, and a second
+    /// parse of the same file would be a second answer waiting to disagree with this one.
+    /// </summary>
+    internal static class BuildFacts
     {
         /// <summary>
         /// One entry of the manifest's targets list.
