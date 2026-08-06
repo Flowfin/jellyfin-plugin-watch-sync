@@ -1,0 +1,60 @@
+# The vocabulary the headless guard refuses in the tracked test sources.
+#
+# Four fields per entry, separated by " :: ":
+#   id :: regular expression :: what a test matching it would need :: what to use instead
+#
+# Blank lines and lines beginning with # are ignored.
+#
+# This file is data rather than source on purpose. A scanner that carried these
+# literals in a .cs file would match itself, and the exclusion that fixed that would
+# be a hole in the middle of the guard.
+
+# A display.
+browser-selenium :: \bSelenium\b :: a display and a browser :: parse the page's markup in process and call the endpoints behind it directly
+browser-playwright :: \bPlaywright\b :: a display and a browser :: parse the page's markup in process and call the endpoints behind it directly
+browser-puppeteer :: \bPuppeteer\b :: a display and a browser :: parse the page's markup in process and call the endpoints behind it directly
+browser-webdriver :: \bWebDriver\b :: a display and a browser :: parse the page's markup in process and call the endpoints behind it directly
+
+# Elevation.
+elevation-windows-identity :: \bWindowsIdentity\b :: administrator rights to be asked about or held :: a temporary directory the test owns and an ephemeral high port
+elevation-windows-principal :: \bWindowsPrincipal\b :: administrator rights to be asked about or held :: a temporary directory the test owns and an ephemeral high port
+elevation-builtin-role :: \bWindowsBuiltInRole\b :: administrator rights to be asked about or held :: a temporary directory the test owns and an ephemeral high port
+elevation-runas :: "runas" :: an elevation prompt on the machine running the suite :: a temporary directory the test owns and an ephemeral high port
+elevation-sudo :: \bsudo\b :: elevation on the machine running the suite :: a temporary directory the test owns and an ephemeral high port
+
+# A machine-wide trust store.
+trust-store-x509store :: \bX509Store\b :: a machine-wide certificate store :: the in-process harness, which has no transport to secure
+trust-store-store-name :: \bStoreName\b :: a machine-wide certificate store :: the in-process harness, which has no transport to secure
+trust-store-store-location :: \bStoreLocation\b :: a machine-wide certificate store :: the in-process harness, which has no transport to secure
+
+# A machine-wide path root.
+machine-path-special-folder :: SpecialFolder\.(ProgramFiles|ProgramFilesX86|CommonApplicationData|Windows|System) :: a path outside the test's own output :: a temporary directory the test creates and removes
+machine-path-etc :: "/etc/ :: a path outside the test's own output :: a temporary directory the test creates and removes
+machine-path-usr :: "/usr/ :: a path outside the test's own output :: a temporary directory the test creates and removes
+machine-path-var :: "/var/ :: a path outside the test's own output :: a temporary directory the test creates and removes
+machine-path-library :: "/Library/ :: a path outside the test's own output :: a temporary directory the test creates and removes
+machine-path-program-files :: C:\\{1,2}Program :: a path outside the test's own output :: a temporary directory the test creates and removes
+
+# The network.
+network-http-client :: new\s+HttpClient\b :: a network the machine running the suite may not have :: a fake behind the one interface that would have made the call
+network-socket :: new\s+Socket\b :: a network the machine running the suite may not have :: a fake behind the one interface that would have made the call
+network-tcp-client :: new\s+TcpClient\b :: a network the machine running the suite may not have :: a fake behind the one interface that would have made the call
+network-tcp-listener :: new\s+TcpListener\b :: a network the machine running the suite may not have :: a fake behind the one interface that would have made the call
+network-udp-client :: new\s+UdpClient\b :: a network the machine running the suite may not have :: a fake behind the one interface that would have made the call
+network-web-request :: WebRequest\.Create\b :: a network the machine running the suite may not have :: a fake behind the one interface that would have made the call
+network-dns :: \bDns\.Get :: a resolver and a network :: a fake behind the one interface that would have made the call
+
+# A sleep.
+sleep-thread :: Thread\.Sleep\b :: real elapsed time, which is what makes a test flaky and then deleted :: the injected clock, advanced on command
+sleep-task-delay :: Task\.Delay\b :: real elapsed time, which is what makes a test flaky and then deleted :: the injected clock, advanced on command
+sleep-spin-wait :: \bSpinWait\. :: real elapsed time, which is what makes a test flaky and then deleted :: the injected clock, advanced on command
+
+# The machine clock.
+clock-datetime-now :: DateTime\.Now\b :: the machine clock, which fails at a date boundary on somebody else's machine :: the injected clock
+clock-datetime-utcnow :: DateTime\.UtcNow\b :: the machine clock, which fails at a date boundary on somebody else's machine :: the injected clock
+clock-datetimeoffset-now :: DateTimeOffset\.Now\b :: the machine clock, which fails at a date boundary on somebody else's machine :: the injected clock
+clock-datetimeoffset-utcnow :: DateTimeOffset\.UtcNow\b :: the machine clock, which fails at a date boundary on somebody else's machine :: the injected clock
+clock-tick-count :: Environment\.TickCount :: the machine clock :: the injected clock
+clock-stopwatch :: Stopwatch\.StartNew\b :: the machine clock :: the injected clock
+clock-time-provider-system :: TimeProvider\.System\b :: the machine clock :: the injected clock
+clock-local-time-zone :: TimeZoneInfo\.Local\b :: the local time zone of the machine running the suite :: a fixed time zone named by the test
