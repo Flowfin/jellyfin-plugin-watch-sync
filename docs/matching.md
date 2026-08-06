@@ -85,7 +85,6 @@ disposition means; the reason column says why.
 | `BasePluginFolder` | container | A folder another plugin owns. Nothing here is watched. |
 | `Book` | deferred | Read state is not watch state and the identifiers differ. Decision 2 in #1. |
 | `BoxSet` | aggregate | A collection is played when its members are. Carrying it would mark films the peer holds and this server does not. |
-| `Channel` | ephemeral | A channel is a source rather than a work, and two servers do not hold the same one. |
 | `ChannelFolderItem` | container | A folder inside a channel. It holds no watch state. |
 | `CollectionFolder` | container | A library as the operator arranged it. Two servers are not required to arrange them alike. |
 | `Episode` | synced | The series key, the ordering the series was matched under, the season number and the episode number, or the episode's own provider identifier where it carries one. #23 derives it. |
