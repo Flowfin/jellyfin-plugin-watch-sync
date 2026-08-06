@@ -1,0 +1,11 @@
+# One entry per departure, separated by " :: ": the repository-relative path, the
+# rule identifier, and the reason.
+#
+# An entry whose file no longer carries the call it was written for is refused as
+# dangling, so a departure is a debt with the thing that retires it written next to
+# it rather than a permanent hole.
+#
+# The plugin declares no departure today. Where one is genuinely needed, a path read
+# somewhere that is not a key derivation is the shape to expect: the store in #68
+# writes files and has to name them. The reason on the entry has to say why the read
+# is not a key, because that is the only question this guard is about.

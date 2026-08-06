@@ -1,0 +1,20 @@
+# What a key derivation may not read, one rule per line.
+#
+# Fields are separated by " :: ": the identifier, the pattern, what the call
+# identifies, and what to reach for instead.
+#
+# This is data rather than source for the same reason the headless vocabulary is.
+# A scanner carrying these literals in a .cs file inside the scanned project would
+# match itself, and the exclusion that repaired it would be a hole in the middle of
+# the guard. This one scans the plugin project and lives in the test project, so the
+# self-match is not possible today, and keeping the literals out of source means it
+# stays impossible if the two ever meet.
+#
+# Every rule here has a row in the refusals section of docs/matching.md, and a test
+# refuses the two disagreeing.
+
+storage-path :: \.Path\b :: where this server happens to store the file :: the provider identifiers, in the order docs/matching.md fixes
+storage-file-name :: \.FileName\b|\.FileNameWithoutExtension\b|GetFileName\s*\( :: the name whoever produced the file chose for it :: the provider identifiers, in the order docs/matching.md fixes
+storage-container :: \.Container\b :: one encoding of the work rather than the work :: the provider identifiers, which do not move when a file is re-encoded
+storage-size :: \.Size\b :: the byte length of one file of the work :: the provider identifiers, which two copies at different qualities still share
+storage-file-hash :: ComputeHash\s*\(|\bMD5\b|\bSHA1\b|\bSHA256\b|\bSHA512\b :: one byte-for-byte copy of one encoding :: the provider identifiers, which two independently produced copies still share
