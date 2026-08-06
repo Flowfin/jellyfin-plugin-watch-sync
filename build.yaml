@@ -2,8 +2,20 @@
 name: "Watch Sync"
 guid: "aa15847e-2417-4fa7-889c-4c1960d2efec"
 version: "1.0.0.0"
-targetAbi: "10.9.0.0"
-framework: "net8.0"
+# The single pair the packaging tool reads. It is one of the entries in the targets
+# list below and never a third answer, which BuildTargetsTests refuses.
+targetAbi: "10.11.11.0"
+framework: "net9.0"
+# One entry per server line this plugin supports. The ABI is the version of the server
+# assemblies the target actually compiled against, so it is not a preference written by
+# hand: BuildTargetsTests reads it off the referenced assembly under each target and
+# refuses this file disagreeing, which is what a package bump that nobody wrote down
+# here would produce.
+targets:
+- framework: "net9.0"
+  targetAbi: "10.11.11.0"
+- framework: "net10.0"
+  targetAbi: "12.0.0.0"
 overview: "Moves watch history between Jellyfin servers that the same operator has paired."
 description: >
   Watch Sync carries the state a server holds about what has been watched
