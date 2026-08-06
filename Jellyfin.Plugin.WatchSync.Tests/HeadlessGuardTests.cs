@@ -134,6 +134,23 @@ public class HeadlessGuardTests
     private static string ThisFile([CallerFilePath] string path = "") => path;
 
     /// <summary>
+    /// The rule is written down next to the suite and the guard is what refuses a violation of
+    /// it. Two lists of the same thing drift, and a document describing a guard it has fallen
+    /// behind is worse than no document, because somebody reads it and believes it. So the
+    /// document names every rule the guard carries and nothing else, and this refuses the pair
+    /// disagreeing in either direction.
+    /// </summary>
+    [Fact]
+    public void TheRuleDocumentAndTheVocabularyNameTheSameRules()
+    {
+        var documented = HeadlessGuard.DocumentedRuleIds();
+        var carried = HeadlessGuard.Vocabulary().Select(rule => rule.Id).ToList();
+
+        Assert.Empty(documented.Except(carried, StringComparer.Ordinal));
+        Assert.Empty(carried.Except(documented, StringComparer.Ordinal));
+    }
+
+    /// <summary>
     /// A vocabulary entry with a missing field would refuse a call and say nothing useful about
     /// it, and two entries sharing an identifier would make an exception cover a call nobody
     /// meant to except.
@@ -341,6 +358,22 @@ public class HeadlessGuardTests
             }
 
             return entries;
+        }
+
+        /// <summary>
+        /// Reads the rule identifiers out of the table in the rule document. The read is the
+        /// table rows rather than a parse of the whole file, so prose mentioning an identifier
+        /// does not count as documenting it.
+        /// </summary>
+        /// <returns>The identifiers the document names.</returns>
+        internal static IReadOnlyList<string> DocumentedRuleIds()
+        {
+            var document = File.ReadAllText(Path.Combine(RepositoryRoot(), TestProject, "headless-rule.md"));
+
+            return Regex
+                .Matches(document, "(?m)^\\|\\s*`(?<id>[a-z0-9-]+)`\\s*\\|")
+                .Select(match => match.Groups["id"].Value)
+                .ToList();
         }
 
         private static string DataFile(string name) =>
