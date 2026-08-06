@@ -1,0 +1,29 @@
+// A fixture, not a compiled source. It is the test somebody writes the first time a
+// backoff has to be waited for: everything else about it is right, and one line waits
+// on real elapsed time instead of on the clock the harness injects. That line is what
+// makes the test pass on the machine it was written on and go flaky everywhere else,
+// and flaky tests get deleted rather than fixed.
+using System;
+using System.Threading;
+using Xunit;
+
+namespace Jellyfin.Plugin.WatchSync.Tests;
+
+public class RetryBackoffTests
+{
+    [Fact]
+    public void TheSecondAttemptWaitsTheFirstInterval()
+    {
+        var clock = new FakeClock();
+        var peer = new FakePeer(clock);
+        peer.FailNextCalls(1);
+
+        var transfer = new Transfer(peer, clock);
+        transfer.Send(Change.Played("item-1"));
+
+        Thread.Sleep(250);
+
+        Assert.Equal(2, peer.Attempts);
+        Assert.Equal(TimeSpan.FromMilliseconds(200), peer.IntervalBeforeLastAttempt);
+    }
+}
