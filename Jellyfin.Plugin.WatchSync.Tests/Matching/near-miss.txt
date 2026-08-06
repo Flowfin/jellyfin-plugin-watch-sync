@@ -1,0 +1,16 @@
+# A fixture, not the document, and its vocabulary is a fixture vocabulary. Judging
+# against the real table would prove the state of the tree on the day it ran rather
+# than proving the guard.
+#
+# The mistake is one character. The table names LiveTvChanel where the server's
+# vocabulary has LiveTvChannel, which is the mistake a long table of similar names
+# actually produces: the row is present, the disposition is right, the reason is
+# right, and the kind it claims to be about does not exist. Everything else about
+# this fixture is correct, which is what makes it a near-miss rather than an
+# obviously broken table.
+
+| kind | disposition | key rule, or the reason it is not synced |
+| --- | --- | --- |
+| `Movie` | synced | The provider identifiers, in the order the document fixes. |
+| `LiveTvChanel` | ephemeral | A tuner's channel on this machine, which the peer has no counterpart to. |
+| `Season` | aggregate | A season is played when its episodes are. |
