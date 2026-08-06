@@ -1,16 +1,19 @@
 name: '🏗️ Build Plugin'
 
+# There is deliberately no path filter here. The check run this workflow
+# produces is one the ruleset on master requires, and a workflow a filter skips
+# reports no check run at all, so the context is absent rather than green and
+# the merge waits for a verdict that never arrives. A change touching only
+# Markdown is the case that hits it every time. The cost of the missing filter
+# is a build on documentation changes; the cost of having it was every such
+# change being unmergeable.
 on:
   push:
     branches:
       - master
-    paths-ignore:
-      - '**/*.md'
   pull_request:
     branches:
       - master
-    paths-ignore:
-      - '**/*.md'
   workflow_dispatch:
 
 # Deny by default at the workflow level; the job below grants only the scopes
