@@ -1,7 +1,41 @@
 <Project>
+
+    <!--
+        build.yaml holds the version, and it is the only file that does. It is the
+        manifest a server reads to decide whether an install is an upgrade, and it is
+        what the packaging tool reads to name the artifact it produces, so it cannot be
+        made to derive from anywhere else. Everything that can derive from it, does.
+
+        The read is one anchored line rather than a parse, for the same reason the guid
+        read in the test project is: the key sits at column zero in a hand-maintained
+        manifest, and a YAML parser would be a dependency for one field. A version moved
+        into a nested mapping would not be found, which the target below turns into a
+        refused build rather than a silent zero.
+    -->
     <PropertyGroup>
-        <Version>0.0.0.0</Version>
-        <AssemblyVersion>0.0.0.0</AssemblyVersion>
-        <FileVersion>0.0.0.0</FileVersion>
+        <PluginManifest>$(MSBuildThisFileDirectory)build.yaml</PluginManifest>
+        <_PluginManifestText Condition="Exists('$(PluginManifest)')">$([System.IO.File]::ReadAllText('$(PluginManifest)'))</_PluginManifestText>
+        <_PluginManifestVersionLine>$([System.Text.RegularExpressions.Regex]::Match($(_PluginManifestText), `(?m)^version:[ \t]*"[^"]*"`))</_PluginManifestVersionLine>
+        <PluginVersion>$([System.Text.RegularExpressions.Regex]::Match($(_PluginManifestVersionLine), `[0-9][0-9.]*`))</PluginVersion>
     </PropertyGroup>
+
+    <PropertyGroup>
+        <Version>$(PluginVersion)</Version>
+        <AssemblyVersion>$(PluginVersion)</AssemblyVersion>
+        <FileVersion>$(PluginVersion)</FileVersion>
+    </PropertyGroup>
+
+    <!--
+        Without this the three properties above are empty, every assembly reports 0.0.0.0,
+        and the build succeeds. That is the failure this refuses: a release nobody can tell
+        apart from the one before it, discovered after it shipped rather than while it was
+        being built.
+    -->
+    <Target Name="RefuseAVersionTheManifestDoesNotCarry" BeforeTargets="BeforeBuild">
+        <Error Condition="!Exists('$(PluginManifest)')"
+               Text="The build manifest was not found at $(PluginManifest). It is where the version is written and there is no second place to read it from." />
+        <Error Condition="'$(PluginVersion)' == ''"
+               Text="$(PluginManifest) carries no version at column zero in the form version: &quot;1.0.0.0&quot;, so there is nothing for the assembly version to derive from." />
+    </Target>
+
 </Project>
