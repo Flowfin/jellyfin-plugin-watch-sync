@@ -1,0 +1,9 @@
+# The repair of the near-miss next to it, and nothing else. One character is added
+# to one row. If the guard passes this and refuses its neighbour, the thing it
+# refused was the mistake and not something else about the fixture.
+
+| kind | disposition | key rule, or the reason it is not synced |
+| --- | --- | --- |
+| `Movie` | synced | The provider identifiers, in the order the document fixes. |
+| `LiveTvChannel` | ephemeral | A tuner's channel on this machine, which the peer has no counterpart to. |
+| `Season` | aggregate | A season is played when its episodes are. |

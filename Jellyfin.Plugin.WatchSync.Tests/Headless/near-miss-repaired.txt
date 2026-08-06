@@ -1,0 +1,27 @@
+// The same fixture with the one banned call replaced and nothing else changed. The
+// guard has to pass this, otherwise it is refusing the shape of the test rather than
+// the thing the rule is about.
+using System;
+using System.Threading;
+using Xunit;
+
+namespace Jellyfin.Plugin.WatchSync.Tests;
+
+public class RetryBackoffTests
+{
+    [Fact]
+    public void TheSecondAttemptWaitsTheFirstInterval()
+    {
+        var clock = new FakeClock();
+        var peer = new FakePeer(clock);
+        peer.FailNextCalls(1);
+
+        var transfer = new Transfer(peer, clock);
+        transfer.Send(Change.Played("item-1"));
+
+        clock.Advance(TimeSpan.FromMilliseconds(250));
+
+        Assert.Equal(2, peer.Attempts);
+        Assert.Equal(TimeSpan.FromMilliseconds(200), peer.IntervalBeforeLastAttempt);
+    }
+}

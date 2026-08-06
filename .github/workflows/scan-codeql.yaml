@@ -13,8 +13,17 @@ on:
     - cron: '24 2 * * 4'
   workflow_dispatch:
 
+# Deny by default at the workflow level; the job below grants only the scopes
+# it needs. The shared workflow this calls declares no permissions of its own,
+# so what the caller grants is the whole of what it gets.
+permissions: {}
+
 jobs:
   call:
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/scan-codeql.yaml@master
+    permissions:
+      contents: read # checkout and build the sources CodeQL analyses
+      security-events: write # upload the SARIF into the code-scanning tab
+      actions: read # read the workflow runs the analysis reports against
+    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/scan-codeql.yaml@eb99033a7ff644881b014bc0b4169916c854a68b # master, 2026-07-29
     with:
-      repository-name: jellyfin/jellyfin-plugin-template
+      repository-name: iderex/jellyfin-plugin-watch-sync

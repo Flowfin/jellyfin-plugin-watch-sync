@@ -1,0 +1,15 @@
+# Declared departures from the headless rule.
+#
+# Three fields per entry, separated by " :: ":
+#   path relative to the repository root :: vocabulary id :: the reason
+#
+# An entry whose file is not in the scanned set, or whose file no longer contains a
+# hit for that id, fails the guard as dangling. An exception is a debt with the thing
+# that retires it written next to it, not a permanent hole, so it is removed by the
+# change that removes the call rather than left to rot.
+#
+# Blank lines and lines beginning with # are ignored.
+#
+# There are no entries today. The tracked test sources need nothing this vocabulary
+# refuses, which is the state the rule exists to keep rather than a claim that it
+# cannot change.

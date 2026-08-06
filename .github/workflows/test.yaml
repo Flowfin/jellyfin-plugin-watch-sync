@@ -1,18 +1,37 @@
 name: '🧪 Test Plugin'
 
+# There is deliberately no path filter here. The check run this workflow
+# produces is one the ruleset on master requires, and a workflow a filter skips
+# reports no check run at all, so the context is absent rather than green and
+# the merge waits for a verdict that never arrives. A change touching only
+# Markdown is the case that hits it every time. The cost of the missing filter
+# is a suite run on documentation changes; the cost of having it was every such
+# change being unmergeable.
 on:
   push:
     branches:
       - master
-    paths-ignore:
-      - '**/*.md'
   pull_request:
     branches:
       - master
-    paths-ignore:
-      - '**/*.md'
   workflow_dispatch:
+
+# Deny by default at the workflow level; the job below grants only the scopes
+# it needs. The shared workflow this calls declares no permissions of its own,
+# so what the caller grants is the whole of what it gets.
+permissions: {}
 
 jobs:
   call:
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/test.yaml@master
+    permissions:
+      # Checkout and restore only.
+      contents: read
+    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/test.yaml@eb99033a7ff644881b014bc0b4169916c854a68b # master, 2026-07-29
+    with:
+      # The plugin targets one framework per supported server line, so both SDKs have
+      # to be present or the target the shared workflow was not told about fails to
+      # build. The shared workflow passes this string straight to the setup action,
+      # which reads one version per line.
+      dotnet-version: |
+        9.0.x
+        10.0.x

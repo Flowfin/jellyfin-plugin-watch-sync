@@ -3,55 +3,12 @@ using MediaBrowser.Model.Plugins;
 namespace Jellyfin.Plugin.WatchSync.Configuration;
 
 /// <summary>
-/// The configuration options.
-/// </summary>
-public enum SomeOptions
-{
-    /// <summary>
-    /// Option one.
-    /// </summary>
-    OneOption,
-
-    /// <summary>
-    /// Second option.
-    /// </summary>
-    AnotherOption
-}
-
-/// <summary>
 /// Plugin configuration.
+///
+/// Deliberately empty. Which settings this plugin needs and where each one is stored is decided
+/// in #58, and the page that carries them is #57. A setting invented before then is one an
+/// operator can change with no effect.
 /// </summary>
 public class PluginConfiguration : BasePluginConfiguration
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="PluginConfiguration"/> class.
-    /// </summary>
-    public PluginConfiguration()
-    {
-        // set default options here
-        Options = SomeOptions.AnotherOption;
-        TrueFalseSetting = true;
-        AnInteger = 2;
-        AString = "string";
-    }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether some true or false setting is enabled..
-    /// </summary>
-    public bool TrueFalseSetting { get; set; }
-
-    /// <summary>
-    /// Gets or sets an integer setting.
-    /// </summary>
-    public int AnInteger { get; set; }
-
-    /// <summary>
-    /// Gets or sets a string setting.
-    /// </summary>
-    public string AString { get; set; }
-
-    /// <summary>
-    /// Gets or sets an enum option.
-    /// </summary>
-    public SomeOptions Options { get; set; }
 }
