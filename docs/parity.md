@@ -77,22 +77,17 @@ it and the reason is in the row.
 | `Analyze (csharp)` | here | Reports as `call / Analyze (csharp)`. Same workflow, same two issues. |
 | `DCO sign-off` | here | Runs on every pull request and is green. Not required by the ruleset; #105. |
 | `Deterministic PR-hygiene checks` | owed, #100 | Nothing of this shape runs here yet. |
+| `Enforce greppable invariants` | owed, #148 | Adopted in #99. The shape is already in the suite twice; #148 is where the remaining invariants become rules. |
 | `Reject Trojan Source Unicode` | here | Required today. This is the one row where the two gates already agree completely. |
 | `Audit workflows (zizmor)` | here | Runs on every pull request. Not required; #105. #98 is the permissions and pinning work it reads. |
 | `dependency-review` | here | Runs on a pull request and fails closed on any severity. It only sees what a pull request changes, so an advisory published against an unchanged dependency is invisible to it; #97 adds the scheduled half. |
-
-### Decided rather than adopted
-
-| check there | state here | the one line |
-| --- | --- | --- |
-| `Enforce greppable invariants` | decided in #99 | This plan produces invariants of exactly that shape, so the question is real and is answered there rather than assumed here. |
-| `prettier` | decided in #99 | This repository has markup, workflow files and documents that no compiler reads, so the question is real and is answered there. |
 
 ### Refused, with the reason
 
 | check there | state here | the one line |
 | --- | --- | --- |
-| `opengrep` | refused | A second general static analyser beside code scanning, over a plugin of this size, buys overlap rather than coverage. What this board wants from that family is rules about its own invariants rather than a second generic ruleset, and that is #99. |
+| `opengrep` | refused | A second general static analyser beside code scanning, over a plugin of this size, buys overlap rather than coverage. What this board wants from that family is rules about its own invariants rather than a second generic ruleset, and that is #148. |
+| `prettier` | refused | Formatting of the markup, the workflow files and the documents, bought with a runtime nothing else in this tree needs and which the suite cannot run. #99 argues it below. |
 | `wiki-lint` | refused | There is no wiki to lint. `git ls-remote https://github.com/iderex/jellyfin-plugin-watch-sync.wiki.git` reports the repository is not found, and this board's documents are in `docs/` and in the tree, where the suite can read them. |
 
 ### Carried here and not there
@@ -128,7 +123,63 @@ repair, so the state cannot be reached in the first place.
 | `scorecard` | here | `Scorecard analysis` reports on this board's mainline. |
 | `nightly-betas`, `publish-beta`, `publish-jf12-beta`, `publish-jf12-stable`, `publish`, `regenerate-manifest` | owed, #117 and #122 | The release route. Two of the questions it depends on are open decisions and carry `blocked-on-decision`, which are #119 and #123. |
 
-## The local command
+## The two the table once left open
+
+Two rows sat under a heading saying the question was real and was answered
+elsewhere. #99 is where it was answered, and both rows above now say what the
+answer was. The argument is here rather than only in the issue, because a table
+row is one line and neither of these is settled by one line.
+
+### The invariant lint is adopted
+
+The other gate's version turns a repository's own rules into lint rules, one per
+invariant, added as each is discovered. This repository already does it once and
+is doing it a second time. `HeadlessGuardTests` refuses a test that would need a
+display, elevation, a trust store, the network, a real wait or the machine clock,
+and it is in the tree. The guard refusing a key derived from where or how a file
+is stored is #25. Both read a vocabulary held as a data file, both scan what the
+tree holds rather than a list of file names, both carry a register of departures
+that fails closed in either direction, and both are proven on a near-miss one line
+away from correct.
+
+So the adoption is a continuation and not a new apparatus, which is the reason it
+is cheap here and would not be on a repository starting from nothing. #148 lands
+the invariants this plan names and does not yet refuse: no user name compared to
+decide who a change belongs to, no wall clock read in the plugin's own sources
+outside the injected one, and no log statement carrying an item title next to a
+user.
+
+It also answers the `opengrep` row above. What this board wants from that family
+is rules about its own invariants rather than a second generic ruleset, and that
+sentence was pointing at a decision. It now points at the issue that lands them.
+
+### The formatter check is refused
+
+What it would buy is consistent formatting of the three kinds of file no compiler
+reads here: the configuration page's markup, the workflow files and the documents.
+That is a real gap and this row does not pretend otherwise.
+
+What it costs is a runtime this tree does not carry, for a check the suite cannot
+run. Every other rule this repository enforces is a test: a contributor runs
+`dotnet test` and gets the same verdict the gate gets, and the guards are built so
+that the vocabulary, the departures and the proof all sit in the same place a
+reader is already looking. A formatter check would be the one required rule with
+none of that, reproducible only by installing a second toolchain, at a moment when
+this table's last section records that there is no local gate command at all.
+
+The failures a formatter would actually catch here are also mostly caught already
+and by narrower things. A malformed workflow file fails the workflow. Invisible
+and bidirectional characters are refused by the unicode guard, which is the one
+formatting-shaped defect on this board with a security argument behind it. Workflow
+permissions and pinning are audited by zizmor. A document falling out of step with
+what it describes is refused by the guards that hold each table against the thing
+it is a table of, which is a class no formatter reads at all. What is left is
+whitespace and line breaks.
+
+This is a deviation downward and it is not a claim that formatting does not
+matter. If the markup grows to where a person cannot read a diff of it, the row to
+revisit is this one, and the thing that would change the answer is a local gate
+command that could run the check, which is #114.
 
 The other gate has a command a contributor runs before pushing that runs the same
 legs the gate runs, in the same order. This board has no such command.
