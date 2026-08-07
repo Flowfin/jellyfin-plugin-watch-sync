@@ -1,3 +1,8 @@
+> [!NOTE]
+>
+> **Part of [Flowfin](https://github.com/Flowfin).** It works with any Jellyfin
+> server, and with the Flowfin clients.
+
 # Watch Sync
 
 A Jellyfin plugin that moves watch history between two Jellyfin servers the same
