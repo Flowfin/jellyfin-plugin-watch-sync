@@ -29,7 +29,7 @@ description: >
   pairing that is absent, disabled or revoked stops the transfer rather
   than falling back to anything.
 category: "General"
-owner: "iderex"
+owner: "Flowfin"
 artifacts:
 - "Jellyfin.Plugin.WatchSync.dll"
 changelog: >
