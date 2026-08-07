@@ -104,7 +104,8 @@ it and the reason is in the row.
 | The headless rule and its guard | here | `Jellyfin.Plugin.WatchSync.Tests/headless-rule.md` and the guard beside it. Neither gate has a check of this shape; this one is in the suite. The class is not hypothetical, and it was met and repaired on the other board rather than avoided there. |
 | The build manifest guards | here | `BuildTargetsTests` and `CompatibilityMatrixTests` hold the declared ABI, the target list and the compatibility matrix to what was actually built. A plugin whose declared ABI is not what it compiled against fails at load on somebody's server, and no generic check in either gate looks for it. |
 | The two-server behaviour | owed, #88 and #104 | This plugin writes into another server's users' data. No amount of static analysis reaches that class, and the other board does not have it. The container harness is where it is checked and #104 decides where that runs. |
-| `changelog.yaml`, `command-dispatch.yaml`, `command-rebase.yaml`, `sync-labels.yaml` | here, undecided | Four workflows this repository carries from the plugin template rather than by a decision of its own. They are named here so the difference is visible; whether each is kept is not settled by this file. |
+| `changelog.yaml`, `sync-labels.yaml` | here, undecided | Two workflows this repository carries from the plugin template rather than by a decision of its own. They are named here so the difference is visible; whether each is kept is not settled by this file. |
+| `command-dispatch.yaml`, `command-rebase.yaml` | removed, #155 | The row above once named four. The slash command pair came from the same template and no command was ever raised through it, so what it produced was a runner on every comment and a check run on every commit. Removed rather than filtered. |
 
 On the headless row, the class it refuses is one the other board met rather than
 one imagined here:
