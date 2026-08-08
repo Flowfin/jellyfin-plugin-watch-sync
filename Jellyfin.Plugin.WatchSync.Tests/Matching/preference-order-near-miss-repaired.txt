@@ -1,0 +1,12 @@
+## The order identifiers are preferred in
+
+An item can carry several provider identifiers, and two servers can have scraped
+different ones for the same work. The key uses the first identifier in this order
+that the item carries:
+
+1. `Imdb`
+2. `Tmdb`
+3. `Tvdb`
+
+The reason for that order and not another. Every provider named here names one
+work, and the list is written in the order the widest set of scrapers writes them.
