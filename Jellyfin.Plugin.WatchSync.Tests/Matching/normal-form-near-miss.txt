@@ -1,0 +1,16 @@
+A fixture standing in for the normal form table in docs/matching.md.
+
+It carries its own vocabulary. A fixture judged against the real table would prove
+the state of the tree on the day it was written rather than proving the guard.
+
+One provider name is misspelled by one character. Everything else about the row is
+right: it is in the right place, it has the right number of columns, and its normal
+form and its refusals are the ones that provider actually has. That is the mistake a
+hand maintained table produces, and it is invisible to a reader who is checking the
+prose rather than the spelling.
+
+| provider | normal form | also accepted, and normalised to it | refused as unusable |
+| --- | --- | --- | --- |
+| `Imdb` | `tt` in lower case, then the digits with leading zeros removed and then padded back out to seven | the prefix in any case or absent altogether, and any amount of zero padding | a digit run shorter than seven |
+| `Tmbd` | the digits with leading zeros removed | any amount of leading zero padding | a value carrying anything that is not a digit |
+| `Tvdb` | the digits with leading zeros removed | any amount of leading zero padding | a value carrying anything that is not a digit |
