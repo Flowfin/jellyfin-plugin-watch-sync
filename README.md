@@ -90,3 +90,5 @@ the document to follow the first time, is #108 and does not exist.
 ## Licence
 
 GNU General Public License, version 3. See [LICENSE](LICENSE).
+
+See [NOTICE.md](NOTICE.md) for the intended-use notice.
