@@ -47,6 +47,11 @@ public class ReadmeLinkTests
     /// exists for, so the front door carries only links this check can follow. Where an outside
     /// address genuinely has to be named, it is named in a document behind this one and the reason
     /// travels with it.
+    ///
+    /// A note above the heading is inside the front door and its links are the front door's links.
+    /// The visitor who follows one is the same visitor, on the same page, and an aside is not a
+    /// place an unfollowed address becomes acceptable. So this check reaches into a note and its
+    /// text is unchanged by the question having been asked.
     /// </summary>
     [Fact]
     public void TheReadmeLinksNothingThisCheckCannotFollow()
@@ -65,6 +70,13 @@ public class ReadmeLinkTests
     /// The two are read in the same minute by the same person deciding whether to install this,
     /// and they are held in two files. Two statements of one thing drift, and the drift is
     /// invisible from either side because nobody has both open.
+    ///
+    /// The sentence this compares is the first thing the document says in its own voice. A note
+    /// above the heading speaks about the document rather than as it, in the same way the heading
+    /// does, so neither one is the opening sentence and both are stepped over. What this covers is
+    /// therefore narrower than the first block of the file and unchanged in what it is for: the
+    /// first paragraph of prose still has to be the manifest's overview, byte for byte, and no
+    /// wording placed above it moves that comparison onto something else.
     /// </summary>
     [Fact]
     public void TheReadmeOpensWithTheSentenceTheBuildManifestPublishes()
@@ -73,6 +85,80 @@ public class ReadmeLinkTests
         var overview = Readme.ManifestOverview(root);
 
         Assert.Equal(overview, Readme.OpeningSentence(Readme.Text(root)));
+    }
+
+    /// <summary>
+    /// A note above the heading is stepped over, and the paragraph below it is the answer.
+    ///
+    /// The three checks above judge README.md as it stands, so on the day the file changes they
+    /// stop saying anything about this rule. The rule is the thing that moved, so it is held here
+    /// against text written for the purpose, where a later edit to the front door cannot make it
+    /// vacuous.
+    /// </summary>
+    [Fact]
+    public void ANoteAboveTheHeadingIsNotTheOpeningSentence()
+    {
+        var document = string.Join(
+            "\n",
+            "> [!NOTE]",
+            ">",
+            "> **Part of something.** A sentence no catalogue shows.",
+            string.Empty,
+            "# Title",
+            string.Empty,
+            "The sentence the manifest publishes.",
+            string.Empty,
+            "A paragraph after it.");
+
+        Assert.Equal("The sentence the manifest publishes.", Readme.OpeningSentence(document));
+    }
+
+    /// <summary>
+    /// Stepping over a note never leaves the check with nothing to compare.
+    ///
+    /// A skip that widens until it reaches the end of the file is how this rule would go green
+    /// over a document holding no prose at all, which is the mistake worth catching in the rule
+    /// that was just widened rather than the one that was not.
+    /// </summary>
+    [Fact]
+    public void ADocumentOfNothingButHeadingsAndNotesHasNoOpeningSentence()
+    {
+        var document = string.Join(
+            "\n",
+            "> [!NOTE]",
+            ">",
+            "> A note and nothing else.",
+            string.Empty,
+            "# Title",
+            string.Empty,
+            "## Another heading");
+
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => Readme.OpeningSentence(document));
+    }
+
+    /// <summary>
+    /// An address inside a note is an address the link check sees.
+    ///
+    /// This is the other half of the same question, answered the other way and held here for the
+    /// same reason: the front door carries the note, so a link check that stopped at the quote
+    /// marker would leave the one place a branding line is most likely to put an outside address.
+    /// </summary>
+    [Fact]
+    public void ANoteIsNotAWayToCarryAnAddressPastTheLinkCheck()
+    {
+        var document = string.Join(
+            "\n",
+            "> [!NOTE]",
+            ">",
+            "> **Part of [somewhere](https://example.invalid/somewhere).**",
+            string.Empty,
+            "# Title",
+            string.Empty,
+            "A paragraph.");
+
+        Assert.Equal(
+            new[] { "https://example.invalid/somewhere" },
+            Readme.Links(document).Where(Readme.IsAbsolute).ToArray());
     }
 
     /// <summary>
@@ -148,7 +234,11 @@ public class ReadmeLinkTests
         }
 
         /// <summary>
-        /// The first paragraph of the document that is not the title.
+        /// The first paragraph of the document that is neither a title nor a note.
+        ///
+        /// A block quote is stepped over for the same reason a heading is: it is not a paragraph
+        /// the document says in its own voice, and a note placed above the heading would otherwise
+        /// be read as the sentence a catalogue publishes.
         /// </summary>
         /// <param name="text">The README text.</param>
         /// <returns>The opening sentence, with its line breaks flattened to single spaces.</returns>
@@ -158,7 +248,7 @@ public class ReadmeLinkTests
                 .Replace("\r\n", "\n", StringComparison.Ordinal)
                 .Split("\n\n", StringSplitOptions.RemoveEmptyEntries)
                 .Select(block => block.Trim())
-                .FirstOrDefault(block => block.Length > 0 && !block.StartsWith('#'));
+                .FirstOrDefault(block => block.Length > 0 && !block.StartsWith('#') && !block.StartsWith('>'));
 
             Assert.NotNull(paragraph);
 

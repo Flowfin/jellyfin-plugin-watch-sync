@@ -1,7 +1,7 @@
 > [!NOTE]
 >
-> **Part of [Flowfin](https://github.com/Flowfin).** It works with any Jellyfin
-> server, and with the Flowfin clients.
+> **Part of Flowfin.** It works with any Jellyfin server, and with the Flowfin
+> clients.
 
 # Watch Sync
 
