@@ -1,0 +1,18 @@
+{
+  "_what_this_is": "The document beside this one with the three near misses repaired and nothing else changed. It has to pass. It also breaks the advisory rule on purpose, because a second commit names an issue the pull request does not, so a run over it prints a warning and still exits zero. That is what proves the two tiers are separate rather than one tier with two words for it.",
+  "title": "Add the deterministic check over the pull request itself (#100)",
+  "body": "Closes #100.\n\nThe hash is what links this to the issue, and it is the whole repair.",
+  "commits": [
+    {
+      "sha": "1111111111111111111111111111111111111111",
+      "message": "Add the deterministic check over the pull request itself\n\nFor #100."
+    },
+    {
+      "sha": "2222222222222222222222222222222222222222",
+      "message": "Say in the changelog what the check refuses\n\nFor #116."
+    }
+  ],
+  "files": ["build.yaml", "CHANGELOG.md"],
+  "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"1.0.0.0\"\n",
+  "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"1.0.1.0\"\n"
+}

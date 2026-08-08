@@ -1,0 +1,23 @@
+# Vulnerabilities in the resolved dependency graph that are known and accepted
+# for a stated period.
+#
+# Three fields per entry, separated by " :: ":
+#   package id :: expiry as YYYY-MM-DD :: the reason
+#
+# An acceptance is a decision with an end rather than a permanent hole. The
+# register fails closed in both directions. An entry past its expiry is refused
+# exactly like the vulnerability it covers, so living with something costs a
+# second decision rather than nothing. An entry covering no vulnerability the
+# current graph carries is refused as dangling, so it is removed by the change
+# that raises the dependency instead of staying behind to cover a future
+# advisory nobody read.
+#
+# What belongs in the reason is why the advisory does not reach this plugin, or
+# what is being waited on and by when. "Not exploitable" on its own is a claim
+# rather than a reason.
+#
+# Blank lines and lines beginning with # are ignored.
+#
+# There are no entries today. The graph carries no vulnerable package, which is
+# the state this register exists to keep visible rather than a claim that it
+# cannot change.

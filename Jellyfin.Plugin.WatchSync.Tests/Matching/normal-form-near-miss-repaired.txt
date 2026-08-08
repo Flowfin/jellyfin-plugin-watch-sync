@@ -1,0 +1,7 @@
+The repair of the fixture beside this one. One character, and nothing else.
+
+| provider | normal form | also accepted, and normalised to it | refused as unusable |
+| --- | --- | --- | --- |
+| `Imdb` | `tt` in lower case, then the digits with leading zeros removed and then padded back out to seven | the prefix in any case or absent altogether, and any amount of zero padding | a digit run shorter than seven |
+| `Tmdb` | the digits with leading zeros removed | any amount of leading zero padding | a value carrying anything that is not a digit |
+| `Tvdb` | the digits with leading zeros removed | any amount of leading zero padding | a value carrying anything that is not a digit |

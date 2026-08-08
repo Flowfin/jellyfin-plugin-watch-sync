@@ -1,0 +1,14 @@
+{
+  "_what_this_is": "A pull request one character away from correct on each of the three blocking rules. The checker beside it has to refuse this document, and the workflow runs it every time so that a checker gutted into a pass turns red here rather than going unnoticed. Each near miss is the mistake somebody actually makes: the issue number written without the hash that links it, and the changelog entry put next to the documents rather than at the root where the release process looks.",
+  "title": "Add the deterministic check over the pull request itself",
+  "body": "Closes issue 100.\n\nThe number is here and the hash is not, so nothing links this to anything.",
+  "commits": [
+    {
+      "sha": "1111111111111111111111111111111111111111",
+      "message": "Add the deterministic check over the pull request itself\n\nFor issue 100."
+    }
+  ],
+  "files": ["build.yaml", "docs/CHANGELOG.md"],
+  "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"1.0.0.0\"\n",
+  "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"1.0.1.0\"\n"
+}
