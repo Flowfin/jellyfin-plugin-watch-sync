@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Moq;
 using Xunit;
+using Xunit.Abstractions;
 using Xunit.Sdk;
 
 namespace Jellyfin.Plugin.WatchSync.Tests;
@@ -142,6 +144,51 @@ public class RunOrderTests
             $"{typeName} is named as the {contract.Name} for this assembly and does not implement it.");
     }
 
+    /// <summary>
+    /// The identifier a collection carries is issued fresh on every run, so an ordering keyed on
+    /// it moves for one seed between two runs of one build. That was the first shape of the
+    /// collection orderer here and it was found by running one seed twice, not by reading the
+    /// code: every test passed both times and only the sequence moved.
+    ///
+    /// So the same collections are ordered twice with their identifiers handed out the other way
+    /// round. Keyed on the display name the two orders are equal; keyed on the identifier they
+    /// are not, which is what makes this the near miss rather than a restatement of the code.
+    /// </summary>
+    [Fact]
+    public void TheCollectionOrderSurvivesTheRunnerIssuingFreshIdentifiers()
+    {
+        var identifiers = Enumerable
+            .Range(1, 8)
+            .Select(number => new Guid(number, 0, 0, new byte[8]))
+            .ToArray();
+
+        var orderer = new SeededTestCollectionOrderer();
+
+        var asIssued = orderer.OrderTestCollections(CollectionsIdentifiedBy(identifiers));
+        var reissued = orderer.OrderTestCollections(CollectionsIdentifiedBy(identifiers.Reverse().ToArray()));
+
+        Assert.Equal(
+            asIssued.Select(collection => collection.DisplayName),
+            reissued.Select(collection => collection.DisplayName));
+    }
+
     private static IReadOnlyList<string> Order(IEnumerable<string> names, int seed)
         => RunOrder.InSeededOrder(names, name => name, seed);
+
+    /// <summary>
+    /// Eight collections whose display names are fixed and whose identifiers are the ones given,
+    /// in that order.
+    /// </summary>
+    /// <param name="identifiers">The identifier to hand each collection.</param>
+    /// <returns>The collections.</returns>
+    private static IReadOnlyList<ITestCollection> CollectionsIdentifiedBy(IReadOnlyList<Guid> identifiers)
+        => identifiers
+            .Select((identifier, index) =>
+            {
+                var collection = new Mock<ITestCollection>();
+                collection.SetupGet(one => one.DisplayName).Returns(_names[index]);
+                collection.SetupGet(one => one.UniqueID).Returns(identifier);
+                return collection.Object;
+            })
+            .ToArray();
 }
