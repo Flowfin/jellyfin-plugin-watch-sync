@@ -158,8 +158,57 @@ wrong on one of them:
 The music identifiers that difference is about belong to the kinds this document
 marks `deferred`, so nothing in the order above moves when that decision is taken.
 
-Comparing identifiers is not comparing strings as they were stored. Normalisation
-is #24 and this document does not restate it.
+## The normal form of an identifier
+
+Comparing identifiers is not comparing strings as they were stored. The same
+identifier is written several ways by the scrapers that produce it, and two servers
+that scraped at different times with different scrapers will differ in exactly that
+way. So every value is brought to one spelling before anything is compared, and the
+spelling is fixed here rather than in a comment.
+
+Two mistakes are possible and they are not symmetrical. Normalising too little
+leaves two servers unable to see that they hold the same work. Normalising too much
+makes two different works compare equal, and that writes one person's watch state
+onto the wrong film. The second is worse and it is silent, so the rule is that a
+value which is not the provider's shape after normalisation is refused as unusable
+rather than stretched until it compares to something.
+
+Every value has whitespace at either end removed before anything else. What is left
+is judged per provider.
+
+| provider | normal form | also accepted, and normalised to it | refused as unusable |
+| --- | --- | --- | --- |
+| `Imdb` | `tt` in lower case, then the digits with leading zeros removed and then padded back out to seven | the prefix in any case or absent altogether, and any amount of zero padding | a digit run shorter than seven, a value carrying anything that is not a digit once the prefix is off, and a number that is zero |
+| `Tmdb` | the digits with leading zeros removed | any amount of leading zero padding | a value carrying anything that is not a digit, and a number that is zero |
+| `Tvdb` | the digits with leading zeros removed | any amount of leading zero padding | a value carrying anything that is not a digit, and a number that is zero |
+
+A URL is refused by all three, because a URL carries characters that are not digits.
+That is deliberate rather than an oversight of the table. Pulling an identifier out
+of a URL means deciding which part of somebody else's path layout is the identifier,
+which is a guess, and this document refuses guesses everywhere else. An item whose
+provider field holds a URL is an item with a metadata defect, and it goes into the
+unmatched record with the reason, which is what an operator can act on.
+
+The seven digit floor on IMDb carries the weight of a second rule and it is worth
+naming why. IMDb pads its numbers to at least seven digits, so a shorter run under
+the IMDb name is a number that came from somewhere else, usually a TMDb or TVDb
+identifier written into the wrong field. Without the floor that number would
+normalise into a perfectly well formed IMDb identifier for a film nobody meant. The
+floor is what makes the shape test discriminate in both directions: an IMDb value
+fails the TMDb and TVDb tests because it carries letters, and a TMDb or TVDb value
+fails the IMDb test because it is too short.
+
+The normal forms are not restated in the source. `ProviderIdentifierTests` reads the
+provider column of the table above and refuses it and the providers the code carries
+disagreeing in either direction, so a provider added to one and not the other fails
+the suite.
+
+What this holds and what it does not. A value that reached a comparison is a value
+that was normalised, because the type that carries an identifier has no public
+constructor and the only way to obtain one is the normalising call. That is a
+property of the type rather than a rule anybody has to remember. It does not stop a
+future source comparing two raw strings without ever making an identifier at all;
+nothing refuses that today, and #148 is where a scan over the sources would land.
 
 ## What this plugin refuses to match on
 
