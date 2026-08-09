@@ -1,0 +1,34 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The mistake is the one every prior attempt at this makes, and it is one line. The
+// derivation prefers the provider identifiers in the order the document fixes, it
+// returns them normalised, and it handles the item that carries none of them. That
+// last branch is where it goes wrong: instead of producing no key and letting the
+// item be recorded as unmatched, it falls back to where this server happens to store
+// the file, which matches only where the two servers hold their files the same way.
+//
+// Everything else about this file is right, which is what makes it the near-miss
+// rather than an obviously broken one. The repair beside it is that one branch.
+
+internal static class MovieKey
+{
+    internal static string? Derive(BaseItem item)
+    {
+        if (item.TryGetProviderId(MetadataProvider.Imdb, out var imdb))
+        {
+            return "imdb:" + Normalise(imdb);
+        }
+
+        if (item.TryGetProviderId(MetadataProvider.Tmdb, out var tmdb))
+        {
+            return "tmdb:" + Normalise(tmdb);
+        }
+
+        if (item.TryGetProviderId(MetadataProvider.Tvdb, out var tvdb))
+        {
+            return "tvdb:" + Normalise(tvdb);
+        }
+
+        return "path:" + Normalise(item.Path);
+    }
+}

@@ -247,6 +247,60 @@ alone.
 because a rule that works only while two libraries are kept in step fails silently
 on the day one of them is not.
 
+## How a key derivation is held to these refusals
+
+The three refusals above that name a call a source can make are refused by a
+machine. `StorageIdentityGuardTests` scans this plugin's own sources against
+`Jellyfin.Plugin.WatchSync.Tests/Matching/storage-identity-vocabulary.txt`, and the
+table below is the same set of identifiers. A test refuses the two disagreeing, so a
+rule added to the guard without a line here fails, and a line here naming a rule the
+guard does not carry fails as well.
+
+It scans the sources rather than a list of file names, so the matcher is covered by
+the first file of it that is written. That is the point of having it before the
+matcher exists: the fallback this refuses is the line somebody adds at the moment the
+identifiers turn out to be absent, which is exactly when it looks reasonable, and a
+guard arriving after that line does not prevent it. The scan also refuses an empty
+source set, because a scan that reaches nothing reports nothing and reads exactly
+like a clean tree.
+
+| rule | what a source matching it reads |
+| --- | --- |
+| `storage-path` | where this server happens to store the file |
+| `storage-file-name` | the name whoever produced the file chose for it |
+| `storage-container` | one encoding of the work rather than the work |
+| `storage-size` | the byte length of one file of the work |
+| `storage-file-hash` | one byte-for-byte copy of one encoding |
+
+`Matching/storage-identity-exceptions.txt` holds one entry per departure, with the
+path, the rule and the reason. An entry whose file no longer carries the call it was
+written for is refused as dangling, so a departure is a debt with the thing that
+retires it written next to it rather than a permanent hole. The plugin declares none
+today.
+
+### What the guard does not refuse
+
+Three of the refusals above have no rule here and are held by this document and by
+the review instead.
+
+A title match has no call to look for. A title is an ordinary string field, and a
+source reading it to write a diagnostic line is doing something this document does
+not refuse, so a pattern over it would refuse the wrong things and be excepted until
+it refused nothing.
+
+A local item identifier has the same shape and a worse version of it: the server's
+own identifier is read all over a plugin for reasons that have nothing to do with a
+key, and a rule over it would be noise.
+
+Anything the operator was asked to make identical by hand is a property of a plan
+rather than of a line of source, and there is nothing in the tree for a check to
+read.
+
+The guard also does not judge whether a key rule is the right one. It refuses the
+inputs this document refuses, and nothing about a derivation that reads only the
+provider identifiers and gets them wrong. That is a reading, and the review of a
+change is where it is caught.
+
 ## What an operator sees for an item that did not match
 
 An item that produced no key, or a key the peer had nothing for, appears in the
