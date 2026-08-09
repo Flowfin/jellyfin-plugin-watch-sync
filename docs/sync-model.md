@@ -85,10 +85,19 @@ the package rather than from a grep over a checkout of the server.
 
 Every property above appears exactly once in the table below.
 
-`moved` means this plugin carries the field between servers. `refused` means it
-never leaves the server it is on, and the reason is in the row. `held` means the
-question is an open decision on this board, named in the row, and until it is
-answered the field is not carried.
+Two dispositions, and the table admits no third:
+
+- `moved`, which this plugin carries between servers, and which is a member of the
+  moved set in `Jellyfin.Plugin.WatchSync/Model/SyncedState.cs`;
+- `refused`, which never leaves the server it is on, and the reason is in the row.
+
+There was a third, `held`, for a field whose disposition was an open decision. The
+decision it waited on was taken on 2026-08-08 and the answer is that only history
+moves, so the two fields carrying it are `refused` below with the reason recorded on
+their rows. The disposition is gone rather than left unused, because a word declared
+here and used by no row reads as a rule somebody removed from the table and forgot
+in the prose. A field whose disposition is genuinely undecided is a field this
+document is not ready to have a row for.
 
 | property | disposition | why |
 | --- | --- | --- |
@@ -96,16 +105,35 @@ answered the field is not carried.
 | `PlayCount` | moved | How often the person watched the work. #33 reconciles it against the agreed record so that a sync never invents a play. |
 | `PlaybackPositionTicks` | moved | Where the person stopped. It is the field a person notices immediately when it is wrong, and it is subject to the thresholds #17 sets, so a playback produces a bounded number of changes rather than one per progress report. |
 | `LastPlayedDate` | moved | When the person last watched the work. It is what lets a disagreement about position be settled by recency rather than by whichever server spoke last, bounded by the tolerated clock skew in #32. |
-| `Rating` | held, decision 1 in #1 | The 0 to 10 rating is an opinion rather than history. Whether an opinion is in scope is decision 1, and it carries a cost the history fields do not: the record holds no timestamp for it, so a two sided disagreement cannot be settled by recency without this plugin keeping a stamp of its own. #12 defines the moved set around it and #35 holds the conflict rule. |
-| `IsFavorite` | held, decision 1 in #1 | An opinion rather than history, and the same missing timestamp. It rides with `Rating` because one answer settles both. |
+| `Rating` | refused | The 0 to 10 rating is an opinion rather than history, and decision 1 in #1 answered on 2026-08-08 that only history moves. It also carries a cost the history fields do not: the record holds no timestamp for it, so a two sided disagreement cannot be settled by recency without this plugin keeping a stamp the server never writes, and two such stamps are equally old in a first exchange and come from two clocks afterwards, which #32 can only compare with a tolerance. |
+| `IsFavorite` | refused | An opinion rather than history, and the same missing timestamp. It rode with `Rating` because one answer settled both, and the answer was the same. |
 | `AudioStreamIndex` | refused | It indexes the streams of one file as one server muxed it. The peer's copy of the same work can carry its streams in a different order, so moving the value across lands a correct number on the wrong stream, which is worse than carrying nothing. |
 | `SubtitleStreamIndex` | refused | The same reason, and the visible failure is louder: subtitles in the wrong language, turned on by a sync the person did not ask for. |
 | `Key` | refused | It is the server's own addressing for the item. Matching an item across two servers is what M3 does, from provider identity, and carrying this field would be storage identity arriving by another route. `docs/matching.md` refuses that class and says why. |
-| `Likes` | refused | A nullable boolean expressing like or dislike, beside the 0 to 10 `Rating`. The property on the record is marked not to be serialized and its own documentation says so: "Gets or sets a value indicating whether the item is liked or not. This should never be serialized." The transfer object the server's API returns carries the field anyway and is not marked, so the record and the API disagree about it. This plugin refuses it rather than picking a side in a disagreement it did not create. Refusing costs little: it is an opinion rather than history, which is the class decision 1 holds, and it would be held by that decision even if the two agreed. |
+| `Likes` | refused | A nullable boolean expressing like or dislike, beside the 0 to 10 `Rating`. The property on the record is marked not to be serialized and its own documentation says so: "Gets or sets a value indicating whether the item is liked or not. This should never be serialized." The transfer object the server's API returns carries the field anyway and is not marked, so the record and the API disagree about it. This plugin refuses it rather than picking a side in a disagreement it did not create. Refusing costs little: it is an opinion rather than history, which is the class decision 1 refused, so it would not have moved even if the record and the API agreed about it. |
 
 The reason a refusal is written here rather than only in a comment is that a
 refusal without a reason reads as an oversight, and the next person to look at the
 gap fills it.
+
+### The moved set as a type
+
+The four `moved` rows are the whole of what this plugin carries, and they are a type
+of its own: `SyncedState`, in `Jellyfin.Plugin.WatchSync/Model/SyncedState.cs`, with
+one member per row and nothing else.
+
+The server's record is not that type and is not used as one. A wire type that was
+the server's record would carry every property a future server line adds to it into
+the transfer on the day it is added, which is a decision nobody took, and it would
+tie what two servers exchange to a type whose owner has no reason to keep it stable
+for this plugin's sake. Refusing a field is then structural rather than careful: a
+property that is not a member of `SyncedState` has no route into an envelope.
+
+The cost of the closed set is worth writing down beside it. Widening it later is not
+an addendum, it is a schema change after a release has shipped: the agreed record in
+#14 gains members, the conflict table in #30 gains rows, and the store in #68 gains a
+migration with a fixture per shipped version, which is #71. That cost is why the
+table above is closed rather than left permissive.
 
 ## The unit a transfer is about
 
@@ -191,7 +219,6 @@ Named so that a gap is readable as a gap rather than as an answer nobody wrote
 down.
 
 - The direction, decision 3 in #1, open, landing in #47.
-- Rating and favourite, decision 1 in #1, open, landing in #12 and #35.
 - What a first exchange does, decision 4 in #1, open, landing in #37.
 - The treatment of each reason the server gives when it saves user data, which
   #15 adds to this document.
@@ -202,16 +229,21 @@ down.
 
 ## How this document is held true
 
-By a reading, at the review of the change that touches it.
+By the suite, for the field table, and by a reading at review for everything else.
 
-Nothing in the tree compares the table above against the server's own record. The
-suite does that for `docs/matching.md`, where `MatchingDocumentTests` refuses the
-table and the server's enumeration disagreeing, and the same shape is owed here.
-#12 is where it lands, because the check it asks for is the same check: every
-property of the server's record is either mapped into this plugin's own type or
-listed with its reason, so a property added upstream reddens the suite rather than
-being dropped in silence.
+`SyncModelDocumentTests` reads the properties of the server's record off the
+referenced assembly by reflection, reads the rows of the field table out of this
+file, and refuses the two disagreeing in either direction: a property with no row,
+a row naming no property, and a property named twice. It reads the members of
+`SyncedState` the same way and refuses a `moved` row that is not a member and a
+member that is not a `moved` row. So a property added on a future server line
+reddens the suite rather than being dropped in silence, and a field moved into or
+out of the moved set has to move in the table and in the type together.
 
-Until that lands, a property added to the record on a future server line will not
-be noticed by anything here. Re-run the command at the top of the field section
-rather than trusting the ten rows below it.
+The reflection is over the assembly this project compiles against, which is a
+different one per target, and the suite runs once per target. So the table is
+judged against both server lines rather than against whichever one happened to
+build.
+
+What the suite does not judge is whether a row's reason is the right reason. That
+is a reading at review, and it is the same bound `docs/matching.md` carries.

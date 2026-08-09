@@ -1,0 +1,19 @@
+# A fixture, not the document, and its vocabulary is a fixture vocabulary. Judging
+# against the real record would prove the state of the referenced package on the day
+# it ran rather than proving the guard.
+#
+# The mistake is one character. The table names PlaybackPositionTick where the
+# record carries PlaybackPositionTicks, which is the mistake a table of long similar
+# property names actually produces: the row is present, the disposition is right,
+# the reason is right, and the property it claims to be about does not exist. So the
+# field the person notices first when it is wrong has no row, and nothing says
+# whether it moves.
+#
+# Everything else about this fixture is correct, which is what makes it a near-miss
+# rather than an obviously broken table.
+
+| property | disposition | why |
+| --- | --- | --- |
+| `Played` | moved | Whether the person watched the work. |
+| `PlaybackPositionTick` | moved | Where the person stopped. |
+| `Key` | refused | The server's own addressing for the item. |
