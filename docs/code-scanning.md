@@ -207,11 +207,21 @@ are seven more, and six of them are in the suite. The two in the plugin are both
     cs/linq/missed-where    Jellyfin.Plugin.WatchSync/Matching/PreferredIdentifier.cs:102
 
 Both are a loop that returns on the first element meeting a condition, which the
-query offers to write as a filter. Neither is a defect and neither rewrite is
-clearer: one walks the characters of a candidate identifier and refuses on the
-first that is not a digit, the other walks a small map once to answer a
-case-insensitive lookup the map itself cannot answer. Kept, with the reason here
-rather than in a dismissal comment nobody reads back.
+query offers to write as a filter. That offer is refused and the sites are still
+rewritten, in #182, because a filter is not what either loop is. `IsDigits` walks
+a candidate identifier and refuses on the first character that is not a digit,
+which is a quantifier over the whole string and is what `All` says in one line.
+`TryRead` reads the first value stored under a key equal to one it holds ignoring
+case, which is a filter, a projection and a first, and the loop it replaced
+assigned an out parameter from inside a branch to say so. The other five are the
+same kind of reading: four loops mapping their element on the first line of the
+body, and one register asked `ContainsKey` and then indexed with the same key.
+
+The bar every one of them had to pass is that the site reads better afterwards.
+A rewrite bought with a reader's time is refused here whatever it does to the
+count, which is why `cs/path-combine` above is kept and these are not. The suite
+is the evidence that nothing moved with them: it stays green with no test edited
+to make it so.
 
 Nothing was dismissed and no alert state was changed. This is a reading and it
 records what the analyses hold; it is not a claim that the count will be the same
