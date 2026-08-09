@@ -1,0 +1,110 @@
+# Runs the suite on Linux, macOS and Windows.
+#
+# The headless rule says every test this plugin ships runs without a display,
+# without elevation, without a machine-wide trust store, without the network,
+# without a real wait and without the machine clock. The guard beside that rule
+# refuses the calls that would need any of them, by reading the sources. What no
+# reading of the sources can show is that the suite actually passes somewhere
+# other than the machine it was written on, and that is what this workflow is
+# for: a suite that only ever ran on one operating system is a suite whose
+# portability is an assumption.
+#
+# The path separator is the concrete case. The guard shells out to git, takes
+# repository-relative paths back, and compares them against paths it built
+# itself. On Windows those two come apart unless the code says so, and nothing
+# in a Linux run would ever notice.
+#
+# There is deliberately no path filter. A filtered workflow reports no check run
+# at all rather than a green one, which the two required workflows already carry
+# a note about.
+name: Suite on three operating systems
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+# Deny by default at the workflow level; the job grants only what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    name: Suite (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      # One operating system failing is the result, not a reason to stop
+      # measuring the other two. A cancelled leg leaves no evidence either way.
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    permissions:
+      # Checkout and restore only.
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes via git, so do not persist the GITHUB_TOKEN in
+          # .git/config. The suite reads the checkout through git ls-files,
+          # which needs the repository and not the credential.
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          # One SDK per server line, because the plugin and the suite both build
+          # and run once per target. Installing only the newer one leaves the
+          # older leg unrunnable, which reads as a suite that was not measured
+          # rather than as one that failed.
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Refuse a run as root
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A suite that passes as root proves nothing about a suite that has to
+          # pass without elevation: root can open the machine-wide paths and
+          # bind the privileged ports the rule refuses, so the failure this run
+          # exists to catch would not appear. Fail rather than report a green
+          # run that answered a different question.
+          id
+          if [ "$(id -u)" -eq 0 ]; then
+            echo "::error::The suite ran as uid 0. A green run as root does not show the suite needs no elevation."
+            exit 1
+          fi
+          echo "Running as uid $(id -u), which is not root."
+
+      - name: Report the Windows privilege state
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # This reports and does not refuse, and the difference is deliberate.
+          # Whether the hosted Windows image runs its jobs in an elevated
+          # account is a property of the image rather than of this repository,
+          # and there is no supported way for a job to drop it. Printing it
+          # keeps the run honest: whoever reads this run can see which question
+          # the Windows leg answered.
+          $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+          $principal = [System.Security.Principal.WindowsPrincipal]::new($identity)
+          $elevated = $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
+          Write-Output "user: $($identity.Name)"
+          Write-Output "elevated: $elevated"
+
+      - name: Run the suite
+        shell: bash
+        run: dotnet test Jellyfin.Plugin.WatchSync.sln --nologo
