@@ -1,9 +1,20 @@
 # What this board's gate takes from the other one, and what it does not
 
-The gate of `iderex/jellyfin-plugin-sso` is the target this repository's quality
+The gate of `Flowfin/jellyfin-plugin-sso` is the target this repository's quality
 milestone aims at. This file says, check by check, what is adopted, what is
 refused, and one line of reasoning for every difference in either direction. An
 unexplained gap is a defect. An explained one is a decision.
+
+Both boards have since moved under a new owner, and the commands below were
+written against the old one. The old paths still answer, because the forge
+redirects a moved repository, but a command that only works through a redirect is
+one that stops working the day the old name is taken by somebody else. They are
+now written with the name each repository reports for itself:
+
+    gh api repos/iderex/jellyfin-plugin-sso --jq .full_name
+    Flowfin/jellyfin-plugin-sso
+    gh api repos/iderex/jellyfin-plugin-watch-sync --jq .full_name
+    Flowfin/jellyfin-plugin-watch-sync
 
 Nothing here is a plan for what the other board should do. It reads that board and
 decides about this one.
@@ -12,8 +23,8 @@ decides about this one.
 
 The other board's required set:
 
-    gh api repos/iderex/jellyfin-plugin-sso/rulesets --jq '.[].id' \
-      | xargs -I{} gh api repos/iderex/jellyfin-plugin-sso/rulesets/{} \
+    gh api repos/Flowfin/jellyfin-plugin-sso/rulesets --jq '.[].id' \
+      | xargs -I{} gh api repos/Flowfin/jellyfin-plugin-sso/rulesets/{} \
         --jq '[.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context] | .[]'
     build
     ABI floor build
@@ -31,7 +42,7 @@ The other board's required set:
 
 This board's:
 
-    gh api repos/iderex/jellyfin-plugin-watch-sync/rulesets/20464507 \
+    gh api repos/Flowfin/jellyfin-plugin-watch-sync/rulesets/20464507 \
       --jq '[.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context] | .[]'
     call / build
     call / test
@@ -42,22 +53,74 @@ it belongs to, and most of it is work that has not been done rather than work th
 was refused.
 
 What actually reports on this board's mainline today, which is a different set
-again, because a check can run without being required:
+again, because a check can run without being required. Read at
+`ab3b5387c8f26f1980358c10478428e4ab6436f0`:
 
-    gh api repos/iderex/jellyfin-plugin-watch-sync/commits/6d8d0afbff713ca7c2edd742c6f557fa0ad79e2e/check-runs \
-      --jq '[.check_runs[].name] | sort | .[]'
+    gh api repos/Flowfin/jellyfin-plugin-watch-sync/commits/ab3b5387c8f26f1980358c10478428e4ab6436f0/check-runs?per_page=100 \
+      --jq '[.check_runs[].name] | sort | unique | .[]'
     Audit workflows (zizmor)
     Refuse a trigger naming a branch that does not exist
     Reject Trojan Source Unicode
     Scorecard analysis
+    Suite (macos-latest)
+    Suite (ubuntu-latest)
+    Suite (windows-latest)
     call / Analyze (csharp)
     call / build
     call / test
     call / update_release_draft
 
-`DCO sign-off` and `dependency-review` are absent from that list because both run
-on a pull request only. Both are green on the pull requests this file was written
-alongside.
+`DCO sign-off`, `dependency-review` and `Deterministic PR-hygiene checks` are absent
+from that list because all three are triggered on a pull request only:
+
+    git grep -nE '^  (push|pull_request|schedule|workflow_dispatch|repository_dispatch):' \
+      -- .github/workflows/dco.yml .github/workflows/dependency-review.yml \
+         .github/workflows/pull-request-check.yml .github/workflows/scan-codeql.yaml
+    .github/workflows/dco.yml:10:  pull_request:
+    .github/workflows/dependency-review.yml:4:  pull_request:
+    .github/workflows/pull-request-check.yml:24:  pull_request:
+    .github/workflows/scan-codeql.yaml:4:  push:
+    .github/workflows/scan-codeql.yaml:8:  pull_request:
+    .github/workflows/scan-codeql.yaml:12:  schedule:
+    .github/workflows/scan-codeql.yaml:14:  workflow_dispatch:
+
+The fourth file in that output is the reason the next paragraph exists.
+
+`CodeQL` is absent for a different reason and the difference matters, because a
+reader who takes the first reason for it would conclude the analysis stops on the
+mainline. `scan-codeql.yaml` runs on a push to `master` as well, which is where
+`call / Analyze (csharp)` in the list above comes from. What only exists on a pull
+request is the `CodeQL` check run, which the code-scanning service creates to report
+findings against a diff. On a push the analysis lands as an entry under
+`code-scanning/analyses` instead, and that is the thing #165 was read against.
+
+Every one of them is green on the pull request this section was last measured
+against:
+
+    gh api repos/Flowfin/jellyfin-plugin-watch-sync/commits/922311a7e7715bb05d1c9644ef055d5861526f61/check-runs?per_page=100 \
+      --jq '[.check_runs[] | select(.conclusion != "success") | .name] | length'
+    0
+
+The list grew by three since it was first pasted, and one entry in it changed
+meaning without changing its spelling. The three are the suite legs from #75. The
+one is `call / Analyze (csharp)`, which appeared here while the job behind it was
+being skipped: the workflow named this repository by the name it carried before it
+moved, the shared workflow it calls guards its only job on that name, and a skipped
+job reports success rather than absence. #165 repaired the name. So a row of this
+table saying a check is `here` is a claim about the check run and not about the
+analysis behind it, and the two came apart for two days on the one row where a
+reader would least expect it.
+
+One entry in that list is still that shape and is left there on purpose.
+`call / update_release_draft` comes from `changelog.yaml`, which passes the same
+former name, and it reports a conclusion rather than a result:
+
+    gh api repos/Flowfin/jellyfin-plugin-watch-sync/commits/ab3b5387c8f26f1980358c10478428e4ab6436f0/check-runs?per_page=100 \
+      --jq '.check_runs[] | select(.conclusion != "success") | "\(.name) \(.conclusion)"'
+    call / update_release_draft skipped
+
+Every other name in the list is `success`. That one is `skipped`, and #176 is where
+whether it stays at all is decided.
 
 ## The rows
 
@@ -73,14 +136,14 @@ it and the reason is in the row.
 | `ABI floor build` | owed, #91 | This board declares two lines rather than one, so the floor build is doubled. Nothing runs it yet. |
 | `Package (JPRM) / Build package` | owed, #101 | Packaging as a merge check rather than a release step, one artifact per line. #117 is the release half. |
 | `Package (JPRM) / Generate SBOM` | owed, #101 | The component inventory in the same run as the package. #118 is the release half. |
-| `CodeQL` | here | Reports as `CodeQL` on a pull request. Not required by the ruleset; #105 is where the adopted checks become required, and #96 is where the reported name is made stable enough to require. |
-| `Analyze (csharp)` | here | Reports as `call / Analyze (csharp)`. Same workflow, same two issues. |
+| `CodeQL` | here | Reports as `CodeQL` on a pull request. Not required by the ruleset; #105 is where the adopted checks become required, and #96 is where the reported name is made stable enough to require. It reported for two days while analysing nothing, which #165 repaired and the section above describes. |
+| `Analyze (csharp)` | here | Reports as `call / Analyze (csharp)`. Same workflow, same three issues. |
 | `DCO sign-off` | here | Runs on every pull request and is green. Not required by the ruleset; #105. |
-| `Deterministic PR-hygiene checks` | owed, #100 | Nothing of this shape runs here yet. |
+| `Deterministic PR-hygiene checks` | here | `.github/workflows/pull-request-check.yml`, from #100. It judges the pull request itself on rules that need no judgement and says which rule refused. Not required by the ruleset; #105. |
 | `Enforce greppable invariants` | owed, #148 | Adopted in #99. The shape is already in the suite twice; #148 is where the remaining invariants become rules. |
 | `Reject Trojan Source Unicode` | here | Required today. This is the one row where the two gates already agree completely. |
 | `Audit workflows (zizmor)` | here | Runs on every pull request. Not required; #105. #98 is the permissions and pinning work it reads. |
-| `dependency-review` | here | Runs on a pull request and fails closed on any severity. It only sees what a pull request changes, so an advisory published against an unchanged dependency is invisible to it; #97 adds the scheduled half. |
+| `dependency-review` | here | Runs on a pull request and fails closed on any severity. It only sees what a pull request changes, so an advisory published against an unchanged dependency is invisible to it. The scheduled half is now here too, in the row below; what is left of #97 is making this one required, which is #105, and picking up a scheduled failure out of band, which is #121. |
 
 ### Refused, with the reason
 
@@ -88,7 +151,7 @@ it and the reason is in the row.
 | --- | --- | --- |
 | `opengrep` | refused | A second general static analyser beside code scanning, over a plugin of this size, buys overlap rather than coverage. What this board wants from that family is rules about its own invariants rather than a second generic ruleset, and that is #148. |
 | `prettier` | refused | Formatting of the markup, the workflow files and the documents, bought with a runtime nothing else in this tree needs and which the suite cannot run. #99 argues it below. |
-| `wiki-lint` | refused | There is no wiki to lint. `git ls-remote https://github.com/iderex/jellyfin-plugin-watch-sync.wiki.git` reports the repository is not found, and this board's documents are in `docs/` and in the tree, where the suite can read them. |
+| `wiki-lint` | refused | There is no wiki to lint. `git ls-remote https://github.com/Flowfin/jellyfin-plugin-watch-sync.wiki.git` reports the repository is not found, and this board's documents are in `docs/` and in the tree, where the suite can read them. |
 
 ### Carried here and not there
 
@@ -96,10 +159,12 @@ it and the reason is in the row.
 | --- | --- | --- |
 | `call / test` | here, required | A required suite. The other board runs `dotnet.yml` and does not require it; this board required a test check from #7 onward, because the failure mode here is silent data loss and a suite that can be skipped is not a control. |
 | `Refuse a trigger naming a branch that does not exist` | here | A workflow guard from #94: a trigger naming a branch this repository does not have never fires, and a check that never fires is indistinguishable from one that passed. |
+| `Suite (ubuntu-latest)`, `Suite (macos-latest)`, `Suite (windows-latest)` | here | `.github/workflows/suite-three-operating-systems.yaml`, from #75. The other board runs its suite on one operating system. The concrete case this catches is the path separator: a guard that shells out to git takes repository-relative paths back and compares them against paths it built itself, and on Windows those come apart unless the code says so. The Linux and macOS legs refuse a run as uid 0; the Windows leg reports the privilege state and does not refuse on it, because the hosted image runs elevated and a job cannot drop that. #75 stays open on exactly that. |
+| `Dependency scan` | here | `.github/workflows/dependency-scan.yml`, from #97. Weekly and on demand, over the whole resolved graph including transitive packages, with the verdict made by `.github/check-vulnerable-packages.py` so the same file runs against a clone by hand. Deliberately not a merge check: it reddens on a day nobody pushed, which is the point, and a required check that does that blocks every unrelated pull request. Acceptances carry a reason and an expiry in `.github/dependency-acceptances.txt`. |
 | The headless rule and its guard | here | `Jellyfin.Plugin.WatchSync.Tests/headless-rule.md` and the guard beside it. Neither gate has a check of this shape; this one is in the suite. The class is not hypothetical, and it was met and repaired on the other board rather than avoided there. |
 | The build manifest guards | here | `BuildTargetsTests` and `CompatibilityMatrixTests` hold the declared ABI, the target list and the compatibility matrix to what was actually built. A plugin whose declared ABI is not what it compiled against fails at load on somebody's server, and no generic check in either gate looks for it. |
 | The two-server behaviour | owed, #88 and #104 | This plugin writes into another server's users' data. No amount of static analysis reaches that class, and the other board does not have it. The container harness is where it is checked and #104 decides where that runs. |
-| `changelog.yaml`, `sync-labels.yaml` | here, undecided | Two workflows this repository carries from the plugin template rather than by a decision of its own. They are named here so the difference is visible; whether each is kept is not settled by this file. |
+| `changelog.yaml`, `sync-labels.yaml` | owed, #176 | Two workflows this repository carries from the plugin template rather than by a decision of its own. `changelog.yaml` is skipped on every push, because it passes the name this repository carried before it moved and the shared job is guarded on that name, which is why `call / update_release_draft` appears in the mainline list above with the conclusion `skipped`. #165 says why that name is deliberately not repaired. `sync-labels.yaml` writes the template's label set onto this board monthly and has never run. #176 holds the decision on both. |
 | `command-dispatch.yaml`, `command-rebase.yaml` | removed, #155 | The row above once named four. The slash command pair came from the same template and no command was ever raised through it, so what it produced was a runner on every comment and a check run on every commit. Removed rather than filtered. |
 
 On the headless row, the class it refuses is one the other board met rather than
@@ -121,7 +186,7 @@ repair, so the state cannot be reached in the first place.
 | `publish-failure-alert` | owed, #121 | A green publish that shipped nothing is the failure this catches, and it has already happened on that board. |
 | `e2e-login` | owed, #88 | Its analogue here is the container harness, because the behaviour worth proving end to end is different. |
 | `scorecard` | here | `Scorecard analysis` reports on this board's mainline. |
-| `nightly-betas`, `publish-beta`, `publish-jf12-beta`, `publish-jf12-stable`, `publish`, `regenerate-manifest` | owed, #117 and #122 | The release route. Two of the questions it depends on are open decisions and carry `blocked-on-decision`, which are #119 and #123. |
+| `nightly-betas`, `publish-beta`, `publish-jf12-beta`, `publish-jf12-stable`, `publish`, `regenerate-manifest` | owed, #117 and #122 | The release route. #119 and #123 waited on the publication route in #1 and no longer do: that decision has been answered there, and it separates a stable channel from a pre-release one, so the two-channel shape those rows assume is the answer rather than an assumption. What is still open is the packaging, because a release run here produces one artifact for one of the two lines this repository declares, which is #117. |
 
 ## The two the table once left open
 
