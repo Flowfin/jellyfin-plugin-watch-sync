@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Jellyfin.Plugin.WatchSync.Matching;
 
@@ -29,93 +27,22 @@ public static class MovieMatchKey
     /// otherwise one item carrying two identifiers would produce a different key depending
     /// on the shape of a dictionary, and two servers would disagree about a work they had
     /// both identified correctly.
+    ///
+    /// The walk itself is <see cref="PreferredIdentifier"/>, which #23 shares for the series
+    /// an episode falls back to. One walk rather than two, because two copies of a
+    /// preference order drift and the drift is invisible until two servers disagree.
     /// </summary>
     /// <param name="providerIdentifiers">
     /// The identifiers the item carries, keyed by provider name as the server holds them.
     /// </param>
     /// <returns>The key, or the reason there is none.</returns>
-    public static MatchKeyReading Derive(IReadOnlyDictionary<string, string>? providerIdentifiers)
-    {
-        var carriesSomething = providerIdentifiers is not null
-            && providerIdentifiers.Any(pair => !string.IsNullOrWhiteSpace(pair.Value));
-
-        if (!carriesSomething)
-        {
-            return MatchKeyReading.Unkeyed(MatchKeyRefusal.NoIdentifierAtAll);
-        }
-
-        var reachedAPreferredProvider = false;
-
-        foreach (var provider in PreferenceOrder())
-        {
-            if (!TryRead(providerIdentifiers!, provider, out var stored))
-            {
-                continue;
-            }
-
-            reachedAPreferredProvider = true;
-
-            var reading = ProviderIdentifier.Normalise(provider, stored);
-
-            if (reading.IsUsable)
-            {
-                return MatchKeyReading.Keyed(reading.Identifier!);
-            }
-        }
-
-        return MatchKeyReading.Unkeyed(reachedAPreferredProvider
-            ? MatchKeyRefusal.EveryPreferredIdentifierWasRefused
-            : MatchKeyRefusal.NoIdentifierFromAPreferredProvider);
-    }
+    public static MatchKeyReading Derive(IReadOnlyDictionary<string, string>? providerIdentifiers) =>
+        PreferredIdentifier.Of(providerIdentifiers);
 
     /// <summary>
     /// The providers in the order the key prefers them.
-    ///
-    /// It is the declaration order of <see cref="IdentifierProvider"/> rather than a second
-    /// list, because a second list is a thing that drifts against the first. A test reads
-    /// the order out of <c>docs/matching.md</c> and refuses the document and this order
-    /// disagreeing.
     /// </summary>
     /// <returns>The providers, most preferred first.</returns>
     public static IReadOnlyList<IdentifierProvider> PreferenceOrder() =>
-        Enum.GetValues<IdentifierProvider>();
-
-    /// <summary>
-    /// Finds what the item stored under one provider's name.
-    ///
-    /// The comparison ignores case. The name is a string in a map that scrapers, imports and
-    /// two server lines all write into, and a key that differs from this plugin's spelling
-    /// only in case is an identifier the item genuinely carries. Reading it as absent would
-    /// record a scraped film as unmatched.
-    /// </summary>
-    /// <param name="providerIdentifiers">The identifiers the item carries.</param>
-    /// <param name="provider">The provider to look for.</param>
-    /// <param name="stored">The value as stored.</param>
-    /// <returns>Whether the item carries anything under that provider.</returns>
-    private static bool TryRead(
-        IReadOnlyDictionary<string, string> providerIdentifiers,
-        IdentifierProvider provider,
-        out string? stored)
-    {
-        var name = provider.ToString();
-
-        if (providerIdentifiers.TryGetValue(name, out stored))
-        {
-            return true;
-        }
-
-        foreach (var pair in providerIdentifiers)
-        {
-            if (string.Equals(pair.Key, name, StringComparison.OrdinalIgnoreCase))
-            {
-                stored = pair.Value;
-
-                return true;
-            }
-        }
-
-        stored = null;
-
-        return false;
-    }
+        PreferredIdentifier.Order();
 }
