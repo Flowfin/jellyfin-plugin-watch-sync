@@ -66,13 +66,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload SARIF
-        # Only upload where the GITHUB_TOKEN can write security events: pushes to main
+        # Only upload where the GITHUB_TOKEN can write security events: pushes to the
+        # default branch
         # and same-repo human PRs. Fork and Dependabot pull requests run with a
         # read-only token, so the upload is skipped there - the gate step below still
         # runs and blocks on findings. continue-on-error keeps the security gate
         # independent of the upload: a transient code-scanning upload failure must not
         # skip the "Fail on actionable findings" step below.
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')
+        # The branch name is the one this repository has. It read `main` until #96,
+        # which is a branch this repository does not carry, so the first clause was
+        # false on every push and the audit's findings reached the code-scanning tab
+        # from pull request refs only. An alert raised against a pull request ref goes
+        # away with the ref, so the default branch had no state to triage from.
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
         with:

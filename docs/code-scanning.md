@@ -120,6 +120,53 @@ code-scanning service creates it on a pull request to report findings against th
 diff. It appears in the other board's required set and is listed in
 `docs/parity.md`; nothing in this file decides it.
 
+It does not report `success` on the pull request that lands this change, and the
+reason is worth carrying rather than discovering later:
+
+    gh api repos/Flowfin/jellyfin-plugin-watch-sync/commits/6b57225a6445b7890323ecb2b9cb55a1dba6329b/check-runs?per_page=100 \
+      --jq '.check_runs[]|select(.name=="CodeQL")|{conclusion, output: .output.title}'
+    {"conclusion":"neutral","output":"1 configuration not found"}
+
+The service compares a pull request against the analysis configurations it has
+seen on the base branch, and the configuration it is looking for is the one the
+call produced. That one stops existing when this change lands, and the four here
+become the baseline on the first mainline run afterwards. So the neutral verdict
+is the transition rather than a property of the new workflow.
+
+It is also a fact #105 needs before it requires this name. A required context
+counts a neutral verdict as not-success, so requiring `CodeQL` while a
+configuration is being replaced blocks every pull request until the mainline has
+run once under the new one. That is an ordering constraint on the ruleset edit and
+not on this workflow.
+
+## The workflow audit's own findings
+
+`Audit workflows (zizmor)` uploads into the same code-scanning tab, and its upload
+step was conditioned on a push to `main`. This repository's default branch is
+`master`, so the first clause was false on every push and the step ran only for
+pull requests:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/analyses?per_page=100" \
+      --jq '[.[]|select(.tool.name=="zizmor")|.ref]|unique|map(select(startswith("refs/heads/")))|length'
+    0
+
+Nothing was unenforced by that. The step that fails the build on an actionable
+finding runs unconditionally and is a different step. What was missing is the
+default branch's state, and an alert raised against a pull request ref goes away
+with the ref, so there was nothing for a triage to read. The condition now names
+the branch this repository has.
+
+What the tab holds for that tool today is nothing to triage:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=zizmor&per_page=100" \
+      --jq 'length'
+    0
+
+That is a reading of a tool that had never uploaded from the mainline, so it says
+the pull request refs carried no open finding rather than that the mainline is
+clean. The first mainline upload after this change is what makes the second
+statement sayable.
+
 ## The triage
 
 The fourth condition of #96 is that findings are triaged rather than accumulated,
