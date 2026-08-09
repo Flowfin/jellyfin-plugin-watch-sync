@@ -1,0 +1,47 @@
+# The rules this guard refuses in the plugin's own sources, one per line.
+#
+# Fields are separated by " :: ": the identifier, the invariant it belongs to, the
+# issue that introduced the invariant, the regular expression, what a call matching it
+# does, and what to reach for instead.
+#
+# An invariant is carried by one or more rules. Storage identity is five rules in the
+# guard beside this one, for the five ways a key can be derived from where a file is
+# kept, and the same reasoning applies here: a separate identifier per way is what
+# lets a finding say which mistake was made and lets a departure cover one call
+# without covering the rest.
+#
+# This is data rather than source for the reason the two vocabularies already in the
+# tree are. A scanner carrying these literals in a .cs file inside a scanned project
+# would match itself, and the exclusion repairing that would be a hole in the middle
+# of the guard. This one scans the plugin project and lives in the test project, so
+# the self-match is not possible today and stays impossible if the two ever meet.
+#
+# What these patterns cannot see is written in docs/invariants.md rather than here,
+# because it is the first thing a reader deciding whether to trust a green run needs
+# and the last thing they would find in a data file.
+
+# One person's watch history landing in another person's account is the worst outcome
+# available to this plugin. The mapping is an operator decision the pairing plugin
+# owns, and a name comparison is the inference #42 refuses.
+user-name-equality :: mapping-not-inferred :: 42 :: \.Username\b\s*(==|!=)|(==|!=)\s*[A-Za-z_][A-Za-z0-9_.]*\.Username\b :: decides who a change belongs to by comparing two names :: the mapping the pairing plugin hands over, which names the local user outright
+user-name-equals-call :: mapping-not-inferred :: 42 :: \.Username\s*\.\s*Equals\s*\(|Equals\s*\([^\n]*\.Username\b :: decides who a change belongs to by comparing two names :: the mapping the pairing plugin hands over, which names the local user outright
+user-name-search :: mapping-not-inferred :: 42 :: (FirstOrDefault|SingleOrDefault|LastOrDefault|Any|Where|Single|First)\s*\([^\n]*\.Username\b :: finds a local user by the name a peer sent :: the mapping the pairing plugin hands over, which names the local user outright
+
+# A resolver that reads the machine clock cannot be tested at a boundary, and the
+# boundary is where #32 resolves a position by the newer play against a tolerated
+# skew. The suite half of this is already refused by the headless vocabulary; these
+# rules are the plugin half, which is where it decides an outcome.
+clock-datetime-now :: injected-clock :: 32 :: DateTime\.Now\b :: reads the machine clock and its local zone :: the injected clock
+clock-datetime-utcnow :: injected-clock :: 32 :: DateTime\.UtcNow\b :: reads the machine clock :: the injected clock
+clock-datetimeoffset-now :: injected-clock :: 32 :: DateTimeOffset\.Now\b :: reads the machine clock and its local zone :: the injected clock
+clock-datetimeoffset-utcnow :: injected-clock :: 32 :: DateTimeOffset\.UtcNow\b :: reads the machine clock :: the injected clock
+clock-tick-count :: injected-clock :: 32 :: Environment\.TickCount :: reads how long the machine has been up :: the injected clock
+clock-stopwatch :: injected-clock :: 32 :: Stopwatch\.StartNew\b :: measures elapsed time nothing in a test can advance :: the injected clock
+clock-time-provider-system :: injected-clock :: 32 :: TimeProvider\.System\b :: reads the machine clock through the runtime's own provider :: the injected clock
+clock-local-time-zone :: injected-clock :: 32 :: TimeZoneInfo\.Local\b :: reads the local zone of whichever machine the server runs on :: the injected clock, which carries the instant and no zone
+
+# A log is a file that gets copied into a support thread. #67 permits an item
+# identifier at the ordinary level and permits a title at no level at all, so what
+# these refuse is not narrower than what that issue allows.
+log-item-title :: log-holds-no-viewing :: 67 :: Log(Trace|Debug|Information|Warning|Error|Critical)\s*\([^\n]*\.(Name|OriginalTitle|SortName|ForcedSortName)\b :: writes the title of a work somebody watched into a log :: the match key, which names the item to an operator without naming the work
+log-provider-identifier :: log-holds-no-viewing :: 67 :: Log(Trace|Debug|Information|Warning|Error|Critical)\s*\([^\n]*\b(Imdb|Tmdb|Tvdb|ProviderIds)\b :: writes an identifier that resolves to the work in one search :: the match key, which is this plugin's own addressing and resolves to nothing outside it

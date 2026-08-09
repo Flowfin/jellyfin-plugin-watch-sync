@@ -1,0 +1,18 @@
+// The repair of the near-miss next to it, and nothing else. One read goes through the
+// clock the class already holds. If the guard passes this and refuses its neighbour, what
+// it refused was the machine clock and not the comparison, the type or the arithmetic.
+
+internal sealed class PositionRule
+{
+    private readonly IClock _clock;
+
+    internal PositionRule(IClock clock)
+    {
+        _clock = clock;
+    }
+
+    internal bool IsWithinTolerance(DateTime peerLastPlayed, TimeSpan tolerance)
+    {
+        return (_clock.UtcNow - peerLastPlayed).Duration() <= tolerance;
+    }
+}

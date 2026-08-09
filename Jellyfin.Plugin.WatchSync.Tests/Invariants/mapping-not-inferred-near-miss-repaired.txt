@@ -1,0 +1,19 @@
+// The repair of the near-miss next to it, and nothing else. The fallback returns no user,
+// so the change is refused for that mapping and recorded rather than applied to whoever
+// happened to share a name. If the guard passes this and refuses its neighbour, what it
+// refused was the inference and not something else about the fixture.
+
+internal static class MappedUsers
+{
+    internal static User? LocalUserFor(Mapping mapping, IReadOnlyList<User> users)
+    {
+        var named = users.FirstOrDefault(user => user.Id == mapping.LocalUserId);
+
+        if (named is not null)
+        {
+            return named;
+        }
+
+        return null;
+    }
+}

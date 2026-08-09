@@ -1,0 +1,25 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The mistake is the one an apply path makes the first time a mapping turns out to be
+// incomplete, and it is one line. The mapping is consulted first and it is trusted, which
+// is right. What goes wrong is the branch after it: instead of refusing the change and
+// recording it, the fallback finds a local user whose name matches the one the peer sent.
+//
+// It looks reasonable at the moment it is written, because on the machine it is written on
+// the two accounts do have the same name. It is the line that writes one person's watch
+// history into another person's account on the first server where they do not.
+
+internal static class MappedUsers
+{
+    internal static User? LocalUserFor(Mapping mapping, IReadOnlyList<User> users)
+    {
+        var named = users.FirstOrDefault(user => user.Id == mapping.LocalUserId);
+
+        if (named is not null)
+        {
+            return named;
+        }
+
+        return users.FirstOrDefault(user => string.Equals(user.Username, mapping.PeerUserName, StringComparison.OrdinalIgnoreCase));
+    }
+}
