@@ -75,24 +75,31 @@ from that list because all three are triggered on a pull request only:
 
     git grep -nE '^  (push|pull_request|schedule|workflow_dispatch|repository_dispatch):' \
       -- .github/workflows/dco.yml .github/workflows/dependency-review.yml \
-         .github/workflows/pull-request-check.yml .github/workflows/scan-codeql.yaml
+         .github/workflows/pull-request-check.yml .github/workflows/code-scanning.yaml
+    .github/workflows/code-scanning.yaml:18:  push:
+    .github/workflows/code-scanning.yaml:20:  pull_request:
+    .github/workflows/code-scanning.yaml:22:  schedule:
+    .github/workflows/code-scanning.yaml:26:  workflow_dispatch:
     .github/workflows/dco.yml:10:  pull_request:
     .github/workflows/dependency-review.yml:4:  pull_request:
     .github/workflows/pull-request-check.yml:24:  pull_request:
-    .github/workflows/scan-codeql.yaml:4:  push:
-    .github/workflows/scan-codeql.yaml:8:  pull_request:
-    .github/workflows/scan-codeql.yaml:12:  schedule:
-    .github/workflows/scan-codeql.yaml:14:  workflow_dispatch:
 
-The fourth file in that output is the reason the next paragraph exists.
+The first file in that output is the reason the next paragraph exists.
 
 `CodeQL` is absent for a different reason and the difference matters, because a
 reader who takes the first reason for it would conclude the analysis stops on the
-mainline. `scan-codeql.yaml` runs on a push to `master` as well, which is where
+mainline. The scanning workflow runs on a push to `master` as well, which is where
 `call / Analyze (csharp)` in the list above comes from. What only exists on a pull
 request is the `CodeQL` check run, which the code-scanning service creates to report
 findings against a diff. On a push the analysis lands as an entry under
 `code-scanning/analyses` instead, and that is the thing #165 was read against.
+
+That measurement was taken while the scan was a call into a shared workflow, which
+is why the name in it carries a `call /` prefix. #96 replaced the call with
+`.github/workflows/code-scanning.yaml`, so the names that list will report next are
+the four in `docs/code-scanning.md`, one per language, and `call / Analyze (csharp)`
+is gone. The list above is left as it was measured rather than edited to predict the
+next reading.
 
 Every one of them is green on the pull request this section was last measured
 against:
@@ -136,8 +143,8 @@ it and the reason is in the row.
 | `ABI floor build` | owed, #91 | This board declares two lines rather than one, so the floor build is doubled. Nothing runs it yet. |
 | `Package (JPRM) / Build package` | owed, #101 | Packaging as a merge check rather than a release step, one artifact per line. #117 is the release half. |
 | `Package (JPRM) / Generate SBOM` | owed, #101 | The component inventory in the same run as the package. #118 is the release half. |
-| `CodeQL` | here | Reports as `CodeQL` on a pull request. Not required by the ruleset; #105 is where the adopted checks become required, and #96 is where the reported name is made stable enough to require. It reported for two days while analysing nothing, which #165 repaired and the section above describes. |
-| `Analyze (csharp)` | here | Reports as `call / Analyze (csharp)`. Same workflow, same three issues. |
+| `CodeQL` | here | Reports as `CodeQL` on a pull request. The code-scanning service creates it against the diff; no workflow in this repository names it. Not required by the ruleset; #105 is where the adopted checks become required. It reported for two days while analysing nothing, which #165 repaired and the section above describes. |
+| `Analyze (csharp)` | here | Reports as `Code scanning (csharp)`, from `.github/workflows/code-scanning.yaml`. #96 replaced the call into the shared workflow, so the language set, the query suite and the check-run names are decided here; `docs/code-scanning.md` carries all three with the commands they were measured with. Three further languages are analysed that the call did not cover, each with its own check run. Not required by the ruleset; #105. |
 | `DCO sign-off` | here | Runs on every pull request and is green. Not required by the ruleset; #105. |
 | `Deterministic PR-hygiene checks` | here | `.github/workflows/pull-request-check.yml`, from #100. It judges the pull request itself on rules that need no judgement and says which rule refused. Not required by the ruleset; #105. |
 | `Enforce greppable invariants` | owed, #148 | Adopted in #99. The shape is already in the suite twice; #148 is where the remaining invariants become rules. |

@@ -1,0 +1,99 @@
+# Code scanning, from this repository rather than through a call into another
+# organisation's shared workflow.
+#
+# What the call decided that this file now decides: which languages are analysed,
+# which query suite runs, when the analysis runs, and what the check runs are
+# called. `docs/code-scanning.md` carries the reasoning for each of those, the
+# commands the language set and the query suite were measured with, and the
+# triage of what the analysis reports today.
+#
+# There is deliberately no path filter. A filter on Markdown saves an analysis
+# that would have found nothing, and it costs the check run being absent rather
+# than green on exactly the changes that are cheapest to merge. Absent is the
+# state a required context waits on forever, and #105 is where these names become
+# required.
+name: 'Code scanning'
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    # Thursday, 02:24 UTC. Carried over from the call this file replaces, so a
+    # week with no push still produces a mainline analysis.
+    - cron: '24 2 * * 4'
+  workflow_dispatch:
+
+# Deny by default at the workflow level; the job below grants only the scopes it
+# needs.
+permissions: {}
+
+# No concurrency group. Cancelling a superseded run cancels a mainline analysis,
+# and the mainline analyses are what the code-scanning tab reports the default
+# branch's state from. A cancelled one leaves a gap nothing refills until the
+# next push.
+
+jobs:
+  analyze:
+    # The check-run name is this string with the matrix value in brackets, and
+    # the ruleset matches a check-run name literally. Adding a language here adds
+    # a check run rather than renaming one, which is the property that makes the
+    # set safe to require.
+    name: Code scanning (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # check out the sources to analyse
+      security-events: write # upload the results into the code-scanning tab
+      actions: read # read the workflow runs the analysis reports against
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # One entry per language the tree actually contains. The build mode is
+          # a property of the language: only C# is compiled here, and the other
+          # three are read from source.
+          - language: csharp
+            build-mode: autobuild
+          - language: python
+            build-mode: none
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        # Only the compiled language needs it. Both lines are installed because
+        # the project multi-targets one framework per supported server line, and
+        # an autobuild given one SDK builds one of the two targets.
+        if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # The default suite plus security-and-quality, which is what the call
+          # this file replaces passed and is a superset of what GitHub's default
+          # setup would have run. Replacing the call is therefore not a
+          # weakening; docs/code-scanning.md carries the command that reads it
+          # out of the shared workflow at the commit this repository pinned.
+          queries: +security-and-quality
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          category: '/language:${{ matrix.language }}'
