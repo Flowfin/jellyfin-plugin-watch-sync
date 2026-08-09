@@ -1,6 +1,7 @@
 ---
 name: "Watch Sync"
 guid: "aa15847e-2417-4fa7-889c-4c1960d2efec"
+imageUrl: "https://raw.githubusercontent.com/Flowfin/jellyfin-plugin-watch-sync/master/img/logo.png"
 version: "1.0.0.0"
 # The single pair the packaging tool reads. It is one of the entries in the targets
 # list below and never a third answer, which BuildTargetsTests refuses.
@@ -28,7 +29,7 @@ description: >
   pairing that is absent, disabled or revoked stops the transfer rather
   than falling back to anything.
 category: "General"
-owner: "iderex"
+owner: "Flowfin"
 artifacts:
 - "Jellyfin.Plugin.WatchSync.dll"
 changelog: >

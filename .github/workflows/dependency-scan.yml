@@ -1,0 +1,62 @@
+# Refuses a vulnerable package anywhere in the resolved dependency graph.
+#
+# `dependency-review.yml` reads what a pull request changes and fails closed on
+# any severity. What it cannot see is an advisory published against a dependency
+# nobody touched: nothing changed, so nothing is reviewed, and the graph stays
+# vulnerable with every check green. This runs on a schedule against the whole
+# resolved graph instead, which is the half of #97 a pull request cannot cover.
+#
+# The verdict is made by .github/check-vulnerable-packages.py rather than here,
+# so the same file runs against a clone by hand. This workflow supplies the
+# report and reports the exit code. It is deliberately not a merge check: it
+# fails on a day nobody pushed, which is the whole point, and a required check
+# that reddens without a change would block every unrelated pull request.
+name: Dependency scan
+
+on:
+  schedule:
+    # Weekly, offset from the other scheduled scans in this repository so three
+    # runs do not queue behind each other on the same minute.
+    - cron: '41 3 * * 2'
+  workflow_dispatch:
+
+# Deny by default at the workflow level; the job below grants only what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vulnerable:
+    name: Refuse a vulnerable package in the resolved graph
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # checkout and restore
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install both SDKs
+        # The plugin targets one framework per supported server line, so a
+        # restore that reaches only one of them leaves the other line's graph
+        # unexamined and the run still green.
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: No unaccepted vulnerability in the resolved graph
+        run: |
+          set -euo pipefail
+          # The report goes to a file rather than down a pipe. `dotnet list`
+          # exits 0 with a high severity advisory in its output, so its status
+          # says nothing either way, and `set -o pipefail` on a pipeline would
+          # read that silence as success. The guard is what decides.
+          dotnet list Jellyfin.Plugin.WatchSync.sln package \
+            --vulnerable --include-transitive --format json > report.json
+          python3 .github/check-vulnerable-packages.py < report.json

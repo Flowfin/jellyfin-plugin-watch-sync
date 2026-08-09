@@ -1,0 +1,96 @@
+# Reads the pull request rather than the code.
+#
+# Whether a pull request names an issue, whether its commits name one, and
+# whether a version bump carries its changelog entry are three questions no
+# other check here can answer, because none of the others sees the pull request
+# at all. The compiler and the analyzers read the code, the sign-off gate reads
+# a trailer, the workflow audit reads these files, and the unicode guard reads
+# bytes. This is the class none of them cover.
+#
+# The reading and the verdict are two files under .github/, so the same pair can
+# be run against a pull request by hand and so the verdict can be proven on a
+# document written by hand rather than fetched. This workflow runs them and
+# reports the exit code.
+#
+# Two tiers, and the separation is the point. A blocking rule is decidable by
+# reading text and it fails. Anything needing a judgement warns and can never
+# fail, because a gate that blocks on a judgement is one people learn to work
+# around. The last step turns the two prefixes into an error annotation and a
+# warning annotation, which GitHub renders differently, so a warning cannot be
+# mistaken for a block on the run page either.
+name: Pull request check
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+    branches:
+      - master
+
+# Read-only. The check reads the pull request and writes nothing to it.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hygiene:
+    # The ruleset matches the literal check-run name, so this string is the one
+    # the parity table already records for this check, and a rename here would
+    # remove a check rather than rename one.
+    name: Deterministic PR-hygiene checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # checkout, and read the manifest at both ends
+      pull-requests: read # title, body, commits and changed files
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: The check refuses a near miss and passes its repair
+        # A checker gutted into a pass is green on every real pull request and
+        # says nothing. This step is what turns that into a red run: the near
+        # miss is one character away from correct on each blocking rule and has
+        # to be refused, and its repair has to pass while still printing the
+        # advisory warning it carries on purpose.
+        run: |
+          set -euo pipefail
+          if python3 .github/check-pull-request.py < .github/pull-request-near-miss.json; then
+            echo "the near miss passed, so the blocking tier is not biting" >&2
+            exit 1
+          fi
+          python3 .github/check-pull-request.py < .github/pull-request-near-miss-repaired.json
+
+      - name: Assemble the document this pull request is
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          python3 .github/assemble-pull-request.py "${REPOSITORY}" "${NUMBER}" > document.json
+
+      - name: Every blocking rule holds
+        run: |
+          set -uo pipefail
+          # The default shell for a run block is `bash -e`, and -e is applied
+          # whether or not this script asks for it. Under it the line below ends
+          # the step the moment the checker refuses, before a single reason is
+          # printed, so a refused pull request showed an exit code and nothing
+          # else. Turning it off around the one command that is expected to fail
+          # is what makes the reasons reach the reader.
+          set +e
+          python3 .github/check-pull-request.py < document.json > verdict.txt
+          status=$?
+          set -e
+          while IFS= read -r line; do
+            case "${line}" in
+              "FAIL "*) echo "::error::${line#FAIL }" ;;
+              "WARN "*) echo "::warning::${line#WARN }" ;;
+            esac
+          done < verdict.txt
+          cat verdict.txt
+          exit "${status}"
