@@ -1,0 +1,21 @@
+# The register of this repository's own invariants, one entry per invariant.
+#
+# Fields are separated by " :: ": the identifier, the issue the invariant was argued
+# in, what the scan reads, and the guard that refuses a violation.
+#
+# The register is the authority for which invariants exist. A guard carries the
+# patterns; this file carries the list, and a test refuses the two disagreeing in
+# either direction, so an invariant named here with nothing scanning it fails and a
+# rule scanned with nothing naming it fails as well.
+#
+# The issue field is on every rule in the vocabulary as well. It is repeated here
+# because a reader arriving at the register wants the argument before the pattern,
+# and neither file is derived from the other.
+#
+# docs/invariants.md is where each entry is argued and where what a pattern cannot
+# see is written down. A test holds that document and this file to the same set.
+
+storage-identity :: 25 :: the plugin's own sources :: StorageIdentityGuardTests
+mapping-not-inferred :: 42 :: the plugin's own sources :: InvariantGuardTests
+injected-clock :: 32 :: the plugin's own sources :: InvariantGuardTests
+log-holds-no-viewing :: 67 :: the plugin's own sources :: InvariantGuardTests

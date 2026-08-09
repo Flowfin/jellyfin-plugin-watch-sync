@@ -1,0 +1,14 @@
+# Declared departures from the invariants in the register beside this file.
+#
+# Fields are separated by " :: ": the repository-relative path, the rule identifier,
+# and the reason.
+#
+# A departure is a debt with the thing that retires it written next to it rather than
+# a permanent hole. An entry whose file no longer carries a hit for that rule is
+# refused as dangling, so it is removed by the change that removes the call rather
+# than left to rot.
+#
+# The plugin declares none today. The shape to expect first is a read of a property
+# named Name on something that is not a work: a pairing, a scheduled task, a provider.
+# The reason on such an entry has to say what the thing is, because whether the log
+# line names something somebody watched is the only question these rules are about.

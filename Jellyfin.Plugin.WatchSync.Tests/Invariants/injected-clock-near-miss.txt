@@ -1,0 +1,25 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The clock is already injected and already held. That is what makes this the near-miss
+// rather than an obviously broken one: the constructor takes it, the field keeps it, and
+// one method reads the machine clock anyway. It is the shape a resolver acquires while it
+// is being written, when a second comparison is added somewhere the field is not in view.
+//
+// The cost is not a wrong answer on the machine it runs on. It is that the boundary this
+// method exists to decide, the tolerated skew in #32, cannot be reached by a test at all,
+// so the one behaviour worth proving is the one nothing can prove.
+
+internal sealed class PositionRule
+{
+    private readonly IClock _clock;
+
+    internal PositionRule(IClock clock)
+    {
+        _clock = clock;
+    }
+
+    internal bool IsWithinTolerance(DateTime peerLastPlayed, TimeSpan tolerance)
+    {
+        return (DateTime.UtcNow - peerLastPlayed).Duration() <= tolerance;
+    }
+}

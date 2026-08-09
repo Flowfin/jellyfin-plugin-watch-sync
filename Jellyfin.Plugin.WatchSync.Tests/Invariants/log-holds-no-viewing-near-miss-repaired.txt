@@ -1,0 +1,19 @@
+// The repair of the near-miss next to it, and nothing else. The key that was already a
+// parameter is what reaches the log. If the guard passes this and refuses its neighbour,
+// what it refused was the title and not the log call, the level or the user identifier,
+// which #67 permits at the ordinary level.
+
+internal sealed class ApplyLog
+{
+    private readonly ILogger<ApplyLog> _logger;
+
+    internal ApplyLog(ILogger<ApplyLog> logger)
+    {
+        _logger = logger;
+    }
+
+    internal void Applied(BaseItem item, string matchKey, Guid userId)
+    {
+        _logger.LogInformation("Applied a played state to {Item} for {User}", matchKey, userId);
+    }
+}

@@ -1,0 +1,25 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The match key is already in hand, one parameter to the left of where the title is read.
+// That is what makes this the near-miss: nothing about the method needs the title, and the
+// line is written that way because a key reads as noise to whoever is debugging and a title
+// reads as help.
+//
+// What it produces is a file saying what a named person watched, copied into a support
+// thread by somebody trying to get their sync working. The user identifier beside it is
+// already enough to name them to the administrator reading it.
+
+internal sealed class ApplyLog
+{
+    private readonly ILogger<ApplyLog> _logger;
+
+    internal ApplyLog(ILogger<ApplyLog> logger)
+    {
+        _logger = logger;
+    }
+
+    internal void Applied(BaseItem item, string matchKey, Guid userId)
+    {
+        _logger.LogInformation("Applied a played state to {Item} for {User}", item.Name, userId);
+    }
+}
