@@ -231,8 +231,8 @@ public class InvariantGuardTests
 
         Assert.All(InvariantGuard.Vocabulary(), rule =>
         {
-            Assert.True(register.ContainsKey(rule.Invariant), $"{rule.Id} belongs to {rule.Invariant}, which the register does not name.");
-            Assert.Equal(register[rule.Invariant], rule.Issue);
+            Assert.True(register.TryGetValue(rule.Invariant, out var issue), $"{rule.Id} belongs to {rule.Invariant}, which the register does not name.");
+            Assert.Equal(issue, rule.Issue);
         });
     }
 
@@ -497,15 +497,12 @@ public class InvariantGuardTests
         {
             var entries = new List<string[]>();
 
-            foreach (var line in File.ReadAllLines(DataFile(name)))
+            var significant = File.ReadAllLines(DataFile(name))
+                .Select(line => line.Trim())
+                .Where(trimmed => trimmed.Length > 0 && !trimmed.StartsWith('#'));
+
+            foreach (var trimmed in significant)
             {
-                var trimmed = line.Trim();
-
-                if (trimmed.Length == 0 || trimmed.StartsWith('#'))
-                {
-                    continue;
-                }
-
                 var parts = trimmed.Split(Separator);
                 Assert.True(parts.Length == fields, $"{name} has an entry with {parts.Length} fields where {fields} are required: {trimmed}");
 
