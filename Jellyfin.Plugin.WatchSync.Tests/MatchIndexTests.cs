@@ -181,8 +181,14 @@ public class MatchIndexTests
 
     /// <summary>
     /// A scraper that wrote a series' identifier onto an episode leaves the episode carrying
-    /// an identifier a film can carry too. The kind travels inside the key, so the two are two
-    /// keys and neither the wrong-item write nor a false ambiguity is available.
+    /// an identifier a film can carry too. Each kind of key is compared by its own equality,
+    /// so the two never meet and neither the wrong-item write nor a false ambiguity is
+    /// available.
+    ///
+    /// What this measures is the index resolving each of them to its own item. It is not a
+    /// near miss and there is none to write: the two kinds are separate by construction, so
+    /// there is no one-character mistake that brings them together, and a test cannot drive a
+    /// film's key into an episode's.
     /// </summary>
     [Fact]
     public void AFilmAndAnEpisodeCarryingOneIdentifierAreTwoKeys()
