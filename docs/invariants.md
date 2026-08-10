@@ -54,7 +54,10 @@ where the clock decides an outcome rather than a test.
 
 **`log-holds-no-viewing`.** No log statement carries the title of a work or a provider
 identifier for it. A log is a file that gets copied into a support thread and shipped to
-a collector, and what somebody watched belongs in neither.
+a collector, and what somebody watched belongs in neither. What may be logged, what may
+never be, and which half of that a machine refuses are in
+[logging.md](logging.md), which is also where these two rules are held against the
+document that declares them.
 
 ## What these patterns cannot see
 
