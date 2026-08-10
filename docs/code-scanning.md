@@ -241,11 +241,17 @@ listed:
 
     gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
       --jq '.[]|select(.rule.id=="cs/linq/missed-select")|"\(.number)\t\(.created_at)\t\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
-    44      2026-08-06T06:24:24Z    Jellyfin.Plugin.WatchSync.Tests/HeadlessGuardTests.cs:345
-    59      2026-08-06T23:11:44Z    Jellyfin.Plugin.WatchSync.Tests/StorageIdentityGuardTests.cs:375
-    67      2026-08-09T04:34:50Z    Jellyfin.Plugin.WatchSync.Tests/MovieMatchKeyTests.cs:156
-    74      2026-08-09T07:04:07Z    Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:500
     78      2026-08-10T08:01:59Z    Jellyfin.Plugin.WatchSync.Tests/LoggingDocumentTests.cs:231
+    74      2026-08-09T07:04:07Z    Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:500
+    67      2026-08-09T04:34:50Z    Jellyfin.Plugin.WatchSync.Tests/MovieMatchKeyTests.cs:156
+    59      2026-08-06T23:11:44Z    Jellyfin.Plugin.WatchSync.Tests/StorageIdentityGuardTests.cs:375
+    44      2026-08-06T06:24:24Z    Jellyfin.Plugin.WatchSync.Tests/HeadlessGuardTests.cs:345
+
+That list was taken on 2026-08-10, before the rewrite landed. It is the order the
+service returns rather than the order a reader would sort them into, and it is
+written that way because a re-sorted paste and a page that has moved underneath
+look identical to whoever runs the command next. A later run returns fewer rows
+as each site closes, and an empty answer is this block having done its work.
 
 It is the same helper shape as the other four, a loop trimming and skipping its
 element on the first lines of the body, so it is rewritten with them rather than
