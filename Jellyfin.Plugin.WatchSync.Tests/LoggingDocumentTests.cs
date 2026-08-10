@@ -228,15 +228,12 @@ public class LoggingDocumentTests
 
             var rows = new List<string[]>();
 
-            foreach (var line in section.Split('\n'))
+            var tableLines = section.Split('\n')
+                .Select(line => line.Trim())
+                .Where(trimmed => trimmed.StartsWith('|') && !trimmed.Contains("---", StringComparison.Ordinal));
+
+            foreach (var trimmed in tableLines)
             {
-                var trimmed = line.Trim();
-
-                if (!trimmed.StartsWith('|') || trimmed.Contains("---", StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
                 var cells = trimmed.Trim('|').Split('|').Select(cell => cell.Trim()).ToArray();
 
                 if (cells.Length < 2 || cells[0].StartsWith("what ", StringComparison.Ordinal) || string.Equals(cells[0], "rule", StringComparison.Ordinal))
