@@ -313,6 +313,40 @@ The wording matters and is fixed here so that no later change softens it. An
 unmatched item is a normal outcome. It is not an error, and it is never repaired by
 relaxing a rule in this document.
 
+## Which side resolves what
+
+Item matching is planned on two boards, and the boundary between them is here so
+that neither side has to infer it from the other's issue bodies.
+
+The pairing plugin decides whether two sets of identifying fields are the same
+work. This plugin decides which local item those fields came from, keeps the index
+that makes the question cheap, and owns what happens to an item that does not
+resolve. So a key derivation, the index in #29, the ambiguity refusal and the
+unmatched record in #26 are this plugin's, and the comparison of two sets of
+fields is not.
+
+The split follows what the other board says about its own matcher rather than a
+preference here. Flowfin/jellyfin-plugin-server-pairing#38 states that matching is
+a pure function over the identifying fields of two items, touching no library, no
+database and no disk. A function of that shape cannot know which local item a set
+of fields belongs to, because that is a question about a library, so the local half
+has to live here.
+
+It is an assumption rather than a settled interface. That board's #43, which
+defines what a sync plugin may ask it for, offers an operation that resolves a
+local item to the peer's item, and an operation of that shape does know what the
+peer holds. The two readings need different things from this board, and entry 1 in
+#39 here is where the difference is held open against the interface rather than
+decided from this side.
+
+What the other answer costs is one file. If the interface offers a resolution that
+reaches the peer, this plugin uses it and deletes its own exchange of candidates,
+keeping the index for the local half, and the only place that changes is the
+adapter #40 creates. That file does not exist yet, which is why the cost is written
+here as a sentence rather than shown as a diff, and it is why every call into the
+pairing matcher is required to go through the adapter: a call made anywhere else is
+a second place the decision would have to land.
+
 ## How this document is held to the server's vocabulary
 
 `MatchingDocumentTests` reads the table above and the `BaseItemKind` enumeration out
