@@ -1,0 +1,67 @@
+# The matcher corpus, one situation per row.
+#
+# Fields are separated by " :: ": the identifier, the situation the row represents,
+# what this server's library holds, what arrives from the peer, and the answer.
+#
+# A row is data rather than a case in code so that a situation can be added without
+# writing a test. Every row in this file becomes one executed case, and a row the
+# parser cannot read fails rather than being skipped.
+#
+# An item is written as its kind, a space, and its fields separated by ";". The kinds
+# are the ones docs/matching.md gives a key rule to. A field name is a provider the
+# item was scraped by, "series." and a provider for the series it belongs to, "order"
+# for the ordering the series is numbered under, or "season", "episode" and "last" for
+# the position. A kind on its own is an item carrying nothing.
+#
+# The library field holds zero or more items separated by " | ", or "-" for a library
+# that holds nothing. A library item that produces no key is not in the index at all,
+# which is what an unkeyed local twin in a row is there to show. The one item a match
+# is expected to resolve to carries a leading "*", and it is present exactly on the
+# rows whose answer is "matched".
+#
+# "\s" in a value is one space. It is written that way because the field separator is
+# surrounded by spaces and a reader trims each field, so a value whose whole point is
+# its surrounding whitespace could not survive being written literally.
+#
+# The answers are "matched", "ambiguous", "no-match", or the name of the refusal the
+# peer's item produced instead of a key. The refusal names are members of
+# MatchKeyRefusal and are read from that type rather than listed here, so a member
+# added with no row producing it fails.
+#
+# THERE IS NO COLUMN FOR A TITLE, A YEAR OR A RUNTIME, and that absence is the point
+# rather than an omission. Nothing in the matcher reads any of them, so there is
+# nothing for such a column to be given to. docs/matching.md is where that refusal is
+# argued and StorageIdentityGuardTests is what refuses a source that reaches for the
+# neighbouring class of value.
+#
+# IdentifierRefusal is not an answer here. It says why one stored value was not usable
+# and several of its members reach the same MatchKeyRefusal, so it is a reading inside
+# the derivation rather than something a record of an unmatched item holds.
+# ProviderIdentifierTests covers it value by value.
+
+film-one-identifier :: a film carrying one identifier, the same one on both sides :: *movie imdb=tt0111161 :: movie imdb=tt0111161 :: matched
+film-several-identifiers-agreeing :: a film carrying three identifiers, all agreeing across the two sides :: *movie imdb=tt0111161;tmdb=278;tvdb=121361 :: movie imdb=tt0111161;tmdb=278;tvdb=121361 :: matched
+film-identifiers-disagree-below-the-preferred-one :: a film whose lower-preference identifiers disagree while the preferred one agrees, so the preference order decides and the disagreement is never consulted :: *movie imdb=tt0111161;tmdb=278 :: movie imdb=tt0111161;tmdb=999999 :: matched
+film-preferred-identifier-disagrees :: a film whose preferred identifier disagrees while a lower-preference one agrees, which is not a match, because there is no second pass at the weaker comparison :: *movie imdb=tt0111161;tmdb=278 :: movie imdb=tt0068646;tmdb=278 :: no-match
+film-identifier-differing-by-case-and-whitespace :: one film whose identifier is written in lower case here and in upper case with surrounding whitespace on the peer :: *movie imdb=tt0111161 :: movie imdb=\s\sTT0111161\s\s :: matched
+film-imdb-identifier-padded-differently :: one film whose IMDb identifier carries an extra leading zero on the peer, which is the same allocation written to a different width :: *movie imdb=tt0111161 :: movie imdb=tt00111161 :: matched
+film-number-padded-differently :: one film whose numeric identifier is zero padded on the peer and not here :: *movie tmdb=278 :: movie tmdb=0000278 :: matched
+film-not-held-by-this-server :: a film the peer holds and this server does not, which is the ordinary outcome rather than an error :: - :: movie imdb=tt0111161 :: no-match
+two-local-items-sharing-one-identifier :: two items in this library carrying one identifier, which is a defect in this server's metadata and is refused rather than resolved :: movie imdb=tt0111161 | movie imdb=tt0111161 :: movie imdb=tt0111161 :: ambiguous
+film-with-no-identifier-at-all :: a home video on both sides, whose title, year and runtime this corpus has no column for because nothing reads them :: movie :: movie :: NoIdentifierAtAll
+film-whose-local-copy-was-never-scraped :: this server holds the work with nothing scraped onto it while the peer's copy carries an identifier, so there is nothing in the index for the peer's key to find :: movie :: movie imdb=tt0111161 :: no-match
+film-scraped-only-outside-the-preference-order :: a film carrying one identifier from a provider this plugin does not key on, present and identical on both sides :: *movie imdb=tt0111161 :: movie plex=abc123 :: NoIdentifierFromAPreferredProvider
+film-whose-preferred-identifier-is-a-url :: a scraper wrote a URL into the IMDb field, which is the refusal an operator can actually repair :: *movie imdb=tt0111161 :: movie imdb=https://www.imdb.com/title/tt0111161/ :: EveryPreferredIdentifierWasRefused
+film-whose-preferred-identifier-is-zero :: a scraper wrote a placeholder no provider allocates :: *movie tmdb=278 :: movie tmdb=0 :: EveryPreferredIdentifierWasRefused
+episode-through-its-series-and-numbering :: an episode carrying no identifier of its own, keyed on its series and its position :: *episode series.tvdb=121361;order=airdate;season=1;episode=2 :: episode series.tvdb=121361;order=airdate;season=1;episode=2 :: matched
+episode-under-two-orderings :: one episode numbered under two different orderings, which are two positions and not one :: *episode series.tvdb=121361;order=airdate;season=1;episode=2 :: episode series.tvdb=121361;order=dvd;season=1;episode=2 :: no-match
+episode-ordering-differing-only-by-case :: one ordering stored in lower case here and in upper case on the peer :: *episode series.tvdb=121361;order=dvd;season=1;episode=2 :: episode series.tvdb=121361;order=DVD;season=1;episode=2 :: matched
+episode-whose-series-stores-no-ordering :: a series storing no display order, which is the aired ordering rather than an unknown one :: *episode series.tvdb=121361;order=airdate;season=1;episode=2 :: episode series.tvdb=121361;season=1;episode=2 :: matched
+episode-with-its-own-identifier :: an episode a scraper gave an identifier of its own, keyed on that rather than on a position :: *episode tvdb=5000001 :: episode tvdb=5000001 :: matched
+episode-at-a-position-this-server-does-not-hold :: an episode of a series both sides hold, at a position this server does not :: episode series.tvdb=121361;order=airdate;season=1;episode=2 :: episode series.tvdb=121361;order=airdate;season=1;episode=9 :: no-match
+episode-carrying-its-series-identifier-against-a-film :: a scraper wrote the series identifier onto the episode, so a film and an episode carry one value and must not resolve to each other :: episode tvdb=121361 :: movie tvdb=121361 :: no-match
+episode-whose-series-is-scraped-only-outside-the-preference-order :: an episode whose series was scraped by a provider this plugin does not key on, so there is nothing for the position to hang on :: - :: episode series.plex=abc123;order=airdate;season=1;episode=2 :: NoIdentifierFromAPreferredProvider
+episode-with-no-season-number :: an episode the server could not place in a season :: - :: episode series.tvdb=121361;order=airdate;episode=2 :: NoSeasonNumber
+episode-with-no-episode-number :: an episode placed in a season but not inside it :: - :: episode series.tvdb=121361;order=airdate;season=1 :: NoEpisodeNumber
+episode-in-a-file-covering-several :: one file covering a run of episodes, which holds several positions and no single one of them is the key :: - :: episode series.tvdb=121361;order=airdate;season=1;episode=2;last=3 :: SpansSeveralEpisodes
+episode-numbered-below-zero :: a season number below zero, which is a defect in the metadata rather than an ordering this plugin does not know :: - :: episode series.tvdb=121361;order=airdate;season=-1;episode=2 :: NumberingBelowZero
