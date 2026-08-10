@@ -1,0 +1,15 @@
+{
+  "_what_this_is": "A repository that has published, moving off the zero version. The zero is what a manifest carries before anybody decided a number, so it was never a release whatever the release count says, and the change off it needs no entry. The release count is deliberately not zero: the zero-version guard is the only thing excusing this change, so deleting that guard alone refuses this document, which is what makes it a proof rather than a second copy of the one beside it.",
+  "title": "Give the manifest the first number it will ship under (#189)",
+  "body": "Closes #189.\n\nThe manifest carried the template's zero, which is not a version anybody installed.",
+  "commits": [
+    {
+      "sha": "4444444444444444444444444444444444444444",
+      "message": "Give the manifest the first number it will ship under\n\nFor #189."
+    }
+  ],
+  "files": ["build.yaml"],
+  "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"0.0.0.0\"\n",
+  "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.1.0.0\"\n",
+  "releases": 4
+}

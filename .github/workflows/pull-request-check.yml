@@ -12,12 +12,14 @@
 # document written by hand rather than fetched. This workflow runs them and
 # reports the exit code.
 #
-# Two tiers, and the separation is the point. A blocking rule is decidable by
+# Three tiers, and the separation is the point. A blocking rule is decidable by
 # reading text and it fails. Anything needing a judgement warns and can never
 # fail, because a gate that blocks on a judgement is one people learn to work
-# around. The last step turns the two prefixes into an error annotation and a
-# warning annotation, which GitHub renders differently, so a warning cannot be
-# mistaken for a block on the run page either.
+# around. A rule that was considered and did not apply leaves a note, so an
+# excused pull request is not one nothing looked at. The last step turns the
+# three prefixes into an error, a warning and a notice annotation, which GitHub
+# renders differently, so none of the three can be mistaken for another on the
+# run page either.
 name: Pull request check
 
 on:
@@ -50,12 +52,20 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: The check refuses a near miss and passes its repair
+      - name: The check refuses a near miss, passes its repair, and excuses nothing in silence
         # A checker gutted into a pass is green on every real pull request and
         # says nothing. This step is what turns that into a red run: the near
         # miss is one character away from correct on each blocking rule and has
         # to be refused, and its repair has to pass while still printing the
         # advisory warning it carries on purpose.
+        #
+        # The version rule can also decline to fire, and a decline has to be
+        # proven the same way. Two guards excuse a version change: a repository
+        # that has published nothing, and a zero version at either end. Each is
+        # the only thing excusing its own document below, so deleting either one
+        # refuses that document and reddens this step. Neither can be folded
+        # into the pair above, because one document is about one repository and
+        # a repository has either published or not.
         run: |
           set -euo pipefail
           if python3 .github/check-pull-request.py < .github/pull-request-near-miss.json; then
@@ -63,6 +73,22 @@ jobs:
             exit 1
           fi
           python3 .github/check-pull-request.py < .github/pull-request-near-miss-repaired.json
+          for excused in .github/pull-request-excused-before-any-release.json \
+                         .github/pull-request-excused-version-zero.json; do
+            if ! verdict="$(python3 .github/check-pull-request.py < "${excused}")"; then
+              echo "${verdict}"
+              echo "${excused} was refused, so a version nobody could look up still blocks" >&2
+              exit 1
+            fi
+            echo "${verdict}"
+            case "${verdict}" in
+              *"NOTE a-version-bump-carries-a-changelog-entry"*) ;;
+              *)
+                echo "${excused} passed without saying why, which is the silence this rule replaced" >&2
+                exit 1
+                ;;
+            esac
+          done
 
       - name: Assemble the document this pull request is
         env:
@@ -90,6 +116,7 @@ jobs:
             case "${line}" in
               "FAIL "*) echo "::error::${line#FAIL }" ;;
               "WARN "*) echo "::warning::${line#WARN }" ;;
+              "NOTE "*) echo "::notice::${line#NOTE }" ;;
             esac
           done < verdict.txt
           cat verdict.txt

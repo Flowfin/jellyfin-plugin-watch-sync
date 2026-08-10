@@ -60,6 +60,24 @@ def manifest_at(repository, ref):
     return base64.b64decode("".join(encoded.split())).decode("utf-8")
 
 
+def published_releases(repository):
+    """How many releases the repository has published.
+
+    Drafts are dropped, because a draft is a release nobody can install and the
+    question the checker asks is whether a number was ever one somebody could
+    look up. A pre-release is counted: it is published, it has a tag, and an
+    operator who added the pre-release address can install it.
+    """
+    tags = gh_or_die(
+        "api",
+        "repos/{}/releases".format(repository),
+        "--paginate",
+        "--jq",
+        ".[] | select(.draft | not) | .tag_name",
+    )
+    return len([line for line in tags.splitlines() if line.strip()])
+
+
 def main(argv):
     if len(argv) != 3:
         sys.exit("usage: assemble-pull-request.py OWNER/REPO NUMBER")
@@ -106,6 +124,7 @@ def main(argv):
             "files": files,
             "manifest_before": manifest_at(repository, request["base"]["sha"]),
             "manifest_after": manifest_at(repository, request["head"]["sha"]),
+            "releases": published_releases(repository),
         },
         sys.stdout,
         indent=2,
