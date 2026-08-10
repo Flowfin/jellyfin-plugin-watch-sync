@@ -1,0 +1,15 @@
+{
+  "_what_this_is": "The case the pair beside this one cannot carry: a repository that has published nothing, lowering a number nobody could ever have looked up. This is #180, refused by the older rule for not carrying an entry about a release that does not exist. It has to pass, and it has to say in the verdict that it passed for that reason. It is one document rather than a third member of the pair because a document is either about a repository that has published or about one that has not, and the release count is the only thing here excusing the change: delete that guard and this document is refused.",
+  "title": "Start the version below 1.0, and move the one place that restates it (#180)",
+  "body": "Closes #180.\n\nNothing has shipped, so 1.0.0.0 is a claim rather than a number an operator has installed.",
+  "commits": [
+    {
+      "sha": "3333333333333333333333333333333333333333",
+      "message": "Start the version below 1.0\n\nFor #180."
+    }
+  ],
+  "files": ["build.yaml", "docs/compatibility.md"],
+  "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"1.0.0.0\"\n",
+  "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.1.0.0\"\n",
+  "releases": 0
+}
