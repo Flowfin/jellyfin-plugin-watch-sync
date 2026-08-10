@@ -99,18 +99,13 @@ internal static class PreferredIdentifier
             return true;
         }
 
-        foreach (var pair in providerIdentifiers)
-        {
-            if (string.Equals(pair.Key, name, StringComparison.OrdinalIgnoreCase))
-            {
-                stored = pair.Value;
+        // FirstOrDefault answers null for an empty sequence, and the map's declared value
+        // type carries no nulls, so a null here is a provider the item stored nothing under.
+        stored = providerIdentifiers
+            .Where(pair => string.Equals(pair.Key, name, StringComparison.OrdinalIgnoreCase))
+            .Select(pair => pair.Value)
+            .FirstOrDefault();
 
-                return true;
-            }
-        }
-
-        stored = null;
-
-        return false;
+        return stored is not null;
     }
 }

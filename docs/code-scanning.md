@@ -207,11 +207,21 @@ are seven more, and six of them are in the suite. The two in the plugin are both
     cs/linq/missed-where    Jellyfin.Plugin.WatchSync/Matching/PreferredIdentifier.cs:102
 
 Both are a loop that returns on the first element meeting a condition, which the
-query offers to write as a filter. Neither is a defect and neither rewrite is
-clearer: one walks the characters of a candidate identifier and refuses on the
-first that is not a digit, the other walks a small map once to answer a
-case-insensitive lookup the map itself cannot answer. Kept, with the reason here
-rather than in a dismissal comment nobody reads back.
+query offers to write as a filter. That offer is refused and the sites are still
+rewritten, in #182, because a filter is not what either loop is. `IsDigits` walks
+a candidate identifier and refuses on the first character that is not a digit,
+which is a quantifier over the whole string and is what `All` says in one line.
+`TryRead` reads the first value stored under a key equal to one it holds ignoring
+case, which is a filter, a projection and a first, and the loop it replaced
+assigned an out parameter from inside a branch to say so. The other five are the
+same kind of reading: four loops mapping their element on the first line of the
+body, and one register asked `ContainsKey` and then indexed with the same key.
+
+The bar every one of them had to pass is that the site reads better afterwards.
+A rewrite bought with a reader's time is refused here whatever it does to the
+count, which is why `cs/path-combine` above is kept and these are not. The suite
+is the evidence that nothing moved with them: it stays green with no test edited
+to make it so.
 
 Nothing was dismissed and no alert state was changed. This is a reading and it
 records what the analyses hold; it is not a claim that the count will be the same
@@ -221,3 +231,28 @@ and the numbers are dated.
 Three of the four languages have never been analysed on this board, so the first
 run of this workflow produces findings this reading says nothing about. Reading
 them is the next triage rather than a defect in this one.
+
+## A fifth loop of the same shape, raised after that reading
+
+The reading above is dated 2026-08-09 and the analyses have run since. A fifth
+`cs/linq/missed-select` was raised on 2026-08-10 against the table reader in
+`LoggingDocumentTests`, which arrived with `docs/logging.md` after the four were
+listed:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
+      --jq '.[]|select(.rule.id=="cs/linq/missed-select")|"\(.number)\t\(.created_at)\t\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
+    44      2026-08-06T06:24:24Z    Jellyfin.Plugin.WatchSync.Tests/HeadlessGuardTests.cs:345
+    59      2026-08-06T23:11:44Z    Jellyfin.Plugin.WatchSync.Tests/StorageIdentityGuardTests.cs:375
+    67      2026-08-09T04:34:50Z    Jellyfin.Plugin.WatchSync.Tests/MovieMatchKeyTests.cs:156
+    74      2026-08-09T07:04:07Z    Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:500
+    78      2026-08-10T08:01:59Z    Jellyfin.Plugin.WatchSync.Tests/LoggingDocumentTests.cs:231
+
+It is the same helper shape as the other four, a loop trimming and skipping its
+element on the first lines of the body, so it is rewritten with them rather than
+left for a later pass. That is five sites of that rule and not four, and the
+sentence above counting four is the reading of 2026-08-09 rather than a claim
+about today.
+
+Nothing else in that reading is re-measured here. The `cs/path-combine` count it
+quotes has moved and this change does not say by how much or why; that class is
+decided on its own and the count above is not to be read as current.

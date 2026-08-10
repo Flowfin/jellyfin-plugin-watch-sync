@@ -153,16 +153,16 @@ public class MovieMatchKeyTests
     [Fact]
     public void AFilmWithNoIdentifierAtAllProducesNoKey()
     {
-        foreach (var providerIdentifiers in new IReadOnlyDictionary<string, string>?[]
+        var readings = new IReadOnlyDictionary<string, string>?[]
         {
             null,
             new Dictionary<string, string>(StringComparer.Ordinal),
             new Dictionary<string, string>(StringComparer.Ordinal) { ["Imdb"] = string.Empty },
             new Dictionary<string, string>(StringComparer.Ordinal) { ["Imdb"] = "   " },
-        })
-        {
-            var reading = MovieMatchKey.Derive(providerIdentifiers);
+        }.Select(MovieMatchKey.Derive);
 
+        foreach (var reading in readings)
+        {
             Assert.False(reading.IsKeyed);
             Assert.Null(reading.Key);
             Assert.Equal(MatchKeyRefusal.NoIdentifierAtAll, reading.Refusal);
