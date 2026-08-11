@@ -193,9 +193,13 @@ repository-relative path composed inside a guard or a document test from a value
 read out of the tracked tree, and the query is about a second argument that could
 be rooted and would then discard the first. The inputs here are paths git prints,
 so none can be rooted while the tree they came from is this one. Kept rather than
-repaired, and not dismissed: the query is right about the general case, and the
-day one of those guards reads a path from somewhere other than git is the day the
-alert should be a defect again.
+repaired: the query is right about the general case, and the day one of those
+guards reads a path from somewhere other than git is the day the alert should be
+a defect again.
+
+This paragraph also said they were not dismissed. Thirty of them were, hours
+after the reading was taken, and the section on that class at the end of this
+file is where the alert page's state is written.
 
 `cs/linq/missed-select`, `cs/linq/missed-where` and `cs/inefficient-containskey`
 are seven more, and six of them are in the suite. The two in the plugin are both
@@ -223,10 +227,12 @@ count, which is why `cs/path-combine` above is kept and these are not. The suite
 is the evidence that nothing moved with them: it stays green with no test edited
 to make it so.
 
-Nothing was dismissed and no alert state was changed. This is a reading and it
-records what the analyses hold; it is not a claim that the count will be the same
-tomorrow. The count moves with every change, which is why the commands are here
-and the numbers are dated.
+Nothing had been dismissed and no alert state had been changed at the moment this
+reading was taken. It stopped being true the same evening, for `cs/path-combine`
+and for nothing else, and the section at the end of this file carries that. This
+is a reading and it records what the analyses held; it is not a claim that the
+count will be the same tomorrow. The count moves with every change, which is why
+the commands are here and the numbers are dated.
 
 Three of the four languages have never been analysed on this board, so the first
 run of this workflow produces findings this reading says nothing about. Reading
@@ -262,3 +268,105 @@ about today.
 Nothing else in that reading is re-measured here. The `cs/path-combine` count it
 quotes has moved and this change does not say by how much or why; that class is
 decided on its own and the count above is not to be read as current.
+
+## What the alert page holds for `cs/path-combine`
+
+Read on 2026-08-11. Both readings above describe that class as open and
+undismissed. It is neither of those things, and this section is what the page
+holds rather than a second argument about the class.
+
+Thirty are dismissed as a false positive. Five of the same shape, raised after
+that happened, are open:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq 'group_by(.rule.id)|map({rule:.[0].rule.id, count:length, reasons:([.[].dismissed_reason]|unique)})'
+    [{"count":30,"reasons":["false positive"],"rule":"cs/path-combine"}]
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
+      --jq 'group_by(.rule.id)|map({rule:.[0].rule.id, count:length})|sort_by(-.count)|.[]|"\(.count)\t\(.rule)"'
+    5       cs/path-combine
+
+Thirty five sites of one rule, and nothing else under CodeQL in either state. The
+eight `cs/linq` and `cs/inefficient-containskey` alerts the readings above list
+are closed by the rewrites those readings describe rather than by a dismissal,
+which is the difference this section exists to keep visible:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=fixed&tool_name=CodeQL&per_page=100" \
+      --jq 'group_by(.rule.id)|map({rule:.[0].rule.id, count:length})|sort_by(-.count)|.[]|"\(.count)\t\(.rule)"'
+    5       cs/linq/missed-select
+    2       cs/linq/missed-where
+    1       cs/inefficient-containskey
+
+All thirty five are in the test project and none is in the plugin, which is the
+same split the reading above found for this class:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq '[.[]|.most_recent_instance.location.path|split("/")[0]]|group_by(.)|map({(.[0]):length})|add'
+    {"Jellyfin.Plugin.WatchSync.Tests":30}
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
+      --jq '[.[]|.most_recent_instance.location.path|split("/")[0]]|group_by(.)|map({(.[0]):length})|add'
+    {"Jellyfin.Plugin.WatchSync.Tests":5}
+
+### Why the query is right and none of these sites is a defect
+
+What the rule says, read from the service rather than from memory:
+
+    gh api repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts/45 --jq .rule.full_description
+    'Path.Combine' may silently drop its earlier arguments if its later arguments are absolute paths.
+
+That is a real defect anywhere a later argument can be absolute. It cannot be at
+these sites, and the reason is what the later argument is at each one. The lines
+under the alerts read with:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq '.[]|"\(.most_recent_instance.location.path)\t\(.most_recent_instance.location.start_line)"' \
+      | sort | while IFS="$(printf '\t')" read -r path line; do printf '%s:%s ' "$path" "$line"; sed -n "${line}p" "$path"; done
+
+Reading all of them gives four kinds and no fifth. A literal written at the call,
+as in `Path.Combine(directory.FullName, ".git")`. A `const string` of the test
+project, as in `Path.Combine(root, TestProject)`. A repository-relative path that
+git printed or that `Path.GetRelativePath` produced against the same root, which
+is the source scan in `HeadlessGuardTests`. And a fixture name reaching a helper
+as a parameter, in `ReleaseRoute.Fixture` and in the headless fixture reader,
+where every call site passes a literal. None of the four reaches an environment
+variable, a command line, a configuration file or a peer, so none can be rooted
+while the tree it came from is this one.
+
+The fourth is the one worth naming separately. Its `Path.Combine` line does not
+change when a caller starts passing something else, so it is the site where this
+argument could stop being true without the alert being raised again.
+
+### What a reader meets on the alert page
+
+That argument belongs on the alerts as well as here, because somebody who opens
+one and finds no reason cannot tell a decision from an oversight. Twenty nine of
+the thirty carry a comment written in another language, pointing at a tracker
+outside this repository, and arguing about a different shape: a path composed
+from a temporary directory and a generated name, which is not what any of these
+thirty five sites does. It cannot be followed from here and it is not about them.
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq '[.[].dismissed_comment]|group_by(.)|map(length)'
+    [29,1]
+
+The one is alert 45, which carries the replacement in English and points at this
+file. The other twenty nine still carry the original and the five open ones carry
+nothing, so the page is in three states for one class. #192 holds that and it is
+not repaired here.
+
+### What ends a dismissal
+
+Nothing that runs. A dismissed alert stays dismissed while its site keeps its
+fingerprint, and no part of the suite reads the alert page at all:
+
+    git grep -l -i -n 'code-scanning' -- 'Jellyfin.Plugin.WatchSync.Tests/' ; echo "exit=$?"
+    exit=1
+
+So the condition is carried by this paragraph and by the comment on each alert,
+and by neither reliably. It is the one the reading above already gives: the day a
+site takes its later argument from an environment variable, a command line, a
+configuration file or a peer, the alert is a defect again and the dismissal is
+wrong.
+
+Nobody else has read this. The commands above stand in place of a second reader.
