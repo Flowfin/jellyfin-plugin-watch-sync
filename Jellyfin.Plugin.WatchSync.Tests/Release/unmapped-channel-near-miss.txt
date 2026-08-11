@@ -1,0 +1,49 @@
+# A slice of the publish route carrying one mistake: a third channel was opened by
+# adding its tag pattern to the trigger, and the gate job was left alone. Everything
+# else here is what the route holds today.
+#
+# The run this produces starts on the tag, builds the plugin, and stops in the gate at
+# the catch-all arm. Nothing is published, so the failure is safe, and it arrives after
+# the tag has been pushed, which is the part that costs: a tag spent on a run that could
+# not have succeeded.
+
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+-stable"
+      - "[0-9]+.[0-9]+.[0-9]+.[0-9]+-stable"
+      - "[0-9]+.[0-9]+.[0-9]+-prerelease"
+      - "[0-9]+.[0-9]+.[0-9]+.[0-9]+-prerelease"
+      - "[0-9]+.[0-9]+.[0-9]+-beta"
+
+jobs:
+  gate:
+    name: Release metadata gate
+    outputs:
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+    steps:
+      - name: Check the tag and build.yaml agree
+        id: metadata
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          case "${tag}" in
+            *-stable) numeric="${tag%-stable}" ; prerelease=false ;;
+            *-prerelease) numeric="${tag%-prerelease}" ; prerelease=true ;;
+            *)
+              echo "::error::Tag ${tag} does not end in -stable or -prerelease."
+              exit 1
+              ;;
+          esac
+
+  release:
+    name: Publish the release
+    needs: [gate, build, attest]
+    steps:
+      - name: Create the release and upload the assets
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          prerelease: ${{ needs.gate.outputs.prerelease }}

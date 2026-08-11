@@ -1,0 +1,48 @@
+# A slice of the publish route carrying the other mistake, and it is the state this
+# route was in before the second channel existed: the release step names the channel as
+# a literal instead of reading what the gate derived from the tag.
+#
+# Nothing fails. A pre-release tag builds, passes the gate, and publishes an ordinary
+# release, which every operator on the stable address is then offered. The tag says one
+# thing and the release says another, and the only place the disagreement is visible is
+# the release itself.
+
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+-stable"
+      - "[0-9]+.[0-9]+.[0-9]+.[0-9]+-stable"
+      - "[0-9]+.[0-9]+.[0-9]+-prerelease"
+      - "[0-9]+.[0-9]+.[0-9]+.[0-9]+-prerelease"
+
+jobs:
+  gate:
+    name: Release metadata gate
+    outputs:
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+    steps:
+      - name: Check the tag and build.yaml agree
+        id: metadata
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          case "${tag}" in
+            *-stable) numeric="${tag%-stable}" ; prerelease=false ;;
+            *-prerelease) numeric="${tag%-prerelease}" ; prerelease=true ;;
+            *)
+              echo "::error::Tag ${tag} does not end in -stable or -prerelease."
+              exit 1
+              ;;
+          esac
+
+  release:
+    name: Publish the release
+    needs: [gate, build, attest]
+    steps:
+      - name: Create the release and upload the assets
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          prerelease: false
