@@ -188,7 +188,7 @@ repair, so the state cannot be reached in the first place.
 | what | state here | the one line |
 | --- | --- | --- |
 | `fuzz` | owed, #102 | The inbound envelope reader is the one surface a peer controls, so it is fuzzed, outside the merge gate. |
-| `stryker-mutation` | owed, #103 | Over the matcher and the conflict resolver, reported and never gating. |
+| `stryker-mutation` | here | `Mutation` runs weekly and on demand, over the matcher and over the conflict resolver once it exists, reported and never gating. The scope is in `stryker-config.json` and the components are declared in `Mutation/scope.txt`, so a component the run does not reach is a red suite rather than a score for half of what it claims. `docs/mutation.md` carries the triage. |
 | `manifest-freshness` | owed, #120 | A published manifest that no longer lists the newest release is a silent failure. |
 | `publish-failure-alert` | owed, #121 | A green publish that shipped nothing is the failure this catches, and it has already happened on that board. |
 | `e2e-login` | owed, #88 | Its analogue here is the container harness, because the behaviour worth proving end to end is different. |
