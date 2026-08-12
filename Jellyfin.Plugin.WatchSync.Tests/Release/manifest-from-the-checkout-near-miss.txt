@@ -1,0 +1,41 @@
+# A slice of the publish route carrying one mistake: the manifest was added to the
+# release by naming it where it sits in the checkout. Everything else here is what the
+# route holds today.
+#
+# The run this produces builds the plugin and uploads three paths. Two of them are in
+# the packager's output directory and the third is at the workspace root, so the upload
+# roots the artifact at the workspace and the archive arrives in the release job under
+# artifacts/ instead of beside it. The release job's ./*.zip then matches nothing, and
+# the run stops after the tag has been pushed.
+
+  build:
+    name: Build package
+    steps:
+      - name: Build the plugin package
+        id: jprm
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net9.0"
+
+      - name: Check every release input exists
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          for file in "${ARTIFACT}" "${ARTIFACT}.meta.json" build.yaml; do
+            if [ ! -f "${file}" ]; then
+              echo "::error::The packaging step did not produce ${file}."
+              exit 1
+            fi
+          done
+
+      - name: Hand the package to the later jobs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-artifact
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ steps.jprm.outputs.artifact }}
+            ${{ steps.jprm.outputs.artifact }}.meta.json
+            build.yaml

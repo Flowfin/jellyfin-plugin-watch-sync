@@ -51,18 +51,26 @@ serialising them by hand is what keeps the release order readable.
 ## What the run produces
 
 The workflow builds the plugin from the tagged commit, creates the GitHub release
-for the tag, and attaches four files:
+for the tag, and attaches five files:
 
 - the plugin archive
 - the packaging metadata written beside it, `<archive>.zip.meta.json`
+- `build.yaml`, the manifest the package was built from
 - one `.md5` file, the checksum of the archive
 - one `.sha256` file for the same archive
 
 The `.md5` is the value a Jellyfin catalog serves as the plugin checksum. There is
 exactly one per release so that no generator can pair a checksum with the wrong
-file. Both the archive and the metadata are checked for existence by name before the
-release job runs, so a release with three of the four files is not a state this route
-can reach.
+file. The archive is the only file with a checksum beside it; the metadata and the
+manifest are read rather than installed, and adding a second sidecar is what the
+single `.md5` above exists to prevent.
+
+The manifest is attached because a catalog entry for this release, and any repair of
+one, is written from the version, the ABI and the framework the package was built
+with. Read back out of the tree later those are the values of a different commit.
+The three inputs are checked for existence by name before the release job runs, and
+the manifest is asked for again after the download, so a release short of one of them
+is not a state this route can reach.
 
 The run also signs a build provenance statement for the archive, in a separate job
 that downloads the archive and runs no build tooling. A downloaded archive can be

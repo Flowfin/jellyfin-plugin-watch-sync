@@ -360,21 +360,39 @@ jobs:
         with:
           dotnet-target: "net9.0"
 
-      - name: Check both release inputs exist
+      - name: Put the manifest beside the package
+        id: assets
         env:
           ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        # The manifest is a release asset, and it is copied rather than uploaded from
+        # the checkout. The upload below roots the artifact at the deepest directory
+        # every path it is given has in common, so one path taken from the workspace
+        # root and one from the packager's output directory share only the workspace:
+        # the archive would then arrive in the release job one directory down, where
+        # its ./*.zip finds nothing and the run stops after the tag is spent. Copying
+        # first keeps every path in one directory and the download flat.
+        run: |
+          set -euo pipefail
+          directory="$(dirname "${ARTIFACT}")"
+          cp build.yaml "${directory}/build.yaml"
+          echo "manifest=${directory}/build.yaml" >> "${GITHUB_OUTPUT}"
+
+      - name: Check every release input exists
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+          MANIFEST: ${{ steps.assets.outputs.manifest }}
         # if-no-files-found on the upload below fires only when no pattern matches at
         # all, so a missing metadata file would ride through as a warning and leave the
         # release one asset short. Named here, one file at a time.
         run: |
           set -euo pipefail
-          for file in "${ARTIFACT}" "${ARTIFACT}.meta.json"; do
+          for file in "${ARTIFACT}" "${ARTIFACT}.meta.json" "${MANIFEST}"; do
             if [ ! -f "${file}" ]; then
-              echo "::error::The packaging step did not produce ${file}. Both the archive and the metadata written beside it are release assets."
+              echo "::error::The packaging step did not produce ${file}. The archive, the metadata written beside it and the manifest the package was built from are all release assets."
               exit 1
             fi
           done
-          ls -l "${ARTIFACT}" "${ARTIFACT}.meta.json"
+          ls -l "${ARTIFACT}" "${ARTIFACT}.meta.json" "${MANIFEST}"
 
       - name: Hand the package to the later jobs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -382,12 +400,15 @@ jobs:
           name: build-artifact
           retention-days: 30
           if-no-files-found: error
-          # The archive and the metadata the packager writes beside it. The metadata
-          # travels with the release so a catalog can be built from the package that
-          # was actually shipped instead of from a file read back out of the tree.
+          # The archive, the metadata the packager writes beside it, and the manifest
+          # the package was built from. The metadata and the manifest travel with the
+          # release so a catalog entry, and a repair of one, can be written from the
+          # package that actually shipped instead of from a file read back out of the
+          # tree at a later commit.
           path: |
             ${{ steps.jprm.outputs.artifact }}
             ${{ steps.jprm.outputs.artifact }}.meta.json
+            ${{ steps.assets.outputs.manifest }}
 
   attest:
     name: Attest build provenance
@@ -500,6 +521,14 @@ jobs:
           metas=(./*.zip.meta.json)
           if [ "${#metas[@]}" -ne 1 ]; then
             echo "::error::Expected exactly one packaging metadata file, found ${#metas[@]}."
+            exit 1
+          fi
+
+          # The manifest the package was built from. Asked for by name rather than left
+          # to the upload above, because a path that stopped matching there is a warning
+          # in a job that goes on to publish a release one asset short.
+          if [ ! -f ./build.yaml ]; then
+            echo "::error::The manifest the package was built from is not among the downloaded files, so the release would carry the archive without it."
             exit 1
           fi
 
