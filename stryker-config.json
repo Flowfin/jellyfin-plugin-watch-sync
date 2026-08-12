@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-net/master/src/Stryker.Core/Stryker.Core/Schemas/stryker-config.json",
+  "stryker-config": {
+    "solution": "Jellyfin.Plugin.WatchSync.sln",
+    "project": "Jellyfin.Plugin.WatchSync.csproj",
+    "test-projects": [
+      "Jellyfin.Plugin.WatchSync.Tests/Jellyfin.Plugin.WatchSync.Tests.csproj"
+    ],
+    "target-framework": "net10.0",
+    "mutate": [
+      "Matching/**/*.cs",
+      "Conflict/**/*.cs"
+    ],
+    "thresholds": {
+      "high": 100,
+      "low": 100,
+      "break": 0
+    },
+    "reporters": [
+      "json",
+      "progress"
+    ],
+    "report-file-name": "mutation-report",
+    "concurrency": 4
+  }
+}
