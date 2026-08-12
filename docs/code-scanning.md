@@ -337,6 +337,62 @@ The fourth is the one worth naming separately. Its `Path.Combine` line does not
 change when a caller starts passing something else, so it is the site where this
 argument could stop being true without the alert being raised again.
 
+The count of four is corrected in the next section. The paragraph above is left
+as the reading of 2026-08-11 rather than rewritten, because a reader who followed
+its command then got what it says.
+
+### A fifth kind, and the fourth is wider than it says
+
+Read on 2026-08-12. One site fits none of the four, and it is the one where the
+later argument is not written in the source at all:
+
+    git grep -n 'Path.Combine(root, withoutFragment' -- Jellyfin.Plugin.WatchSync.Tests/ReadmeLinkTests.cs
+    Jellyfin.Plugin.WatchSync.Tests/ReadmeLinkTests.cs:231:            var path = Path.Combine(root, withoutFragment.Replace('/', Path.DirectorySeparatorChar));
+
+`withoutFragment` is a link target taken out of `README.md`. What `Readme.IsAbsolute`
+holds back before it is a scheme, a leading double slash and `mailto:`, so a target
+beginning with a single slash reaches `Path.Combine` rooted, and the earlier
+argument is dropped, which is what the query is about:
+
+    powershell -NoProfile -Command "[System.IO.Path]::Combine('C:\repo', '/docs/x.md'); [System.IO.Path]::Combine('C:\repo', 'docs/x.md'); [System.IO.Path]::Combine('C:\repo', 'C:/other/x.md')"
+    /docs/x.md
+    C:\repo\docs/x.md
+    C:/other/x.md
+
+What follows from it is narrower than the general case, and saying so is the point
+of naming it rather than folding it into the first three. The composed path reaches
+`File.Exists` and `Directory.Exists` and nothing else, so a rooted target ends as a
+link reported unresolved rather than as a file outside the tree being read. It
+fails closed, and it fails with the wrong reason printed.
+
+It is safe today because every target in the document is relative, and that is a
+property of a tracked document rather than of this line:
+
+    grep -oE '\]\([^)]+\)' README.md | sed 's/^](//; s/)$//' | sort -u
+    CONTRIBUTING.md
+    docs/compatibility.md
+    docs/matching.md
+    docs/parity.md
+    LICENSE
+    NOTICE.md
+
+So it belongs beside the fourth rather than beside the first three: a link written
+`/docs/matching.md` in a later edit voids the dismissal while the `Path.Combine`
+line stands unchanged and the alert is not raised again.
+
+The fourth kind is wider than its sentence allows, for the same reason. Not every
+call site passes a literal:
+
+    git grep -n 'InvariantGuard.Fixture(' -- Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs
+    Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:103:            new[] { ($"Invariants/{invariant}-near-miss.txt", InvariantGuard.Fixture($"{invariant}-near-miss.txt")) },
+    Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:111:            new[] { ($"Invariants/{invariant}-near-miss-repaired.txt", InvariantGuard.Fixture($"{invariant}-near-miss-repaired.txt")) },
+    Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:127:        var sources = new[] { ("Invariants/injected-clock-near-miss.txt", InvariantGuard.Fixture("injected-clock-near-miss.txt")) };
+
+`invariant` is a theory parameter fed from `Invariants/register.txt`, so two of the
+three names are rows of a tracked file rather than literals at the call. Neither
+can be rooted while that register holds what it holds, and that is the same kind of
+condition as the one above rather than a stronger one.
+
 ### What a reader meets on the alert page
 
 That argument belongs on the alerts as well as here, because somebody who opens
@@ -354,6 +410,34 @@ The one is alert 45, which carries the replacement in English and points at this
 file. The other twenty nine still carry the original and the five open ones carry
 nothing, so the page is in three states for one class. #192 holds that and it is
 not repaired here.
+
+### The open half of the class, read on 2026-08-12
+
+Five is no longer the number. Thirteen sites of this rule are open and none of them
+has been triaged:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
+      --jq 'group_by(.rule.id)|map({rule:.[0].rule.id, count:length, numbers:[.[].number]})'
+    [{"count":1,"numbers":[84],"rule":"cs/linq/missed-select"},{"count":13,"numbers":[92,91,90,89,88,87,86,85,83,82,81,80,79],"rule":"cs/path-combine"}]
+
+Each of the thirteen was read at its own line, and each is one of the first three
+kinds or the fourth. The whole set of sites the rule can reach is in the test
+project and none is in the plugin, which is the split every reading here has found:
+
+    git grep -c 'Path\.Combine' origin/master -- 'Jellyfin.Plugin.WatchSync.Tests/*.cs' | awk -F: '{s+=$NF} END {print s}'
+    43
+
+    git grep -n 'Path\.Combine' origin/master -- 'Jellyfin.Plugin.WatchSync/**/*.cs' ; echo "exit=$?"
+    exit=1
+
+The twenty nine comments are unchanged, and the thirteen open ones carry nothing,
+so what a reader meets on the page is still the three states above rather than one
+argument per site. #192 holds it. The write that would repair it is refused on the
+route available here, so this section records the state rather than closing it.
+
+The `cs/linq/missed-select` alert in that output is a different rule and a
+different question. It is raised against a site added after the rewrites the
+sections above describe, it is untriaged, and nothing here decides it.
 
 ### What ends a dismissal
 
