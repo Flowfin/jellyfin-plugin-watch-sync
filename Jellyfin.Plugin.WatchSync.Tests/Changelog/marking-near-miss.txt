@@ -1,0 +1,5 @@
+Issue: #17
+Existing-data: unchanged
+
+A progress tick below the position threshold is no longer queued, so a running
+playback produces one change rather than one every few seconds.
