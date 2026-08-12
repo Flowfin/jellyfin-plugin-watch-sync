@@ -1,0 +1,8 @@
+Issue: #32
+Existing-Data: changed
+Effect: An episode already marked watched on one server and left part watched on
+  the other keeps the watched state, where before this version the part watched
+  position was carried across and the episode was shown as unfinished again.
+
+A position now loses to a completed watch on the far side instead of winning by
+being the newer of the two.
