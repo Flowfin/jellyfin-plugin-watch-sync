@@ -1,0 +1,21 @@
+// The repair of the near-miss next to it, and nothing else. The setting arrives the same
+// way the index does, through the constructor. If the guard passes this and refuses its
+// neighbour, what it refused was the reach for the static and not the property, the
+// method or the type.
+
+internal sealed class Sweep
+{
+    private readonly IMatchIndex _index;
+    private readonly PluginConfiguration _configuration;
+
+    internal Sweep(IMatchIndex index, PluginConfiguration configuration)
+    {
+        _index = index;
+        _configuration = configuration;
+    }
+
+    internal int Batch()
+    {
+        return _configuration.SweepBatchSize;
+    }
+}
