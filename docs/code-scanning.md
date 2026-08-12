@@ -409,7 +409,8 @@ thirty five sites does. It cannot be followed from here and it is not about them
 The one is alert 45, which carries the replacement in English and points at this
 file. The other twenty nine still carry the original and the five open ones carry
 nothing, so the page is in three states for one class. #192 holds that and it is
-not repaired here.
+not repaired here. The count in that output has moved since, and the reading
+dated 2026-08-13 below is where the page's state is now.
 
 ### The open half of the class, read on 2026-08-12
 
@@ -435,9 +436,94 @@ so what a reader meets on the page is still the three states above rather than o
 argument per site. #192 holds it. The write that would repair it is refused on the
 route available here, so this section records the state rather than closing it.
 
+That last sentence is wrong. One site has been written since, which is what the
+next section is, and the sentence is left standing so that a reader who acted on
+it can see what replaced it.
+
 The `cs/linq/missed-select` alert in that output is a different rule and a
 different question. It is raised against a site added after the rewrites the
 sections above describe, it is untriaged, and nothing here decides it.
+
+### The write is not refused, read on 2026-08-13
+
+Alert 79 was open and untriaged when the section above was written. It now
+carries the argument for its own kind, in English, pointing at this file:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq '[.[]|select(.number==79)|{number, reason: .dismissed_reason, comment: .dismissed_comment}]'
+    [{"comment":"The later argument at this call is a literal in the source, so it cannot be rooted and no earlier argument is dropped. The query is right wherever a later argument can be absolute. docs/code-scanning.md carries the class and the condition that makes this a defect again.","number":79,"reason":"false positive"}]
+
+That comment is written in the singular and its site composes two later
+arguments, both of them literals, so it is right about the site and narrower
+than the kind it belongs to.
+
+What is true and is not the same thing is that a comment cannot be changed on an
+alert that is already dismissed. The service answers that with a 400, which the
+reading on #192 quotes, so each of the twenty nine already-dismissed sites is a
+reopen and a fresh dismissal rather than one write. That is what the repair
+costs and it is not what stops it.
+
+Forty five of the forty six sites of this class were not written in this pass, so
+the page now holds four states rather than the three the sections above describe:
+twenty nine carrying the original comment, one carrying a general English
+replacement, one carrying the argument for its own kind, and fifteen open and
+carrying nothing.
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq '[.[].dismissed_comment]|group_by(.)|map(length)'
+    [29,1,1]
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
+      --jq 'group_by(.rule.id)|map({rule:.[0].rule.id, count:length, numbers:[.[].number]})'
+    [{"count":1,"numbers":[84],"rule":"cs/linq/missed-select"},{"count":1,"numbers":[93],"rule":"cs/linq/missed-where"},{"count":15,"numbers":[96,95,94,92,91,90,89,88,87,86,85,83,82,81,80],"rule":"cs/path-combine"}]
+
+A `cs/linq/missed-where` alert is in that output and was not in the one above it.
+It is the same case as the `cs/linq/missed-select` beside it: a different rule,
+raised against a site added later, untriaged, and not decided here.
+
+### Which kind each site of the class is
+
+The five kinds are what a comment has to say, and nothing recorded which site was
+which, so writing them was a re-reading of forty six lines rather than a
+mechanical pass. Every site of the class in both states, with the line the alert
+names:
+
+    for state in dismissed open; do
+      gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?tool_name=CodeQL&per_page=100&state=$state" \
+        --jq '.[]|select(.rule.id=="cs/path-combine")|"\(.number)\t\(.most_recent_instance.location.path)\t\(.most_recent_instance.location.start_line)"'
+    done | sort -t"$(printf '\t')" -k2,2 -k3,3n | while IFS="$(printf '\t')" read -r number path line; do
+      printf '%s\t%s:%s\t' "$number" "$path" "$line"; sed -n "${line}p" "$path"
+    done
+
+Twelve of the forty six calls open on the line the alert names and close on a
+later one, so for those the command prints the opening and none of the arguments
+the kind is decided by. Those twelve were read with the lines that follow them.
+
+Reading all forty six gives this split. It is a reading of that output rather
+than something a command decides, and the alert numbers are here so the writing
+that is still owed does not repeat the reading:
+
+    24  every later argument is a literal in the source
+        41 42 43 45 50 52 53 54 56 57 60 63 68 70 72 75 79 80 85 86 87 89 90 96
+     9  a const string of the test project, beside literals
+        46 49 55 61 81 82 88 91 94
+     2  a repository-relative path git printed or Path.GetRelativePath produced
+        48 64
+    10  a fixture name reaching a helper as a parameter
+        47 51 62 69 71 73 76 83 92 95
+     1  a link target read out of README.md
+        58
+
+The last of those is `ReadmeLinkTests.cs:231`, which the section above argues,
+and it is the only site of the class where the query is right about what the
+line does. It carries the original comment and a reason of `false positive`
+today. A site the query is right about is not a false positive, so what it is
+owed is a reason of `used in tests` and a comment saying what the consequence
+there actually is, rather than the sentence the other forty five get.
+
+The first two kinds take one sentence each and the third and fourth take their
+own, because a sentence true of a literal is not true of a parameter and the
+fourth is the one that can stop being true without its line moving.
 
 ### What ends a dismissal
 
