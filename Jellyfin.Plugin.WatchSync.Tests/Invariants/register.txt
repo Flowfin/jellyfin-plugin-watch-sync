@@ -19,3 +19,4 @@ storage-identity :: 25 :: the plugin's own sources :: StorageIdentityGuardTests
 mapping-not-inferred :: 42 :: the plugin's own sources :: InvariantGuardTests
 injected-clock :: 32 :: the plugin's own sources :: InvariantGuardTests
 log-holds-no-viewing :: 67 :: the plugin's own sources :: InvariantGuardTests
+static-instance-not-read :: 8 :: the plugin's own sources :: InvariantGuardTests
