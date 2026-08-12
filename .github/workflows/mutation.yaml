@@ -1,0 +1,82 @@
+# Asks whether a test would have noticed the code being wrong.
+#
+# Coverage says which lines ran. This changes a line and asks whether anything
+# went red, which is the question that matters for a matcher whose failure is
+# somebody's watch history landing on the wrong item. It is scoped to the
+# components where a survivor is a real gap, and the scope is in
+# stryker-config.json rather than here, so a clone runs the same scope by hand.
+#
+# It reports and gates nothing. A score threshold on a merge is a number people
+# tune rather than a fault they fix. What does fail the job is the instrument
+# having stopped: no report, an unreadable report, or a report carrying no
+# tested mutant. Those three look exactly like a green run from the outside.
+#
+# It carries no pull-request trigger on purpose. A run takes minutes per
+# component and grows with the suite, and a check that slow on every push is one
+# people learn to ignore.
+name: Mutation
+
+on:
+  schedule:
+    # Weekly, offset from the other scheduled runs in this repository so they do
+    # not queue behind each other on the same minute.
+    - cron: '17 4 * * 3'
+  workflow_dispatch:
+
+# Deny by default at the workflow level; the job below grants only what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutate:
+    name: Mutate the matcher and the conflict resolver
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read # checkout and restore
+    env:
+      # Pinned rather than floating. A mutation score that moves because the tool
+      # learned a new mutator reads as the suite having got worse.
+      STRYKER_VERSION: "4.16.0"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install both SDKs
+        # The run mutates one target, but the solution builds both, and a restore
+        # that reaches only one of them fails before a single mutant is created.
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Install Stryker
+        run: dotnet tool install --global dotnet-stryker --version "${STRYKER_VERSION}"
+
+      - name: Mutate
+        # Stryker's own exit code is about the break threshold, which is zero
+        # here, so it says nothing about whether a report was produced. The
+        # verdict is the step below.
+        continue-on-error: true
+        run: dotnet stryker
+
+      - name: A run that produced no report is a failure, and a low score is not
+        run: |
+          set -euo pipefail
+          report="$(find StrykerOutput -name 'mutation-report.json' -print 2>/dev/null | sort | tail -1 || true)"
+          python3 .github/check-mutation-report.py "${report:-StrykerOutput/no-report-was-produced.json}"
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-report
+          path: StrykerOutput/**/reports/mutation-report.json
+          if-no-files-found: ignore
+          retention-days: 30
