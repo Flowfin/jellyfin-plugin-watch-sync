@@ -14,8 +14,8 @@ lines exist.
 
 | plugin version | framework | declared ABI | built | unit suite | container harness | read by a person on a running server | supported | not checked |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1.0.0.0 | net9.0 | 10.11.11.0 | `call / build` | `call / test` | not evaluated | docs/first-load.md, 2026-08-09 | no | the user data event, any write through the server's own manager, the configuration page in a browser, an upgrade over an earlier install |
-| 1.0.0.0 | net10.0 | 12.0.0.0 | `call / build` | `call / test` | not evaluated | docs/first-load.md, 2026-08-09 | no | the user data event, any write through the server's own manager, the configuration page in a browser, an upgrade over an earlier install |
+| 0.1.0.0 | net9.0 | 10.11.11.0 | `call / build` | `call / test` | not evaluated | docs/first-load.md, 2026-08-09 | no | the user data event, any write through the server's own manager, the configuration page in a browser, an upgrade over an earlier install |
+| 0.1.0.0 | net10.0 | 12.0.0.0 | `call / build` | `call / test` | not evaluated | docs/first-load.md, 2026-08-09 | no | the user data event, any write through the server's own manager, the configuration page in a browser, an upgrade over an earlier install |
 
 `supported` is `no` on both rows and it is a derived value rather than an opinion.
 The reading in the person column is a first load and nothing more: the plugin
