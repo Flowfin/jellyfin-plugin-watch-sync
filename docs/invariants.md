@@ -32,6 +32,7 @@ without covering the rest.
 | `injected-clock` | #32 | the plugin's own sources | `InvariantGuardTests` |
 | `log-holds-no-viewing` | #67 | the plugin's own sources | `InvariantGuardTests` |
 | `static-instance-not-read` | #8 | the plugin's own sources | `InvariantGuardTests` |
+| `applied-change-is-assigned` | #50 | the plugin's own sources | `InvariantGuardTests` |
 
 ## What each one is for
 
@@ -69,6 +70,17 @@ registration that supplies them is argued. The static itself is still there and 
 issue's subject; this rule holds the reach for it, which is the half that gets written
 without anybody deciding to.
 
+**`applied-change-is-assigned`.** No applied change adds to the value it finds. Whether
+a send that timed out is ever repeated is not this plugin's to decide, so an envelope
+may arrive twice and applying it twice has to be indistinguishable from applying it
+once. A write that assigns is that whatever arrives; a write that adds is not, and the
+set of recently seen envelopes #50 also asks for only bounds the window in which the
+addition is invisible. The failure it produces is one watch counted as two, with
+nothing on either server saying which of the two was invented, and it is the same
+failure the prior art in that issue produces from the other direction. The plugin's own
+record is immutable, so the mistake has nowhere to be made except on the server's
+record at the moment of the write, which is exactly where the apply path will be.
+
 ## What these patterns cannot see
 
 A pattern reads one line of text. That is enough for the mistakes above as they are
@@ -77,14 +89,14 @@ apart, it is written here rather than left for somebody to discover after trusti
 green run.
 
 **A scan is only as wide as its subject.** These rules read the plugin's own sources.
-The plugin is small today. Nothing in it logs, names a user or reads a machine clock, so
-three of the four invariants carried by that guard scan sources that could not have
-violated them:
+The plugin is small today. Nothing in it logs, names a user, reads a machine clock or
+writes a change, so four of the five invariants carried by that guard scan sources that
+could not have violated them:
 
-    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
+    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)|\.(PlayCount|PlaybackPositionTicks)\s*(\+\+|\+=)' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
     exit=1
 
-The fourth is not in that position. The static that `static-instance-not-read` refuses
+The fifth is not in that position. The static that `static-instance-not-read` refuses
 reaching for is in `Plugin.cs`, and every source in the project can see it, so that rule
 has had something to be true of since the day the project was created.
 
@@ -126,6 +138,16 @@ is stronger than the invariant deliberately, for the same reason the logging rul
 there is no accessor in the plugin today, so a rule written around one would carve out a
 shape nobody has decided yet. When it arrives it is a declared departure, which puts the
 exception where a reader meets it and takes it away again the day the call goes.
+
+**`applied-change-is-assigned` sees the operators, not every addition.** The rules
+refuse an increment written as `++` or `+=` on the two fields that could carry one. The
+same non-idempotent write spelled out, a value read from the record and put back with
+one added to it, reaches the wrong count without either operator on the line, and so
+does a count assembled somewhere else and assigned here. What the rules hold is the
+one-character version, which is the one that gets written while the apply path is being
+written, and the reconciliation that decides the count is #33 rather than this guard.
+They also name two fields by name, so they say nothing at all about a field this plugin
+does not carry.
 
 ## Departures
 
