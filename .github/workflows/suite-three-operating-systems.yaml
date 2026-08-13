@@ -119,6 +119,29 @@ jobs:
           Write-Output "user: $($identity.Name)"
           Write-Output "elevated: $elevated"
 
+      - name: Report the processors this leg measures
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The suite runs its collections in parallel and nothing in this
+          # repository sets a thread cap, so each run takes the runner's own
+          # default and that default is derived from the processors the machine
+          # has. The count is therefore part of what a green leg means, and it
+          # is the one part the log does not carry: a passed run on a machine
+          # with four of them and a passed run on one with thirty-two look
+          # identical afterwards, and only the first says anything about a small
+          # machine.
+          #
+          # This reports and refuses nothing. Deleting it turns no leg red,
+          # which is the honest description of a line that exists so a reading
+          # can quote it rather than assume it.
+          if [ -n "${NUMBER_OF_PROCESSORS:-}" ]; then
+            processors="${NUMBER_OF_PROCESSORS}"
+          else
+            processors="$(getconf _NPROCESSORS_ONLN)"
+          fi
+          echo "logical processors: ${processors}"
+
       - name: Run the suite
         shell: bash
         run: dotnet test Jellyfin.Plugin.WatchSync.sln --nologo
