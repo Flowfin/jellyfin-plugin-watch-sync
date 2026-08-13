@@ -17,12 +17,12 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// closure a register is a list somebody maintains by remembering to, which is the failure mode
 /// of every list in this repository that is not read by something.
 ///
-/// Three of the four invariants are carried here. The fourth, storage identity, is carried by the
+/// Four of the five invariants are carried here. The fifth, storage identity, is carried by the
 /// guard that landed with the document arguing it, and this register names it rather than
 /// re-implementing it, because two scanners over one invariant would disagree about what counts
 /// as a violation.
 ///
-/// Two of the three scan a subject that is nearly empty today. That is stated rather than hidden:
+/// Three of the four scan a subject that is nearly empty today. That is stated rather than hidden:
 /// a green run over sources that could not have violated the rule is not coverage, and the
 /// near-miss fixtures are what make each rule a guard rather than a green tick. What each pattern
 /// cannot see is written in `docs/invariants.md`, where somebody deciding whether to trust a run
@@ -231,8 +231,8 @@ public class InvariantGuardTests
 
         Assert.All(InvariantGuard.Vocabulary(), rule =>
         {
-            Assert.True(register.ContainsKey(rule.Invariant), $"{rule.Id} belongs to {rule.Invariant}, which the register does not name.");
-            Assert.Equal(register[rule.Invariant], rule.Issue);
+            Assert.True(register.TryGetValue(rule.Invariant, out var issue), $"{rule.Id} belongs to {rule.Invariant}, which the register does not name.");
+            Assert.Equal(issue, rule.Issue);
         });
     }
 
@@ -497,15 +497,12 @@ public class InvariantGuardTests
         {
             var entries = new List<string[]>();
 
-            foreach (var line in File.ReadAllLines(DataFile(name)))
+            var significant = File.ReadAllLines(DataFile(name))
+                .Select(line => line.Trim())
+                .Where(trimmed => trimmed.Length > 0 && !trimmed.StartsWith('#'));
+
+            foreach (var trimmed in significant)
             {
-                var trimmed = line.Trim();
-
-                if (trimmed.Length == 0 || trimmed.StartsWith('#'))
-                {
-                    continue;
-                }
-
                 var parts = trimmed.Split(Separator);
                 Assert.True(parts.Length == fields, $"{name} has an entry with {parts.Length} fields where {fields} are required: {trimmed}");
 

@@ -14,6 +14,26 @@
 # itself. On Windows those two come apart unless the code says so, and nothing
 # in a Linux run would ever notice.
 #
+# Elevation is the second thing this workflow is for, and it is where the three
+# legs stop being the same job. The Linux and macOS legs refuse a run as uid 0,
+# so a green mark on either of them is a green mark from an account that could
+# not have opened the machine-wide path or bound the privileged port the rule
+# refuses. The hosted Windows image runs its jobs in an elevated account, so the
+# same green mark from the Windows leg alone would answer a weaker question: that
+# the suite passes on Windows, rather than that it passes on Windows without
+# elevation. The last two steps close that gap by creating a standard account on
+# the runner and running the suite again as it.
+#
+# The local time zone is the third thing, and it is the axis a reading of the
+# sources reaches least far along. The headless vocabulary refuses the direct
+# reads by name, so no test can ask for the machine's zone and none does. What no
+# vocabulary refuses is a conversion or a parse that takes the zone implicitly,
+# because those are spelled like the calls that do not, and the only way to see
+# one is to run the same suite under a zone the machine does not have. Two of the
+# legs impose one per process. The Windows leg cannot, for the reason its own
+# step gives, so the zone readings are two legs rather than three and the third
+# says which of the two questions it answered.
+#
 # There is deliberately no path filter. A filtered workflow reports no check run
 # at all rather than a green one, which the two required workflows already carry
 # a note about.
@@ -39,7 +59,12 @@ jobs:
   suite:
     name: Suite (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    # No leg runs the suite once. The Windows leg runs it twice, from the job's
+    # own elevated account and from a standard one that restores its packages
+    # from scratch; the other two run it three times, once under the runner's own
+    # zone and once under each of the two imposed below. The ceiling covers the
+    # longer of those rather than a single run.
+    timeout-minutes: 30
     strategy:
       # One operating system failing is the result, not a reason to stop
       # measuring the other two. A cancelled leg leaves no evidence either way.
@@ -96,15 +121,194 @@ jobs:
           # This reports and does not refuse, and the difference is deliberate.
           # Whether the hosted Windows image runs its jobs in an elevated
           # account is a property of the image rather than of this repository,
-          # and there is no supported way for a job to drop it. Printing it
-          # keeps the run honest: whoever reads this run can see which question
-          # the Windows leg answered.
+          # and a job cannot drop the privilege it was started with. Refusing
+          # here would refuse every Windows run this image can produce. What is
+          # printed is the account the ordinary run below used, so a reader can
+          # see which of the two Windows runs answered which question.
           $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
           $principal = [System.Security.Principal.WindowsPrincipal]::new($identity)
           $elevated = $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
           Write-Output "user: $($identity.Name)"
           Write-Output "elevated: $elevated"
 
+      - name: Report the processors this leg measures
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The suite runs its collections in parallel and nothing in this
+          # repository sets a thread cap, so each run takes the runner's own
+          # default and that default is derived from the processors the machine
+          # has. The count is therefore part of what a green leg means, and it
+          # is the one part the log does not carry: a passed run on a machine
+          # with four of them and a passed run on one with thirty-two look
+          # identical afterwards, and only the first says anything about a small
+          # machine.
+          #
+          # This reports and refuses nothing. Deleting it turns no leg red,
+          # which is the honest description of a line that exists so a reading
+          # can quote it rather than assume it.
+          if [ -n "${NUMBER_OF_PROCESSORS:-}" ]; then
+            processors="${NUMBER_OF_PROCESSORS}"
+          else
+            processors="$(getconf _NPROCESSORS_ONLN)"
+          fi
+          echo "logical processors: ${processors}"
+
       - name: Run the suite
         shell: bash
         run: dotnet test Jellyfin.Plugin.WatchSync.sln --nologo
+
+      - name: Run the suite under two time zones
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Neither zone is a whole number of hours from UTC, which is the whole
+          # point of choosing them. Asia/Kolkata is half an hour off and never
+          # transitions, so it reaches code that assumes an offset is a whole
+          # hour. Australia/Lord_Howe is half an hour off and its daylight change
+          # is itself half an hour, so it reaches the same assumption inside a
+          # transition, which a zone changing by a whole hour would let through.
+          #
+          # The runtime is asked what it took rather than trusted to have taken
+          # it. A process that kept the machine's own zone would pass these runs
+          # exactly like one under the requested zone, and the log would read the
+          # same either way, which is the one outcome this step must not produce.
+          cat > "${RUNNER_TEMP}/zone.cs" <<'CSHARP'
+          var requested = Environment.GetEnvironmentVariable("TZ");
+          var matched = string.Equals(TimeZoneInfo.Local.Id, requested, StringComparison.Ordinal);
+          Console.WriteLine($"requested {requested}, matched {matched}");
+          return matched ? 0 : 1;
+          CSHARP
+
+          for zone in Asia/Kolkata Australia/Lord_Howe; do
+            if ! TZ="${zone}" dotnet run "${RUNNER_TEMP}/zone.cs"; then
+              echo "::error::The runtime did not take ${zone} as its local zone, so a suite run under it would report a zone it had not used."
+              exit 1
+            fi
+            TZ="${zone}" dotnet test Jellyfin.Plugin.WatchSync.sln --nologo
+          done
+
+      - name: Report that no zone is imposed on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # .NET reads TZ on Linux and macOS. On Windows it takes the local zone
+          # from the machine setting and does not read TZ at all, measured
+          # against the 10.0.301 SDK with the same file the step above runs:
+          #
+          #     $env:TZ='Asia/Kolkata'; dotnet run zone.cs
+          #     requested Asia/Kolkata, matched False
+          #     exit=1
+          #
+          # So a zone on this leg is a machine-wide write rather than a
+          # per-process one, and this workflow makes none. This leg therefore
+          # answers that the suite passes on Windows, and not that it passes on
+          # Windows under a zone it was not written on. It reports and refuses
+          # nothing: deleting it turns no leg red, and what it removes is a
+          # reader's ability to see which of the two questions this leg answered.
+          Write-Output "No time zone is imposed on this leg. The suite ran under the image's own zone."
+
+      - name: Run the suite as a standard account on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # The account lives for the length of this step. Its password is minted
+          # here, is never written anywhere the run publishes, and the account is
+          # removed by the step below whether this one passed or failed. It joins
+          # Users and nothing else: an account in no group at all is not an
+          # administrator either, but it cannot log on, and the logon is the whole
+          # point of the step.
+          $bytes = [byte[]]::new(30)
+          [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+          $secret = ConvertTo-SecureString -String ([Convert]::ToBase64String($bytes) + 'aA1!') -AsPlainText -Force
+
+          New-LocalUser -Name 'suite' -Password $secret -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -Description 'Runs the suite without elevation.' | Out-Null
+          Add-LocalGroupMember -Group 'Users' -Member 'suite'
+
+          $workspace = $env:GITHUB_WORKSPACE
+          $scratch = Join-Path $env:RUNNER_TEMP 'unprivileged'
+          New-Item -ItemType Directory -Path $scratch -Force | Out-Null
+
+          # The checkout and one scratch directory are reachable by the account and
+          # nothing else is. Read alone is not enough: the suite builds into the
+          # checkout, so a read-only grant would fail on the build rather than on
+          # anything this run is about.
+          icacls $workspace /grant 'suite:(OI)(CI)M' /T /C /Q | Out-Null
+          icacls $scratch /grant 'suite:(OI)(CI)M' /T /C /Q | Out-Null
+
+          # The script takes its paths as arguments rather than carrying them as
+          # text, so nothing here is quoted into a second language.
+          $runner = Join-Path $scratch 'run.ps1'
+          @'
+          param([string]$Workspace, [string]$Packages, [string]$Dotnet)
+          $ErrorActionPreference = 'Stop'
+          whoami
+          whoami /groups | Select-String 'S-1-16-'
+          # git refuses a repository owned by another account unless it is told the
+          # ownership is expected. The headless guard shells out to git ls-files, so
+          # without this it reads an empty set and the run fails for a reason that
+          # has nothing to do with elevation. The statement is made through the
+          # environment rather than through git config, because a config write wants
+          # a home directory and this account has no reason to acquire one. Both
+          # spellings of the path are given: git reports one and the runner set the
+          # other, and a comparison that misses is a silent refusal rather than an
+          # error.
+          $env:GIT_CONFIG_COUNT = '2'
+          $env:GIT_CONFIG_KEY_0 = 'safe.directory'
+          $env:GIT_CONFIG_VALUE_0 = $Workspace.Replace('\', '/')
+          $env:GIT_CONFIG_KEY_1 = 'safe.directory'
+          $env:GIT_CONFIG_VALUE_1 = $Workspace
+          $env:NUGET_PACKAGES = $Packages
+          $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+          Set-Location $Workspace
+          & $Dotnet test Jellyfin.Plugin.WatchSync.sln --nologo
+          exit $LASTEXITCODE
+          '@ | Set-Content -Path $runner -Encoding utf8
+
+          $out = Join-Path $scratch 'stdout.txt'
+          $err = Join-Path $scratch 'stderr.txt'
+          $credential = [System.Management.Automation.PSCredential]::new('.\suite', $secret)
+
+          # Every value is quoted on the way in. Start-Process joins the list with
+          # spaces and quotes nothing, so an unquoted path under Program Files
+          # arrives as two arguments and the second one is read as a switch.
+          $arguments = @(
+            '-NoProfile',
+            '-File', ('"' + $runner + '"'),
+            '-Workspace', ('"' + $workspace + '"'),
+            '-Packages', ('"' + (Join-Path $scratch 'packages') + '"'),
+            '-Dotnet', ('"' + (Get-Command dotnet).Source + '"'))
+
+          # The new account gets the environment built for it rather than a copy of
+          # this job's. Without this the child runs as the standard account and
+          # still points at the elevated account's home and temporary directories,
+          # which fails on the first write to either and says nothing about
+          # elevation.
+          $process = Start-Process -FilePath (Get-Command pwsh).Source -ArgumentList $arguments -Credential $credential -WorkingDirectory $scratch -UseNewEnvironment -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+
+          Get-Content -Path $out
+          $failures = Get-Content -Path $err -Raw
+          if ($failures) {
+            Write-Output $failures
+          }
+
+          if ($process.ExitCode -ne 0) {
+            Write-Output "::error::The suite did not pass as a standard account. Exit code $($process.ExitCode)."
+            exit $process.ExitCode
+          }
+
+      - name: Remove the standard account
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # The runner is discarded after the job, so this is tidiness rather than
+          # a control. It runs on a failed run too, because a step that only tidies
+          # up after success is the one that leaves the mess worth finding.
+          if (Get-LocalUser -Name 'suite' -ErrorAction SilentlyContinue) {
+            Remove-LocalUser -Name 'suite'
+            Write-Output 'Removed the standard account.'
+          }

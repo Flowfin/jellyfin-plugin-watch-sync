@@ -193,9 +193,13 @@ repository-relative path composed inside a guard or a document test from a value
 read out of the tracked tree, and the query is about a second argument that could
 be rooted and would then discard the first. The inputs here are paths git prints,
 so none can be rooted while the tree they came from is this one. Kept rather than
-repaired, and not dismissed: the query is right about the general case, and the
-day one of those guards reads a path from somewhere other than git is the day the
-alert should be a defect again.
+repaired: the query is right about the general case, and the day one of those
+guards reads a path from somewhere other than git is the day the alert should be
+a defect again.
+
+This paragraph also said they were not dismissed. Thirty of them were, hours
+after the reading was taken, and the section on that class at the end of this
+file is where the alert page's state is written.
 
 `cs/linq/missed-select`, `cs/linq/missed-where` and `cs/inefficient-containskey`
 are seven more, and six of them are in the suite. The two in the plugin are both
@@ -207,17 +211,401 @@ are seven more, and six of them are in the suite. The two in the plugin are both
     cs/linq/missed-where    Jellyfin.Plugin.WatchSync/Matching/PreferredIdentifier.cs:102
 
 Both are a loop that returns on the first element meeting a condition, which the
-query offers to write as a filter. Neither is a defect and neither rewrite is
-clearer: one walks the characters of a candidate identifier and refuses on the
-first that is not a digit, the other walks a small map once to answer a
-case-insensitive lookup the map itself cannot answer. Kept, with the reason here
-rather than in a dismissal comment nobody reads back.
+query offers to write as a filter. That offer is refused and the sites are still
+rewritten, in #182, because a filter is not what either loop is. `IsDigits` walks
+a candidate identifier and refuses on the first character that is not a digit,
+which is a quantifier over the whole string and is what `All` says in one line.
+`TryRead` reads the first value stored under a key equal to one it holds ignoring
+case, which is a filter, a projection and a first, and the loop it replaced
+assigned an out parameter from inside a branch to say so. The other five are the
+same kind of reading: four loops mapping their element on the first line of the
+body, and one register asked `ContainsKey` and then indexed with the same key.
 
-Nothing was dismissed and no alert state was changed. This is a reading and it
-records what the analyses hold; it is not a claim that the count will be the same
-tomorrow. The count moves with every change, which is why the commands are here
-and the numbers are dated.
+The bar every one of them had to pass is that the site reads better afterwards.
+A rewrite bought with a reader's time is refused here whatever it does to the
+count, which is why `cs/path-combine` above is kept and these are not. The suite
+is the evidence that nothing moved with them: it stays green with no test edited
+to make it so.
+
+Nothing had been dismissed and no alert state had been changed at the moment this
+reading was taken. It stopped being true the same evening, for `cs/path-combine`
+and for nothing else, and the section at the end of this file carries that. This
+is a reading and it records what the analyses held; it is not a claim that the
+count will be the same tomorrow. The count moves with every change, which is why
+the commands are here and the numbers are dated.
 
 Three of the four languages have never been analysed on this board, so the first
 run of this workflow produces findings this reading says nothing about. Reading
 them is the next triage rather than a defect in this one.
+
+## A fifth loop of the same shape, raised after that reading
+
+The reading above is dated 2026-08-09 and the analyses have run since. A fifth
+`cs/linq/missed-select` was raised on 2026-08-10 against the table reader in
+`LoggingDocumentTests`, which arrived with `docs/logging.md` after the four were
+listed:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
+      --jq '.[]|select(.rule.id=="cs/linq/missed-select")|"\(.number)\t\(.created_at)\t\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
+    78      2026-08-10T08:01:59Z    Jellyfin.Plugin.WatchSync.Tests/LoggingDocumentTests.cs:231
+    74      2026-08-09T07:04:07Z    Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:500
+    67      2026-08-09T04:34:50Z    Jellyfin.Plugin.WatchSync.Tests/MovieMatchKeyTests.cs:156
+    59      2026-08-06T23:11:44Z    Jellyfin.Plugin.WatchSync.Tests/StorageIdentityGuardTests.cs:375
+    44      2026-08-06T06:24:24Z    Jellyfin.Plugin.WatchSync.Tests/HeadlessGuardTests.cs:345
+
+That list was taken on 2026-08-10, before the rewrite landed. It is the order the
+service returns rather than the order a reader would sort them into, and it is
+written that way because a re-sorted paste and a page that has moved underneath
+look identical to whoever runs the command next. A later run returns fewer rows
+as each site closes, and an empty answer is this block having done its work.
+
+It is the same helper shape as the other four, a loop trimming and skipping its
+element on the first lines of the body, so it is rewritten with them rather than
+left for a later pass. That is five sites of that rule and not four, and the
+sentence above counting four is the reading of 2026-08-09 rather than a claim
+about today.
+
+Nothing else in that reading is re-measured here. The `cs/path-combine` count it
+quotes has moved and this change does not say by how much or why; that class is
+decided on its own and the count above is not to be read as current.
+
+## What the alert page holds for `cs/path-combine`
+
+Read on 2026-08-11. Both readings above describe that class as open and
+undismissed. It is neither of those things, and this section is what the page
+holds rather than a second argument about the class.
+
+Thirty are dismissed as a false positive. Five of the same shape, raised after
+that happened, are open:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq 'group_by(.rule.id)|map({rule:.[0].rule.id, count:length, reasons:([.[].dismissed_reason]|unique)})'
+    [{"count":30,"reasons":["false positive"],"rule":"cs/path-combine"}]
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
+      --jq 'group_by(.rule.id)|map({rule:.[0].rule.id, count:length})|sort_by(-.count)|.[]|"\(.count)\t\(.rule)"'
+    5       cs/path-combine
+
+Thirty five sites of one rule, and nothing else under CodeQL in either state. The
+eight `cs/linq` and `cs/inefficient-containskey` alerts the readings above list
+are closed by the rewrites those readings describe rather than by a dismissal,
+which is the difference this section exists to keep visible:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=fixed&tool_name=CodeQL&per_page=100" \
+      --jq 'group_by(.rule.id)|map({rule:.[0].rule.id, count:length})|sort_by(-.count)|.[]|"\(.count)\t\(.rule)"'
+    5       cs/linq/missed-select
+    2       cs/linq/missed-where
+    1       cs/inefficient-containskey
+
+All thirty five are in the test project and none is in the plugin, which is the
+same split the reading above found for this class:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq '[.[]|.most_recent_instance.location.path|split("/")[0]]|group_by(.)|map({(.[0]):length})|add'
+    {"Jellyfin.Plugin.WatchSync.Tests":30}
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
+      --jq '[.[]|.most_recent_instance.location.path|split("/")[0]]|group_by(.)|map({(.[0]):length})|add'
+    {"Jellyfin.Plugin.WatchSync.Tests":5}
+
+### Why the query is right and none of these sites is a defect
+
+What the rule says, read from the service rather than from memory:
+
+    gh api repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts/45 --jq .rule.full_description
+    'Path.Combine' may silently drop its earlier arguments if its later arguments are absolute paths.
+
+That is a real defect anywhere a later argument can be absolute. It cannot be at
+these sites, and the reason is what the later argument is at each one. The lines
+under the alerts read with:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq '.[]|"\(.most_recent_instance.location.path)\t\(.most_recent_instance.location.start_line)"' \
+      | sort | while IFS="$(printf '\t')" read -r path line; do printf '%s:%s ' "$path" "$line"; sed -n "${line}p" "$path"; done
+
+Reading all of them gives four kinds and no fifth. A literal written at the call,
+as in `Path.Combine(directory.FullName, ".git")`. A `const string` of the test
+project, as in `Path.Combine(root, TestProject)`. A repository-relative path that
+git printed or that `Path.GetRelativePath` produced against the same root, which
+is the source scan in `HeadlessGuardTests`. And a fixture name reaching a helper
+as a parameter, in `ReleaseRoute.Fixture` and in the headless fixture reader,
+where every call site passes a literal. None of the four reaches an environment
+variable, a command line, a configuration file or a peer, so none can be rooted
+while the tree it came from is this one.
+
+The fourth is the one worth naming separately. Its `Path.Combine` line does not
+change when a caller starts passing something else, so it is the site where this
+argument could stop being true without the alert being raised again.
+
+The count of four is corrected in the next section. The paragraph above is left
+as the reading of 2026-08-11 rather than rewritten, because a reader who followed
+its command then got what it says.
+
+### A fifth kind, and the fourth is wider than it says
+
+Read on 2026-08-12. One site fits none of the four, and it is the one where the
+later argument is not written in the source at all:
+
+    git grep -n 'Path.Combine(root, withoutFragment' -- Jellyfin.Plugin.WatchSync.Tests/ReadmeLinkTests.cs
+    Jellyfin.Plugin.WatchSync.Tests/ReadmeLinkTests.cs:231:            var path = Path.Combine(root, withoutFragment.Replace('/', Path.DirectorySeparatorChar));
+
+`withoutFragment` is a link target taken out of `README.md`. What `Readme.IsAbsolute`
+holds back before it is a scheme, a leading double slash and `mailto:`, so a target
+beginning with a single slash reaches `Path.Combine` rooted, and the earlier
+argument is dropped, which is what the query is about:
+
+    powershell -NoProfile -Command "[System.IO.Path]::Combine('C:\repo', '/docs/x.md'); [System.IO.Path]::Combine('C:\repo', 'docs/x.md'); [System.IO.Path]::Combine('C:\repo', 'C:/other/x.md')"
+    /docs/x.md
+    C:\repo\docs/x.md
+    C:/other/x.md
+
+What follows from it is narrower than the general case, and saying so is the point
+of naming it rather than folding it into the first three. The composed path reaches
+`File.Exists` and `Directory.Exists` and nothing else, so a rooted target ends as a
+link reported unresolved rather than as a file outside the tree being read. It
+fails closed, and it fails with the wrong reason printed.
+
+It is safe today because every target in the document is relative, and that is a
+property of a tracked document rather than of this line:
+
+    grep -oE '\]\([^)]+\)' README.md | sed 's/^](//; s/)$//' | sort -u
+    CONTRIBUTING.md
+    docs/compatibility.md
+    docs/matching.md
+    docs/parity.md
+    LICENSE
+    NOTICE.md
+
+So it belongs beside the fourth rather than beside the first three: a link written
+`/docs/matching.md` in a later edit voids the dismissal while the `Path.Combine`
+line stands unchanged and the alert is not raised again.
+
+The fourth kind is wider than its sentence allows, for the same reason. Not every
+call site passes a literal:
+
+    git grep -n 'InvariantGuard.Fixture(' -- Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs
+    Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:103:            new[] { ($"Invariants/{invariant}-near-miss.txt", InvariantGuard.Fixture($"{invariant}-near-miss.txt")) },
+    Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:111:            new[] { ($"Invariants/{invariant}-near-miss-repaired.txt", InvariantGuard.Fixture($"{invariant}-near-miss-repaired.txt")) },
+    Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:127:        var sources = new[] { ("Invariants/injected-clock-near-miss.txt", InvariantGuard.Fixture("injected-clock-near-miss.txt")) };
+
+`invariant` is a theory parameter fed from `Invariants/register.txt`, so two of the
+three names are rows of a tracked file rather than literals at the call. Neither
+can be rooted while that register holds what it holds, and that is the same kind of
+condition as the one above rather than a stronger one.
+
+### What a reader meets on the alert page
+
+That argument belongs on the alerts as well as here, because somebody who opens
+one and finds no reason cannot tell a decision from an oversight. Twenty nine of
+the thirty carry a comment written in another language, pointing at a tracker
+outside this repository, and arguing about a different shape: a path composed
+from a temporary directory and a generated name, which is not what any of these
+thirty five sites does. It cannot be followed from here and it is not about them.
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq '[.[].dismissed_comment]|group_by(.)|map(length)'
+    [29,1]
+
+The one is alert 45, which carries the replacement in English and points at this
+file. The other twenty nine still carry the original and the five open ones carry
+nothing, so the page is in three states for one class. #192 holds that and it is
+not repaired here. The count in that output has moved since, and the reading
+dated 2026-08-13 below is where the page's state is now.
+
+### The open half of the class, read on 2026-08-12
+
+Five is no longer the number. Thirteen sites of this rule are open and none of them
+has been triaged:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
+      --jq 'group_by(.rule.id)|map({rule:.[0].rule.id, count:length, numbers:[.[].number]})'
+    [{"count":1,"numbers":[84],"rule":"cs/linq/missed-select"},{"count":13,"numbers":[92,91,90,89,88,87,86,85,83,82,81,80,79],"rule":"cs/path-combine"}]
+
+Each of the thirteen was read at its own line, and each is one of the first three
+kinds or the fourth. The whole set of sites the rule can reach is in the test
+project and none is in the plugin, which is the split every reading here has found:
+
+    git grep -c 'Path\.Combine' origin/master -- 'Jellyfin.Plugin.WatchSync.Tests/*.cs' | awk -F: '{s+=$NF} END {print s}'
+    43
+
+    git grep -n 'Path\.Combine' origin/master -- 'Jellyfin.Plugin.WatchSync/**/*.cs' ; echo "exit=$?"
+    exit=1
+
+The twenty nine comments are unchanged, and the thirteen open ones carry nothing,
+so what a reader meets on the page is still the three states above rather than one
+argument per site. #192 holds it. The write that would repair it is refused on the
+route available here, so this section records the state rather than closing it.
+
+That last sentence is wrong. One site has been written since, which is what the
+next section is, and the sentence is left standing so that a reader who acted on
+it can see what replaced it.
+
+The `cs/linq/missed-select` alert in that output is a different rule and a
+different question. It is raised against a site added after the rewrites the
+sections above describe, it is untriaged, and nothing here decides it.
+
+### The write is not refused, read on 2026-08-13
+
+Alert 79 was open and untriaged when the section above was written. It now
+carries the argument for its own kind, in English, pointing at this file:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq '[.[]|select(.number==79)|{number, reason: .dismissed_reason, comment: .dismissed_comment}]'
+    [{"comment":"The later argument at this call is a literal in the source, so it cannot be rooted and no earlier argument is dropped. The query is right wherever a later argument can be absolute. docs/code-scanning.md carries the class and the condition that makes this a defect again.","number":79,"reason":"false positive"}]
+
+That comment is written in the singular and its site composes two later
+arguments, both of them literals, so it is right about the site and narrower
+than the kind it belongs to.
+
+What is true and is not the same thing is that a comment cannot be changed on an
+alert that is already dismissed. The service answers that with a 400, which the
+reading on #192 quotes, so each of the twenty nine already-dismissed sites is a
+reopen and a fresh dismissal rather than one write. That is what the repair
+costs and it is not what stops it.
+
+Forty five of the forty six sites of this class were not written in this pass, so
+the page now holds four states rather than the three the sections above describe:
+twenty nine carrying the original comment, one carrying a general English
+replacement, one carrying the argument for its own kind, and fifteen open and
+carrying nothing.
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq '[.[].dismissed_comment]|group_by(.)|map(length)'
+    [29,1,1]
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
+      --jq 'group_by(.rule.id)|map({rule:.[0].rule.id, count:length, numbers:[.[].number]})'
+    [{"count":1,"numbers":[84],"rule":"cs/linq/missed-select"},{"count":1,"numbers":[93],"rule":"cs/linq/missed-where"},{"count":15,"numbers":[96,95,94,92,91,90,89,88,87,86,85,83,82,81,80],"rule":"cs/path-combine"}]
+
+A `cs/linq/missed-where` alert is in that output and was not in the one above it.
+It is the same case as the `cs/linq/missed-select` beside it: a different rule,
+raised against a site added later, untriaged, and not decided here.
+
+### Which kind each site of the class is
+
+The five kinds are what a comment has to say, and nothing recorded which site was
+which, so writing them was a re-reading of forty six lines rather than a
+mechanical pass. Every site of the class in both states, with the line the alert
+names:
+
+    for state in dismissed open; do
+      gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?tool_name=CodeQL&per_page=100&state=$state" \
+        --jq '.[]|select(.rule.id=="cs/path-combine")|"\(.number)\t\(.most_recent_instance.location.path)\t\(.most_recent_instance.location.start_line)"'
+    done | sort -t"$(printf '\t')" -k2,2 -k3,3n | while IFS="$(printf '\t')" read -r number path line; do
+      printf '%s\t%s:%s\t' "$number" "$path" "$line"; sed -n "${line}p" "$path"
+    done
+
+Twelve of the forty six calls open on the line the alert names and close on a
+later one, so for those the command prints the opening and none of the arguments
+the kind is decided by. Those twelve were read with the lines that follow them.
+
+Reading all forty six gives this split. It is a reading of that output rather
+than something a command decides, and the alert numbers are here so the writing
+that is still owed does not repeat the reading:
+
+    24  every later argument is a literal in the source
+        41 42 43 45 50 52 53 54 56 57 60 63 68 70 72 75 79 80 85 86 87 89 90 96
+     9  a const string of the test project, beside literals
+        46 49 55 61 81 82 88 91 94
+     2  a repository-relative path git printed or Path.GetRelativePath produced
+        48 64
+    10  a fixture name reaching a helper as a parameter
+        47 51 62 69 71 73 76 83 92 95
+     1  a link target read out of README.md
+        58
+
+The last of those is `ReadmeLinkTests.cs:231`, which the section above argues,
+and it is the only site of the class where the query is right about what the
+line does. It carries the original comment and a reason of `false positive`
+today. A site the query is right about is not a false positive, so what it is
+owed is a reason of `used in tests` and a comment saying what the consequence
+there actually is, rather than the sentence the other forty five get.
+
+The first two kinds take one sentence each and the third and fourth take their
+own, because a sentence true of a literal is not true of a parameter and the
+fourth is the one that can stop being true without its line moving.
+
+### What ends a dismissal
+
+Nothing that runs. A dismissed alert stays dismissed while its site keeps its
+fingerprint, and no part of the suite reads the alert page at all:
+
+    git grep -l -i -n 'code-scanning' -- 'Jellyfin.Plugin.WatchSync.Tests/' ; echo "exit=$?"
+    exit=1
+
+So the condition is carried by this paragraph and by the comment on each alert,
+and by neither reliably. It is the one the reading above already gives: the day a
+site takes its later argument from an environment variable, a command line, a
+configuration file or a peer, the alert is a defect again and the dismissal is
+wrong.
+
+Nobody else has read this. The commands above stand in place of a second reader.
+
+### One comment per kind on the page, read on 2026-08-13
+
+Every site of the class is dismissed and carries the argument for its own kind,
+in English, pointing at this file. What a reader meets is one comment per kind
+rather than the four states the sections above record:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=dismissed&tool_name=CodeQL&per_page=100" \
+      --jq 'group_by(.dismissed_comment)|map({count:length, reason:(.[0].dismissed_reason), numbers:([.[].number]|sort)})|sort_by(-.count)|.[]|"\(.count)\t\(.reason)\t\(.numbers|join(" "))"'
+    24      false positive  41 42 43 45 50 52 53 54 56 57 60 63 68 70 72 75 79 80 85 86 87 89 90 96
+    10      false positive  47 51 62 69 71 73 76 83 92 95
+    9       false positive  46 49 55 61 81 82 88 91 94
+    2       false positive  48 64
+    1       used in tests   58
+
+Those five sets are the five kinds recorded above, number for number, and a
+reader comparing the two lists is comparing a claim in this file against the
+page rather than against a second copy of the claim. No site of the class is
+open:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
+      --jq 'group_by(.rule.id)|map({rule:.[0].rule.id, count:length, numbers:[.[].number]})'
+    [{"count":1,"numbers":[84],"rule":"cs/linq/missed-select"},{"count":1,"numbers":[93],"rule":"cs/linq/missed-where"}]
+
+The two alerts left in that output are the other rules the sections above name.
+They are untriaged, they are raised against sites added after the rewrites, and
+nothing here decides them.
+
+A comment on an alert is a sentence rather than a section, so each carries what
+its kind rests on and points here for the argument. The two that say more than
+the query being right in general are the last two kinds: the fixture name says
+that it can stop being true without the `Path.Combine` line moving, and the link
+target says what actually follows at that site.
+
+The one site the query is right about no longer reads as a false positive. Alert
+58 is `ReadmeLinkTests.cs:231`, and it carries `used in tests` with a comment
+saying that a target beginning with a single slash reaches the call rooted and
+drops the root, and that the composed path reaches `File.Exists` and
+`Directory.Exists` and nothing else, so it ends as an unresolved link. That is
+bounded rather than harmless, which is why the reason moved and the dismissal
+stayed.
+
+Thirty one of the forty six were already dismissed, so each of those is a reopen
+and a fresh dismissal rather than one write, for the reason the section above
+gives. The other fifteen were open and took one write each.
+
+Every one of the forty six was read at its own line before its comment was
+written, and each alert's most recent instance is at the commit the mainline is
+on, so the line an alert names is the line in the tree:
+
+    for state in dismissed open; do
+      gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?tool_name=CodeQL&per_page=100&state=$state" \
+        --jq '.[]|select(.rule.id=="cs/path-combine")|.most_recent_instance.commit_sha'
+    done | sort | uniq -c
+         46 b924140906061f0bfd9a71b8a0b3b2b7f0077a9d
+
+    git rev-parse origin/master
+    b924140906061f0bfd9a71b8a0b3b2b7f0077a9d
+
+That reading came out as the split recorded above rather than a different one,
+which is what the writing depended on and is not a second person having checked
+it.
+
+What ends one of these dismissals is unchanged and is the section above: nothing
+that runs. The page now carries the condition on every site instead of on one,
+which is where a reader meets it, and this file is still the only place it is
+written down in full.
+
+Nobody else has read this. The commands above stand in place of a second reader.

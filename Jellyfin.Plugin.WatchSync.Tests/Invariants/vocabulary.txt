@@ -45,3 +45,10 @@ clock-local-time-zone :: injected-clock :: 32 :: TimeZoneInfo\.Local\b :: reads 
 # these refuse is not narrower than what that issue allows.
 log-item-title :: log-holds-no-viewing :: 67 :: Log(Trace|Debug|Information|Warning|Error|Critical)\s*\([^\n]*\.(Name|OriginalTitle|SortName|ForcedSortName)\b :: writes the title of a work somebody watched into a log :: the match key, which names the item to an operator without naming the work
 log-provider-identifier :: log-holds-no-viewing :: 67 :: Log(Trace|Debug|Information|Warning|Error|Critical)\s*\([^\n]*\b(Imdb|Tmdb|Tvdb|ProviderIds)\b :: writes an identifier that resolves to the work in one search :: the match key, which is this plugin's own addressing and resolves to nothing outside it
+
+# The template holds the plugin in a static and reaches for it from anywhere, which is the
+# shape #8 refuses on the first day. A type that reaches for it stops being constructible
+# in a test, because the static holds nothing until a server has loaded the plugin, and
+# that is the whole reason the queue, the matcher and the resolver are wanted behind
+# constructors instead.
+plugin-instance-read :: static-instance-not-read :: 8 :: \bPlugin\s*\.\s*Instance\b :: reaches the plugin's static instance from a type that was handed nothing :: the dependency taken through the constructor, so the type can be built in a test with no server present

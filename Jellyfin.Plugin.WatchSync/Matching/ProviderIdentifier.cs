@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Linq;
 
 namespace Jellyfin.Plugin.WatchSync.Matching;
 
@@ -156,21 +157,6 @@ public sealed class ProviderIdentifier : IEquatable<ProviderIdentifier>
     /// </summary>
     /// <param name="value">The candidate.</param>
     /// <returns>Whether every character is an ASCII digit and there is at least one.</returns>
-    private static bool IsDigits(string value)
-    {
-        if (value.Length == 0)
-        {
-            return false;
-        }
-
-        foreach (var character in value)
-        {
-            if (!char.IsAsciiDigit(character))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
+    private static bool IsDigits(string value) =>
+        value.Length > 0 && value.All(char.IsAsciiDigit);
 }

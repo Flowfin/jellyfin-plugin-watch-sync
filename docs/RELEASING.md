@@ -4,11 +4,32 @@ A release is published by pushing a tag. Nothing is created by hand.
 
 ## The tag
 
-The tag has the form `X.Y.Z-stable` or `X.Y.Z.W-stable`, for example `1.4.0-stable`
-or `0.1.0.0-stable`. The numeric part is the plugin version that Jellyfin installs,
-and it must be exactly the `version` in `build.yaml`, written the same way, with the
-same number of parts. The `-stable` suffix lives only in the tag and in the release
-name.
+The tag has the form `X.Y.Z-stable` or `X.Y.Z.W-stable` for the stable channel, and
+`X.Y.Z-prerelease` or `X.Y.Z.W-prerelease` for the pre-release one, for example
+`1.4.0-stable` or `0.1.0.0-prerelease`. The numeric part is the plugin version that
+Jellyfin installs, and it must be exactly the `version` in `build.yaml`, written the
+same way, with the same number of parts. The suffix lives only in the tag and in the
+release name.
+
+## The two channels
+
+The suffix chooses the channel and nothing else does. Both channels run the same
+build, the same checks and produce the same assets; the difference is that a
+`-prerelease` tag publishes a release marked as a pre-release, which is what the
+second manifest address serves.
+
+An operator who wants to try a version subscribes to the pre-release address as well,
+rather than repointing a running install at something else. That is also what replaces
+a trial release that gets deleted afterwards: deleting a release spends its tag
+permanently, and a pre-release does the same job without that price because it is a
+real version that stays.
+
+A version number is spent once across both channels. `1.4.0-prerelease` and
+`1.4.0-stable` would be two releases claiming one version, built from two commits, and
+a catalog reading one of them offers bytes the other channel's operators never saw. So
+promoting a pre-release means raising the version in `build.yaml` and tagging the new
+number, not retagging the old one. The release job asks for both suffixes before it
+writes anything and stops on either.
 
 ## Cutting a release
 
@@ -30,18 +51,26 @@ serialising them by hand is what keeps the release order readable.
 ## What the run produces
 
 The workflow builds the plugin from the tagged commit, creates the GitHub release
-for the tag, and attaches four files:
+for the tag, and attaches five files:
 
 - the plugin archive
 - the packaging metadata written beside it, `<archive>.zip.meta.json`
+- `build.yaml`, the manifest the package was built from
 - one `.md5` file, the checksum of the archive
 - one `.sha256` file for the same archive
 
 The `.md5` is the value a Jellyfin catalog serves as the plugin checksum. There is
 exactly one per release so that no generator can pair a checksum with the wrong
-file. Both the archive and the metadata are checked for existence by name before the
-release job runs, so a release with three of the four files is not a state this route
-can reach.
+file. The archive is the only file with a checksum beside it; the metadata and the
+manifest are read rather than installed, and adding a second sidecar is what the
+single `.md5` above exists to prevent.
+
+The manifest is attached because a catalog entry for this release, and any repair of
+one, is written from the version, the ABI and the framework the package was built
+with. Read back out of the tree later those are the values of a different commit.
+The three inputs are checked for existence by name before the release job runs, and
+the manifest is asked for again after the download, so a release short of one of them
+is not a state this route can reach.
 
 The run also signs a build provenance statement for the archive, in a separate job
 that downloads the archive and runs no build tooling. A downloaded archive can be
@@ -57,7 +86,7 @@ is gone and no catalog is fed until a manifest generator is added.
 
 ## What fails the run
 
-- The tag does not end in `-stable`, or the workflow was started from something
+- The tag does not end in a channel suffix, or the workflow was started from something
   other than a tag.
 - The numeric part of the tag differs from `version` in `build.yaml`.
 - `build.yaml` is missing a required field, or `version`, `targetAbi`, `framework`
@@ -73,7 +102,8 @@ is gone and no catalog is fed until a manifest generator is added.
   `dotnet restore <project> -p:RestorePackagesWithLockFile=true` and commit it.
 - The version stamped into the assembly is not the version in `build.yaml`.
 - The build produced no archive, or more than one, or no packaging metadata.
-- A release already exists for the tag.
+- A release already exists for the tag, or the same version was already published on
+  the other channel.
 
 All of these fail before anything is published.
 
@@ -106,7 +136,7 @@ cannot, and the version has to be raised.
 ## Repository settings this expects
 
 - Default workflow permissions set to read only.
-- A rule that restricts who may push `*-stable` tags.
+- A rule that restricts who may push `*-stable` and `*-prerelease` tags.
 - The `ABI floor build` check required on the release branches.
 - Immutable releases, if the repository wants the guarantee that a published release
   can never be edited or deleted at all. The workflow does not depend on it: the

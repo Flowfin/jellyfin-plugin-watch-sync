@@ -1,11 +1,24 @@
 name: Publish Release
 
-# Pushing a tag of the form X.Y.Z-stable or X.Y.Z.W-stable is the only way a release
-# is published. CI builds the plugin from the tagged commit, creates the GitHub release
-# for that tag and uploads the assets. No release is ever created by hand.
+# Pushing a tag is the only way a release is published. CI builds the plugin from the
+# tagged commit, creates the GitHub release for that tag and uploads the assets. No
+# release is ever created by hand.
+#
+# The suffix on the tag chooses the channel. `-stable` publishes an ordinary release and
+# `-prerelease` publishes one marked as a pre-release, which is what an operator who
+# wants to try a version subscribes to at a second manifest address instead of
+# repointing a running install. The two suffixes are the whole difference: the same
+# build, the same checks and the same assets on both routes.
+#
+# A trial release that is deleted afterwards is not available here and is not wanted.
+# Deleting a release spends its tag permanently, and the pre-release channel does the
+# same job without that price, because a pre-release is a real version that stays.
 #
 # The numeric part of the tag is the plugin version Jellyfin installs. It must equal
-# build.yaml's `version`, and the gate job below fails the run if it does not.
+# build.yaml's `version`, and the gate job below fails the run if it does not. A version
+# is spent once across both channels: the release job refuses a version already
+# published under either suffix, because two releases claiming one version with
+# different bytes is a catalog offering whichever of them it read last.
 #
 # What this workflow publishes is one package for the one server line build.yaml names
 # in `framework` and `targetAbi`. A repository that ships two server lines needs a
@@ -16,6 +29,8 @@ on:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+-stable"
       - "[0-9]+.[0-9]+.[0-9]+.[0-9]+-stable"
+      - "[0-9]+.[0-9]+.[0-9]+-prerelease"
+      - "[0-9]+.[0-9]+.[0-9]+.[0-9]+-prerelease"
 
 # Deny by default. Each job opts into the smallest scope it needs.
 permissions: {}
@@ -39,6 +54,10 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.metadata.outputs.version }}
+      # The channel, as the literal the release step needs. Derived from the tag suffix
+      # here rather than written into that step, so the two cannot drift into a
+      # pre-release tag publishing an ordinary release.
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
     steps:
       - name: Check out the tagged commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -112,11 +131,17 @@ jobs:
             exit 1
           fi
 
+          # The suffix chooses the channel and nothing else does. Every pattern the
+          # trigger above accepts needs an arm here: a pattern with no arm reaches this
+          # case, falls to the catch-all and stops the run, which is safe but arrives
+          # after the tag has been pushed. ReleaseChannelTests holds the two lists to
+          # each other so that mismatch is a red suite instead.
           tag="${GITHUB_REF_NAME}"
           case "${tag}" in
-            *-stable) numeric="${tag%-stable}" ;;
+            *-stable) numeric="${tag%-stable}" ; prerelease=false ;;
+            *-prerelease) numeric="${tag%-prerelease}" ; prerelease=true ;;
             *)
-              echo "::error::Tag ${tag} does not end in -stable."
+              echo "::error::Tag ${tag} does not end in -stable or -prerelease."
               exit 1
               ;;
           esac
@@ -217,7 +242,8 @@ jobs:
           fi
 
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "Publishing version ${version} from tag ${tag}."
+          echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
+          echo "Publishing version ${version} from tag ${tag}, prerelease=${prerelease}."
 
   build:
     name: Build package
@@ -334,21 +360,39 @@ jobs:
         with:
           dotnet-target: "net9.0"
 
-      - name: Check both release inputs exist
+      - name: Put the manifest beside the package
+        id: assets
         env:
           ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        # The manifest is a release asset, and it is copied rather than uploaded from
+        # the checkout. The upload below roots the artifact at the deepest directory
+        # every path it is given has in common, so one path taken from the workspace
+        # root and one from the packager's output directory share only the workspace:
+        # the archive would then arrive in the release job one directory down, where
+        # its ./*.zip finds nothing and the run stops after the tag is spent. Copying
+        # first keeps every path in one directory and the download flat.
+        run: |
+          set -euo pipefail
+          directory="$(dirname "${ARTIFACT}")"
+          cp build.yaml "${directory}/build.yaml"
+          echo "manifest=${directory}/build.yaml" >> "${GITHUB_OUTPUT}"
+
+      - name: Check every release input exists
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+          MANIFEST: ${{ steps.assets.outputs.manifest }}
         # if-no-files-found on the upload below fires only when no pattern matches at
         # all, so a missing metadata file would ride through as a warning and leave the
         # release one asset short. Named here, one file at a time.
         run: |
           set -euo pipefail
-          for file in "${ARTIFACT}" "${ARTIFACT}.meta.json"; do
+          for file in "${ARTIFACT}" "${ARTIFACT}.meta.json" "${MANIFEST}"; do
             if [ ! -f "${file}" ]; then
-              echo "::error::The packaging step did not produce ${file}. Both the archive and the metadata written beside it are release assets."
+              echo "::error::The packaging step did not produce ${file}. The archive, the metadata written beside it and the manifest the package was built from are all release assets."
               exit 1
             fi
           done
-          ls -l "${ARTIFACT}" "${ARTIFACT}.meta.json"
+          ls -l "${ARTIFACT}" "${ARTIFACT}.meta.json" "${MANIFEST}"
 
       - name: Hand the package to the later jobs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -356,12 +400,15 @@ jobs:
           name: build-artifact
           retention-days: 30
           if-no-files-found: error
-          # The archive and the metadata the packager writes beside it. The metadata
-          # travels with the release so a catalog can be built from the package that
-          # was actually shipped instead of from a file read back out of the tree.
+          # The archive, the metadata the packager writes beside it, and the manifest
+          # the package was built from. The metadata and the manifest travel with the
+          # release so a catalog entry, and a repair of one, can be written from the
+          # package that actually shipped instead of from a file read back out of the
+          # tree at a later commit.
           path: |
             ${{ steps.jprm.outputs.artifact }}
             ${{ steps.jprm.outputs.artifact }}.meta.json
+            ${{ steps.assets.outputs.manifest }}
 
   attest:
     name: Attest build provenance
@@ -391,7 +438,7 @@ jobs:
 
   release:
     name: Publish the release
-    needs: [build, attest]
+    needs: [gate, build, attest]
     runs-on: ubuntu-latest
     # Generous, because this job builds nothing and the time it spends is asset
     # uploads on somebody else's network. A timeout that fires between creating the
@@ -408,33 +455,53 @@ jobs:
         with:
           name: build-artifact
 
-      - name: Refuse to touch a release that already exists
+      - name: Refuse a version that either channel has already published
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.gate.outputs.version }}
         # The upload step below replaces an asset of the same name without complaint,
         # so a second run on the same tag would swap the bytes of a version people have
         # already installed and report success. Asked before anything is written, and
         # anything other than a clean 404 stops the run.
+        #
+        # Both channels are asked, not only this one. The two channels are two manifest
+        # addresses over one version number, so 1.4.0-prerelease and 1.4.0-stable are
+        # two releases claiming one version, built from two commits, and a catalog that
+        # reads one of them offers bytes the other channel's operators never saw. A
+        # version is therefore spent by whichever channel published it first, and
+        # promoting a pre-release means raising the version rather than retagging it.
         run: |
           set -euo pipefail
-          code="$(curl -sS -o /dev/null -w '%{http_code}' \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}")"
-          case "${code}" in
-            404)
-              echo "No release exists for ${GITHUB_REF_NAME} yet."
-              ;;
-            200)
-              echo "::error::A release already exists for ${GITHUB_REF_NAME}. Its assets are what people have installed, so this run will not replace them. Raise the version in build.yaml and push a new tag. docs/RELEASING.md describes the case where the first run left the release incomplete."
-              exit 1
-              ;;
-            *)
-              echo "::error::Asking whether a release exists for ${GITHUB_REF_NAME} returned HTTP ${code}. Not publishing on an unclear answer."
-              exit 1
-              ;;
-          esac
+
+          exists() {
+            curl -sS -o /dev/null -w '%{http_code}' \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/releases/tags/$1"
+          }
+
+          for suffix in stable prerelease; do
+            candidate="${VERSION}-${suffix}"
+            code="$(exists "${candidate}")"
+            case "${code}" in
+              404)
+                echo "No release exists for ${candidate} yet."
+                ;;
+              200)
+                if [ "${candidate}" = "${GITHUB_REF_NAME}" ]; then
+                  echo "::error::A release already exists for ${candidate}. Its assets are what people have installed, so this run will not replace them. Raise the version in build.yaml and push a new tag. docs/RELEASING.md describes the case where the first run left the release incomplete."
+                else
+                  echo "::error::Version ${VERSION} was already published as ${candidate}, in the other channel. One version is one set of bytes on both channels, so this run will not publish a second ${VERSION}. Raise the version in build.yaml and push a new tag."
+                fi
+                exit 1
+                ;;
+              *)
+                echo "::error::Asking whether a release exists for ${candidate} returned HTTP ${code}. Not publishing on an unclear answer."
+                exit 1
+                ;;
+            esac
+          done
 
       - name: Write the checksums
         run: |
@@ -457,6 +524,14 @@ jobs:
             exit 1
           fi
 
+          # The manifest the package was built from. Asked for by name rather than left
+          # to the upload above, because a path that stopped matching there is a warning
+          # in a job that goes on to publish a release one asset short.
+          if [ ! -f ./build.yaml ]; then
+            echo "::error::The manifest the package was built from is not among the downloaded files, so the release would carry the archive without it."
+            exit 1
+          fi
+
           zip="${zips[0]#./}"
           # The bare filename, so the checksum line names the file a client downloads.
           md5sum "${zip}" > "${zip%.zip}.md5"
@@ -469,11 +544,14 @@ jobs:
         # nothing from publishing an empty release. overwrite_files is false because
         # the default is true, and silently replacing a published asset is the one
         # thing this route must never do.
+        #
+        # prerelease comes from the gate job, which read it off the tag suffix. A
+        # literal here is what made this route able to publish one channel only.
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           name: ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
-          prerelease: false
+          prerelease: ${{ needs.gate.outputs.prerelease }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           overwrite_files: false

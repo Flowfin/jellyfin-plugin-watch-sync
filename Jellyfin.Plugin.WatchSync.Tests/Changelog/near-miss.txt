@@ -1,0 +1,5 @@
+Issue: #32
+Existing-Data: changed
+
+A position now loses to a completed watch on the far side instead of winning by
+being the newer of the two.

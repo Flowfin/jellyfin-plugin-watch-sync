@@ -1,0 +1,27 @@
+# What the mutation run covers, one component per row.
+#
+# Fields are separated by " :: ": the directory inside the plugin project, its
+# state, and the reason. "." is the project root, meaning the sources that sit in
+# no directory at all.
+#
+# The states are:
+#
+#   mutated  the run mutates it and the directory is in the tree
+#   awaited  the run is already scoped to it and the directory does not exist yet
+#   excused  the run does not mutate it, and the reason column says why
+#
+# MutationScopeTests holds this file and stryker-config.json to each other in both
+# directions, and it holds each row's state to the tree: a component added to the
+# plugin project and named in neither file fails, a glob in the configuration with
+# no row here fails, and a row saying "awaited" whose directory has since appeared
+# fails until somebody moves it to "mutated". That last one is the whole reason
+# the middle column exists. #103 scopes the run to the matcher and the conflict
+# resolver, one of which is not written, and a scope that named it and then missed
+# it because it landed under another name would be a run reporting a score for
+# half of what it claims to cover.
+
+. :: excused :: The plugin's identity, the pages it serves and the version the server reads. It composes nothing and decides nothing, so a mutant here is a changed constant rather than a wrong answer.
+Configuration :: excused :: The configuration type and the page it serves. The type carries no setting yet and says so in its own body; which settings exist and where each is stored is #58, and a run over an empty type measures nothing.
+Matching :: mutated :: The matcher. A survivor here is watch history landing on the wrong item or on none, which is the failure this plugin exists to refuse.
+Model :: excused :: The set of fields that move, held as a declaration the suite compares against the server's own record rather than as a decision taken at run time. What would be wrong about it is the set, and MatchingDocumentTests and the field table already refuse that.
+Conflict :: awaited :: The conflict resolver. A survivor here is a rule that stopped deciding and a resolution that looks the same from outside, which is why #103 names it beside the matcher. #30 writes the table and #31 to #38 write the rows; none of them has landed, so the directory is not in the tree.

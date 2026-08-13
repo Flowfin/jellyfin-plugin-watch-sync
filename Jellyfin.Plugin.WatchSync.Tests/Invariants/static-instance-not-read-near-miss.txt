@@ -1,0 +1,25 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The type is already built the way the rest of them will be. The constructor takes the
+// index it works over and the field keeps it, which is what makes this the near-miss
+// rather than an obviously broken one: one method wants a setting nobody handed it, and
+// the static is in scope from every line of every file.
+//
+// The cost is not a wrong answer on a running server. It is that this type stops being
+// constructible in a test, because the static holds nothing until a server has loaded the
+// plugin, so the behaviour worth proving about a sweep is the one nothing can reach.
+
+internal sealed class Sweep
+{
+    private readonly IMatchIndex _index;
+
+    internal Sweep(IMatchIndex index)
+    {
+        _index = index;
+    }
+
+    internal int Batch()
+    {
+        return Plugin.Instance!.Configuration.SweepBatchSize;
+    }
+}

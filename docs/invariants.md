@@ -31,6 +31,7 @@ without covering the rest.
 | `mapping-not-inferred` | #42 | the plugin's own sources | `InvariantGuardTests` |
 | `injected-clock` | #32 | the plugin's own sources | `InvariantGuardTests` |
 | `log-holds-no-viewing` | #67 | the plugin's own sources | `InvariantGuardTests` |
+| `static-instance-not-read` | #8 | the plugin's own sources | `InvariantGuardTests` |
 
 ## What each one is for
 
@@ -54,7 +55,19 @@ where the clock decides an outcome rather than a test.
 
 **`log-holds-no-viewing`.** No log statement carries the title of a work or a provider
 identifier for it. A log is a file that gets copied into a support thread and shipped to
-a collector, and what somebody watched belongs in neither.
+a collector, and what somebody watched belongs in neither. What may be logged, what may
+never be, and which half of that a machine refuses are in
+[logging.md](logging.md), which is also where these two rules are held against the
+document that declares them.
+
+**`static-instance-not-read`.** No type reaches the plugin's static instance. The template
+this repository started from keeps the plugin in a static and reads it from anywhere, and
+a type written that way stops being constructible in a test, because the static holds
+nothing until a server has loaded the plugin. The queue, the matcher, the store and the
+resolver are all wanted behind constructors for that reason, and #8 is where the
+registration that supplies them is argued. The static itself is still there and is that
+issue's subject; this rule holds the reach for it, which is the half that gets written
+without anybody deciding to.
 
 ## What these patterns cannot see
 
@@ -64,10 +77,20 @@ apart, it is written here rather than left for somebody to discover after trusti
 green run.
 
 **A scan is only as wide as its subject.** These rules read the plugin's own sources.
-The plugin is small today, and two of the three invariants above have almost nothing to
-be true of yet. A run that finds nothing is not evidence that the rule holds over code
-that has not been written. The near-miss fixtures are what make each rule a guard rather
-than a green tick, and each one is refused and its repair passes on every run.
+The plugin is small today. Nothing in it logs, names a user or reads a machine clock, so
+three of the four invariants carried by that guard scan sources that could not have
+violated them:
+
+    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
+    exit=1
+
+The fourth is not in that position. The static that `static-instance-not-read` refuses
+reaching for is in `Plugin.cs`, and every source in the project can see it, so that rule
+has had something to be true of since the day the project was created.
+
+A run that finds nothing is not evidence that the rule holds over code that has not been
+written. The near-miss fixtures are what make each rule a guard rather than a green tick,
+and each one is refused and its repair passes on every run.
 
 **`mapping-not-inferred` sees comparisons, not every inference.** The rules match a name
 compared with an operator, compared through an equality call, or searched for in a
@@ -90,6 +113,19 @@ That is stronger, and it refuses nothing #67 permits: that issue allows an item
 identifier at the ordinary level and allows a title at no level. A property named `Name`
 on something that is not a work, a pairing or a scheduled task, is the case where these
 rules refuse the wrong thing, and that is what a departure is for.
+
+**`static-instance-not-read` sees the reach, not the static.** The rule reads a line that
+names the holder, so it refuses the read and says nothing about the property being there.
+A service parked in a static of its own under any other name passes, and so does one
+reached through a local assigned somewhere else, or through a wrapper written over the
+holder. Removing the static is #8 and is not what this rule does; what it holds is that
+the first type to reach for the one that exists is refused rather than merged.
+
+The exception #8 names is the configuration accessor, and this rule refuses that too. It
+is stronger than the invariant deliberately, for the same reason the logging rules are:
+there is no accessor in the plugin today, so a rule written around one would carve out a
+shape nobody has decided yet. When it arrives it is a declared departure, which puts the
+exception where a reader meets it and takes it away again the day the call goes.
 
 ## Departures
 

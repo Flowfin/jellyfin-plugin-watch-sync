@@ -179,25 +179,46 @@ one, which #16 holds.
 
 Its absence is a defined state rather than an error. An item with no agreed record
 has never been exchanged with that peer for that user, which makes it a first
-exchange. What a first exchange does is decision 4 in #1, it is open, and #37
-carries it. Nothing in this document decides it.
+exchange. Decision 4 in #1 was answered on 2026-08-08 and a first exchange merges
+by the conflict table rather than seeding from one side: it applies the same rules
+every later exchange applies, and an item it cannot decide stays undecided instead
+of falling to a weaker rule. #37 holds the mode itself, which is a named one rather
+than the ordinary path with an empty record, and the shape of what it records.
 
 The record is bounded by the number of matched items and not by the number of
 playback events. Watching one item a hundred times adds no rows.
 
 ## Direction
 
-Which side moves the data is decision 3 in #1 and it is open.
+Data is pulled. Decision 3 in #1 was answered on 2026-08-08.
 
-A puller asks its peer what changed and applies it locally, so a server only ever
-writes its own users' data. A pusher sends what changed and asks the peer to write,
-which means a server accepting writes about its own users from outside. Both is the
-most useful answer and twice the surface.
+Each server asks its peer what changed and writes the result into the records of
+its own users. No server accepts a write about its own users from outside, so the
+only code that ever touches a person's history is the code running on the server
+that holds their account.
 
-This document does not choose. #47 defines the transfer plane once the decision
-lands, and the rest of M6 is written to be direction-agnostic, so the answer changes
-what one exchange looks like and not what a change is, what the agreed record holds,
-or which fields move. Nothing above this section depends on the answer.
+The reason is the worst failure this plugin can have, which is one person's history
+landing in another person's account. Pulling bounds that failure to the server that
+holds the user: a wrong mapping there damages that server and reaches no further.
+Pushing would make every server depend on the care of every peer it is paired with,
+and #42 is where the mapping rule that failure turns on is consumed.
+
+The second reason is the pairing plugin. Pulling works under both answers its own
+decision 2 still has open. Pushing works only under the symmetric one, and if that
+board settles on an initiator and a responder instead, a pushing plugin needs one
+pairing per direction.
+
+What it costs is stated with it. There is no immediate sync on an event. A peer
+learns about a change when it next pulls, so the delay is the sweep interval in #55
+rather than the time it takes to send one envelope. An event still matters, because
+it is what puts a change where the next pull will find it, and #15 is the handler.
+
+Two things follow that are not this document's to settle. #47 fixes the transfer
+plane, meaning what one exchange is and what a failed one leaves behind. And M6 was
+planned as direction-agnostic and is not: #48, #49, #50 and #54 read as pushing and
+#51 reads as pulling, so the outbound queue in those four becomes a list of changes
+the peer reads on request. Idempotence is still owed, on the answer rather than on
+the envelope.
 
 ## What a transfer never contains
 
@@ -218,8 +239,11 @@ many of those one envelope may hold.
 Named so that a gap is readable as a gap rather than as an answer nobody wrote
 down.
 
-- The direction, decision 3 in #1, open, landing in #47.
-- What a first exchange does, decision 4 in #1, open, landing in #37.
+- What one exchange is, who starts one, whether two may overlap on one pairing and
+  what a failed one leaves behind, which is `docs/transfer.md` and #47. The
+  direction that document is written against is the section above.
+- What a first exchange records and how it is distinguishable from an ordinary run,
+  which is #37. The rule it applies is the section above.
 - The treatment of each reason the server gives when it saves user data, which
   #15 adds to this document.
 - The position thresholds, their defaults and the reason for each default, which

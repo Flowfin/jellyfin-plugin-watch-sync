@@ -14,12 +14,16 @@ lines exist.
 
 | plugin version | framework | declared ABI | built | unit suite | container harness | read by a person on a running server | supported | not checked |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0.1.0.0 | net9.0 | 10.11.11.0 | `call / build` | `call / test` | not evaluated | not evaluated | no | loading on a server, the user data event, any write through the server's own manager, the configuration page in a browser, an upgrade over an earlier install |
-| 0.1.0.0 | net10.0 | 12.0.0.0 | `call / build` | `call / test` | not evaluated | not evaluated | no | loading on a server, the user data event, any write through the server's own manager, the configuration page in a browser, an upgrade over an earlier install |
+| 0.1.0.0 | net9.0 | 10.11.11.0 | `call / build` | `call / test` | not evaluated | docs/first-load.md, 2026-08-09 | no | the user data event, any write through the server's own manager, the configuration page in a browser, an upgrade over an earlier install |
+| 0.1.0.0 | net10.0 | 12.0.0.0 | `call / build` | `call / test` | not evaluated | docs/first-load.md, 2026-08-09 | no | the user data event, any write through the server's own manager, the configuration page in a browser, an upgrade over an earlier install |
 
 `supported` is `no` on both rows and it is a derived value rather than an opinion.
-A line nobody has run this on is unsupported, and the test refuses a row claiming
-otherwise while its person column still says `not evaluated`.
+The reading in the person column is a first load and nothing more: the plugin
+appears under its own name and its own identifier and does nothing, because there
+is nothing yet for it to do. Support is the whole of what this plugin is for
+working on a line, so it stays `no` until there is behaviour to run. The test
+holds the weaker half of that, refusing a row that claims support while its own
+person column still admits nothing was read.
 
 ## What each cell means, and the command behind it
 
@@ -42,9 +46,11 @@ packaged artifact, which is #88 and does not exist. Until it does, no cell in th
 column can say anything else.
 
 **read by a person on a running server** is somebody installing the artifact on a
-stock server of that line and writing down the server version and the date. #10 is
-where that lands for the first load. Nothing here has been read that way, so the
-column says `not evaluated` rather than describing an expectation.
+stock server of that line and writing down the server version and the date. Both
+rows now point at `docs/first-load.md`, which holds the first load on each line
+with the server version, the artifact checksum and the log lines that show it. It
+is a reading rather than a test: nothing re-runs it, and it says what it did not
+cover as plainly as what it did.
 
 **not checked** is the column that is usually missing. It names, per row, the
 behaviour nobody has evidence about. It is not a list of everything that could go
@@ -85,7 +91,8 @@ release step: a target added to `build.yaml` with no row here fails the suite, a
 a row naming a target the manifest does not carry fails it too, so the matrix
 cannot be left behind by a change to the lines.
 
-What that does not do is fill in the two right-hand columns. A container run and a
-reading by a person are things that happen outside this repository, and the row
-they belong to says `not evaluated` until somebody does them and edits the cell.
-The release process writing those cells is #122 and #10 rather than this file.
+What that does not do is fill in the container column. A container harness run is
+something that happens outside this repository, and the row it belongs to says
+`not evaluated` until somebody does it and edits the cell. The person column is
+filled the same way, by a reading added to `docs/first-load.md` and a cell pointing
+at it. The release process writing those cells is #122 rather than this file.
