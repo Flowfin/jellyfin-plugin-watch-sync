@@ -156,6 +156,111 @@ it by construction rather than by care.
 The receiving side leaves aggregate state to the server to derive. Applying a set
 of episode changes writes to those episodes and to nothing above them.
 
+## One work held in several versions
+
+A leaf item can be one work the server holds as several files: two cuts of a film,
+two encodes of one cut, a copy somebody kept at a lower resolution. The server
+presents those as one item, so a change arrives about the work rather than about a
+file. Three of the four moved fields are about the work and one of them is not.
+
+Whether the person watched it, how often, and when they last did are properties of
+the work. Somebody who watched the extended cut watched the film. Those three are
+applied to the item, and the question of which version does not arise.
+
+The position is not a property of the work. A tick counts from the start of one
+particular file, and the same number names a different moment in a version of
+another length. So the position is applied to the version this server would resume,
+and only where that version's runtime and the runtime the peer sent for its own are
+within one minute of each other. Where they differ by more, or where the peer sent
+no runtime at all, the position is dropped, the other three fields are applied, and
+the drop is recorded against the item with both runtimes.
+
+### Why one minute
+
+The displacement a position can carry is the difference between the two runtimes. A
+version four minutes longer puts the same tick up to four minutes from the moment
+the person stopped at, and where the extra length sits at the head, it puts it there
+from the first frame rather than only at the end.
+
+Under a minute, the difference is packaging. A distributor logo, a few seconds of
+black, a container that padded the end. The tick lands in the same scene, and the
+person resumes a little early or a little late, which is what they do by hand
+anyway. Over a minute, the difference is an edit or a speed conversion, and both
+move the whole timeline: a theatrical cut against an extended one, a recap or a
+title sequence one version carries and the other does not, a frame rate conversion
+that takes three and a half minutes off a ninety minute work.
+
+The boundary is not sharp and the number sits at the small end of it deliberately,
+because the two mistakes do not cost the same. A position refused where it would
+have been fine costs the person the few seconds it takes to find their place, and it
+is recorded where they can see why. A position applied where it should not have been
+drops them into a scene they had not reached, which is the one failure here nobody
+can take back.
+
+It is fixed rather than offered as a setting. An operator cannot see the two
+runtimes side by side at the moment the question is asked, so it is not a number
+they are in a position to judge, and a setting that is always left at its default is
+a default with a support burden attached. #58 is where that would be revisited if a
+real library argues against it.
+
+### Why the drop is not silent
+
+A dropped position that nothing records is indistinguishable from a position that
+never moved, and the second is what an operator assumes. The drop is recorded
+against the item with the two runtimes that produced it, and #62 is the surface it
+is read from.
+
+Dropping the position never drops the rest of the change. The three fields about the
+work are applied whatever happens to the position. An implementation that treats one
+item's change as one unit fails exactly here, because the position and the played
+state arrive together, and refusing the pair is how a watched film comes out
+unwatched on the other server.
+
+### What the two lines answer differently
+
+Both lines carry a runtime on the item, so the comparison above is available on
+each. With `GP` set as the section above sets it:
+
+    for v in 10.11.11/lib/net9.0 12.0.0-rc4/lib/net10.0; do
+      printf '%s ' "${v%%/*}"
+      grep -c 'P:MediaBrowser\.Controller\.Entities\.BaseItem\.RunTimeTicks' \
+        "$GP/jellyfin.controller/$v/MediaBrowser.Controller.xml"
+    done
+    10.11.11 1
+    12.0.0-rc4 1
+
+What the two lines do not share is any notion of which version drives the resume
+point. It is in the reference assembly of one and absent from the other:
+
+    for v in 10.11.11/lib/net9.0 12.0.0-rc4/lib/net10.0; do
+      printf '%s: ' "${v%%/*}"
+      grep -oE 'VersionResumeData|GetResumeUserDataBatch|GetResumeUserData' \
+        "$GP/jellyfin.controller/$v/MediaBrowser.Controller.xml" | sort -u | tr '\n' ' '
+      echo
+    done
+    10.11.11:
+    12.0.0-rc4: GetResumeUserData GetResumeUserDataBatch VersionResumeData
+
+That is a match on names in the documentation shipped with each package, so it says
+the names are present in one reference set and absent from the other. It does not
+say what the members do.
+
+The newer line's answer names a version and carries no runtime with it:
+
+    grep -oE 'MediaBrowser\.Controller\.Library\.VersionResumeData\.[A-Za-z]+' \
+      "$GP/jellyfin.controller/12.0.0-rc4/lib/net10.0/MediaBrowser.Controller.xml" | sort -u
+    MediaBrowser.Controller.Library.VersionResumeData.ApplyTo
+    MediaBrowser.Controller.Library.VersionResumeData.UserData
+    MediaBrowser.Controller.Library.VersionResumeData.VersionId
+
+So the same question is answered in two places. On the newer line the server names
+the version and this plugin reads the runtime of the item that identifier names. On
+the older line there is no version to name and the item's own runtime is the answer.
+The caller asks one question either way, which is the whole reason the difference
+sits behind the adapter in #20: two lines that answer a question differently is a
+place where they quietly behave differently, and the promise that they do not is
+kept in the adapter or nowhere.
+
 ## The record of what two sides last agreed
 
 This plugin keeps its own record, per peer, per mapped user, per matched item, of
@@ -271,3 +376,10 @@ build.
 
 What the suite does not judge is whether a row's reason is the right reason. That
 is a reading at review, and it is the same bound `docs/matching.md` carries.
+
+The one minute above is in the same position, one step further out. Nothing in the
+tree reads it, because there is no apply path for it to be part of, so today it is a
+number in prose and a run that was green says nothing about it. When the apply path
+arrives it takes the number from here or the two drift, and the tests #28 asks for
+are what hold them together: one version, several versions with close runtimes,
+several with runtimes far apart, and a peer whose runtime is unknown.
