@@ -154,10 +154,7 @@ jobs:
           icacls $scratch /grant 'suite:(OI)(CI)M' /T /C /Q | Out-Null
 
           # The script takes its paths as arguments rather than carrying them as
-          # text, so nothing here is quoted into a second language. The two
-          # executables are resolved by this step and handed over, because the
-          # account gets its own environment at logon and what this step put on
-          # PATH does not reach it.
+          # text, so nothing here is quoted into a second language.
           $runner = Join-Path $scratch 'run.ps1'
           @'
           param([string]$Workspace, [string]$Packages, [string]$Dotnet)
@@ -167,9 +164,17 @@ jobs:
           # git refuses a repository owned by another account unless it is told the
           # ownership is expected. The headless guard shells out to git ls-files, so
           # without this it reads an empty set and the run fails for a reason that
-          # has nothing to do with elevation.
-          $expected = $Workspace.Replace('\', '/')
-          git config --global --add safe.directory $expected
+          # has nothing to do with elevation. The statement is made through the
+          # environment rather than through git config, because a config write wants
+          # a home directory and this account has no reason to acquire one. Both
+          # spellings of the path are given: git reports one and the runner set the
+          # other, and a comparison that misses is a silent refusal rather than an
+          # error.
+          $env:GIT_CONFIG_COUNT = '2'
+          $env:GIT_CONFIG_KEY_0 = 'safe.directory'
+          $env:GIT_CONFIG_VALUE_0 = $Workspace.Replace('\', '/')
+          $env:GIT_CONFIG_KEY_1 = 'safe.directory'
+          $env:GIT_CONFIG_VALUE_1 = $Workspace
           $env:NUGET_PACKAGES = $Packages
           $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
           Set-Location $Workspace
@@ -180,14 +185,23 @@ jobs:
           $out = Join-Path $scratch 'stdout.txt'
           $err = Join-Path $scratch 'stderr.txt'
           $credential = [System.Management.Automation.PSCredential]::new('.\suite', $secret)
+
+          # Every value is quoted on the way in. Start-Process joins the list with
+          # spaces and quotes nothing, so an unquoted path under Program Files
+          # arrives as two arguments and the second one is read as a switch.
           $arguments = @(
             '-NoProfile',
-            '-File', $runner,
-            '-Workspace', $workspace,
-            '-Packages', (Join-Path $scratch 'packages'),
-            '-Dotnet', (Get-Command dotnet).Source)
+            '-File', ('"' + $runner + '"'),
+            '-Workspace', ('"' + $workspace + '"'),
+            '-Packages', ('"' + (Join-Path $scratch 'packages') + '"'),
+            '-Dotnet', ('"' + (Get-Command dotnet).Source + '"'))
 
-          $process = Start-Process -FilePath (Get-Command pwsh).Source -ArgumentList $arguments -Credential $credential -WorkingDirectory $scratch -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+          # The new account gets the environment built for it rather than a copy of
+          # this job's. Without this the child runs as the standard account and
+          # still points at the elevated account's home and temporary directories,
+          # which fails on the first write to either and says nothing about
+          # elevation.
+          $process = Start-Process -FilePath (Get-Command pwsh).Source -ArgumentList $arguments -Credential $credential -WorkingDirectory $scratch -UseNewEnvironment -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
 
           Get-Content -Path $out
           $failures = Get-Content -Path $err -Raw
