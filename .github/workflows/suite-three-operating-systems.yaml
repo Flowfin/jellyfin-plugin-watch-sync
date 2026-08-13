@@ -24,6 +24,16 @@
 # elevation. The last two steps close that gap by creating a standard account on
 # the runner and running the suite again as it.
 #
+# The local time zone is the third thing, and it is the axis a reading of the
+# sources reaches least far along. The headless vocabulary refuses the direct
+# reads by name, so no test can ask for the machine's zone and none does. What no
+# vocabulary refuses is a conversion or a parse that takes the zone implicitly,
+# because those are spelled like the calls that do not, and the only way to see
+# one is to run the same suite under a zone the machine does not have. Two of the
+# legs impose one per process. The Windows leg cannot, for the reason its own
+# step gives, so the zone readings are two legs rather than three and the third
+# says which of the two questions it answered.
+#
 # There is deliberately no path filter. A filtered workflow reports no check run
 # at all rather than a green one, which the two required workflows already carry
 # a note about.
@@ -49,9 +59,11 @@ jobs:
   suite:
     name: Suite (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    # The Windows leg runs the suite twice, once from the job's own elevated
-    # account and once from a standard one that restores its packages from
-    # scratch, so the ceiling is set by that leg rather than by the other two.
+    # No leg runs the suite once. The Windows leg runs it twice, from the job's
+    # own elevated account and from a standard one that restores its packages
+    # from scratch; the other two run it three times, once under the runner's own
+    # zone and once under each of the two imposed below. The ceiling covers the
+    # longer of those rather than a single run.
     timeout-minutes: 30
     strategy:
       # One operating system failing is the result, not a reason to stop
@@ -145,6 +157,58 @@ jobs:
       - name: Run the suite
         shell: bash
         run: dotnet test Jellyfin.Plugin.WatchSync.sln --nologo
+
+      - name: Run the suite under two time zones
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Neither zone is a whole number of hours from UTC, which is the whole
+          # point of choosing them. Asia/Kolkata is half an hour off and never
+          # transitions, so it reaches code that assumes an offset is a whole
+          # hour. Australia/Lord_Howe is half an hour off and its daylight change
+          # is itself half an hour, so it reaches the same assumption inside a
+          # transition, which a zone changing by a whole hour would let through.
+          #
+          # The runtime is asked what it took rather than trusted to have taken
+          # it. A process that kept the machine's own zone would pass these runs
+          # exactly like one under the requested zone, and the log would read the
+          # same either way, which is the one outcome this step must not produce.
+          cat > "${RUNNER_TEMP}/zone.cs" <<'CSHARP'
+          var requested = Environment.GetEnvironmentVariable("TZ");
+          var matched = string.Equals(TimeZoneInfo.Local.Id, requested, StringComparison.Ordinal);
+          Console.WriteLine($"requested {requested}, matched {matched}");
+          return matched ? 0 : 1;
+          CSHARP
+
+          for zone in Asia/Kolkata Australia/Lord_Howe; do
+            if ! TZ="${zone}" dotnet run "${RUNNER_TEMP}/zone.cs"; then
+              echo "::error::The runtime did not take ${zone} as its local zone, so a suite run under it would report a zone it had not used."
+              exit 1
+            fi
+            TZ="${zone}" dotnet test Jellyfin.Plugin.WatchSync.sln --nologo
+          done
+
+      - name: Report that no zone is imposed on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # .NET reads TZ on Linux and macOS. On Windows it takes the local zone
+          # from the machine setting and does not read TZ at all, measured
+          # against the 10.0.301 SDK with the same file the step above runs:
+          #
+          #     $env:TZ='Asia/Kolkata'; dotnet run zone.cs
+          #     requested Asia/Kolkata, matched False
+          #     exit=1
+          #
+          # So a zone on this leg is a machine-wide write rather than a
+          # per-process one, and this workflow makes none. This leg therefore
+          # answers that the suite passes on Windows, and not that it passes on
+          # Windows under a zone it was not written on. It reports and refuses
+          # nothing: deleting it turns no leg red, and what it removes is a
+          # reader's ability to see which of the two questions this leg answered.
+          Write-Output "No time zone is imposed on this leg. The suite ran under the image's own zone."
 
       - name: Run the suite as a standard account on Windows
         if: runner.os == 'Windows'
