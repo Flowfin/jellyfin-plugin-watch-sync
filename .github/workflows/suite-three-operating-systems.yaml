@@ -14,6 +14,16 @@
 # itself. On Windows those two come apart unless the code says so, and nothing
 # in a Linux run would ever notice.
 #
+# Elevation is the second thing this workflow is for, and it is where the three
+# legs stop being the same job. The Linux and macOS legs refuse a run as uid 0,
+# so a green mark on either of them is a green mark from an account that could
+# not have opened the machine-wide path or bound the privileged port the rule
+# refuses. The hosted Windows image runs its jobs in an elevated account, so the
+# same green mark from the Windows leg alone would answer a weaker question: that
+# the suite passes on Windows, rather than that it passes on Windows without
+# elevation. The last two steps close that gap by creating a standard account on
+# the runner and running the suite again as it.
+#
 # There is deliberately no path filter. A filtered workflow reports no check run
 # at all rather than a green one, which the two required workflows already carry
 # a note about.
@@ -39,7 +49,10 @@ jobs:
   suite:
     name: Suite (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    # The Windows leg runs the suite twice, once from the job's own elevated
+    # account and once from a standard one that restores its packages from
+    # scratch, so the ceiling is set by that leg rather than by the other two.
+    timeout-minutes: 30
     strategy:
       # One operating system failing is the result, not a reason to stop
       # measuring the other two. A cancelled leg leaves no evidence either way.
@@ -96,9 +109,10 @@ jobs:
           # This reports and does not refuse, and the difference is deliberate.
           # Whether the hosted Windows image runs its jobs in an elevated
           # account is a property of the image rather than of this repository,
-          # and there is no supported way for a job to drop it. Printing it
-          # keeps the run honest: whoever reads this run can see which question
-          # the Windows leg answered.
+          # and a job cannot drop the privilege it was started with. Refusing
+          # here would refuse every Windows run this image can produce. What is
+          # printed is the account the ordinary run below used, so a reader can
+          # see which of the two Windows runs answered which question.
           $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
           $principal = [System.Security.Principal.WindowsPrincipal]::new($identity)
           $elevated = $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -108,3 +122,106 @@ jobs:
       - name: Run the suite
         shell: bash
         run: dotnet test Jellyfin.Plugin.WatchSync.sln --nologo
+
+      - name: Run the suite as a standard account on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # The account lives for the length of this step. Its password is minted
+          # here, is never written anywhere the run publishes, and the account is
+          # removed by the step below whether this one passed or failed. It joins
+          # Users and nothing else: an account in no group at all is not an
+          # administrator either, but it cannot log on, and the logon is the whole
+          # point of the step.
+          $bytes = [byte[]]::new(30)
+          [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+          $secret = ConvertTo-SecureString -String ([Convert]::ToBase64String($bytes) + 'aA1!') -AsPlainText -Force
+
+          New-LocalUser -Name 'suite' -Password $secret -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -Description 'Runs the suite without elevation.' | Out-Null
+          Add-LocalGroupMember -Group 'Users' -Member 'suite'
+
+          $workspace = $env:GITHUB_WORKSPACE
+          $scratch = Join-Path $env:RUNNER_TEMP 'unprivileged'
+          New-Item -ItemType Directory -Path $scratch -Force | Out-Null
+
+          # The checkout and one scratch directory are reachable by the account and
+          # nothing else is. Read alone is not enough: the suite builds into the
+          # checkout, so a read-only grant would fail on the build rather than on
+          # anything this run is about.
+          icacls $workspace /grant 'suite:(OI)(CI)M' /T /C /Q | Out-Null
+          icacls $scratch /grant 'suite:(OI)(CI)M' /T /C /Q | Out-Null
+
+          # The script takes its paths as arguments rather than carrying them as
+          # text, so nothing here is quoted into a second language.
+          $runner = Join-Path $scratch 'run.ps1'
+          @'
+          param([string]$Workspace, [string]$Packages, [string]$Dotnet)
+          $ErrorActionPreference = 'Stop'
+          whoami
+          whoami /groups | Select-String 'S-1-16-'
+          # git refuses a repository owned by another account unless it is told the
+          # ownership is expected. The headless guard shells out to git ls-files, so
+          # without this it reads an empty set and the run fails for a reason that
+          # has nothing to do with elevation. The statement is made through the
+          # environment rather than through git config, because a config write wants
+          # a home directory and this account has no reason to acquire one. Both
+          # spellings of the path are given: git reports one and the runner set the
+          # other, and a comparison that misses is a silent refusal rather than an
+          # error.
+          $env:GIT_CONFIG_COUNT = '2'
+          $env:GIT_CONFIG_KEY_0 = 'safe.directory'
+          $env:GIT_CONFIG_VALUE_0 = $Workspace.Replace('\', '/')
+          $env:GIT_CONFIG_KEY_1 = 'safe.directory'
+          $env:GIT_CONFIG_VALUE_1 = $Workspace
+          $env:NUGET_PACKAGES = $Packages
+          $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+          Set-Location $Workspace
+          & $Dotnet test Jellyfin.Plugin.WatchSync.sln --nologo
+          exit $LASTEXITCODE
+          '@ | Set-Content -Path $runner -Encoding utf8
+
+          $out = Join-Path $scratch 'stdout.txt'
+          $err = Join-Path $scratch 'stderr.txt'
+          $credential = [System.Management.Automation.PSCredential]::new('.\suite', $secret)
+
+          # Every value is quoted on the way in. Start-Process joins the list with
+          # spaces and quotes nothing, so an unquoted path under Program Files
+          # arrives as two arguments and the second one is read as a switch.
+          $arguments = @(
+            '-NoProfile',
+            '-File', ('"' + $runner + '"'),
+            '-Workspace', ('"' + $workspace + '"'),
+            '-Packages', ('"' + (Join-Path $scratch 'packages') + '"'),
+            '-Dotnet', ('"' + (Get-Command dotnet).Source + '"'))
+
+          # The new account gets the environment built for it rather than a copy of
+          # this job's. Without this the child runs as the standard account and
+          # still points at the elevated account's home and temporary directories,
+          # which fails on the first write to either and says nothing about
+          # elevation.
+          $process = Start-Process -FilePath (Get-Command pwsh).Source -ArgumentList $arguments -Credential $credential -WorkingDirectory $scratch -UseNewEnvironment -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+
+          Get-Content -Path $out
+          $failures = Get-Content -Path $err -Raw
+          if ($failures) {
+            Write-Output $failures
+          }
+
+          if ($process.ExitCode -ne 0) {
+            Write-Output "::error::The suite did not pass as a standard account. Exit code $($process.ExitCode)."
+            exit $process.ExitCode
+          }
+
+      - name: Remove the standard account
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # The runner is discarded after the job, so this is tidiness rather than
+          # a control. It runs on a failed run too, because a step that only tidies
+          # up after success is the one that leaves the mess worth finding.
+          if (Get-LocalUser -Name 'suite' -ErrorAction SilentlyContinue) {
+            Remove-LocalUser -Name 'suite'
+            Write-Output 'Removed the standard account.'
+          }
