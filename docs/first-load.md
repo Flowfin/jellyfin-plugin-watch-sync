@@ -1,10 +1,9 @@
 # Readings taken on a running server
 
-This file holds readings, not tests. A reading is somebody installing a packaged
-artifact on a server that was not built here and writing down what happened,
-with the server version, the artifact checksum and the date beside it. Nothing in
-this file is re-run by the suite and nothing in it is asserted by a check, which
-is why each entry carries the commands that produced it.
+A reading is somebody installing a packaged artifact on a server that was not
+built here and writing down what happened, with the server version, the artifact
+checksum and the date beside it. The suite re-runs none of it and no check
+asserts any of it, so each entry carries the commands that produced it.
 
 A reading that failed is recorded the same way as one that passed. An entry is
 never removed and never edited once it names a date; a later reading is a later
