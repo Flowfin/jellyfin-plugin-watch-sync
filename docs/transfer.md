@@ -119,6 +119,39 @@ things an exchange writes about itself, they are written in that order, and both
 are behind or level with the work that was done. A reader who finds them behind
 the truth loses an exchange's worth of time and nothing else.
 
+### Nothing already applied is unwound
+
+The table above says what is left behind on every route out of an exchange, and
+what it never says is that something was taken back. That is the rule rather than
+an omission, so it is written here: no code path undoes an item this exchange
+already applied, for any reason, including the seventh item of ten failing.
+
+There is no transaction across two servers, so an unwind is not a rollback in the
+sense a database offers one. It is a second pass of writes, made at the moment
+something is already going wrong, against a server that has just refused a write.
+It can fail halfway itself, and what it leaves then is a third state nobody
+planned and no row above describes: some items at the peer's value, some at the
+value they held before this exchange, and an agreed record that matches neither.
+The failure the per-item rule exists to prevent is reached by the mechanism meant
+to prevent it.
+
+What stands in its place is the order the agreed record is written in. It is
+written for the items that were decided and for no others, so an item that failed
+keeps the record it had, and the next exchange offers exactly that item again. A
+partial exchange is a smaller exchange rather than a damaged one, and repeating an
+applied change is #50, which is what makes offering an item again cheap.
+
+Undoing a write is not refused everywhere, and the difference is worth keeping
+sharp. What a revoked pairing wrote can be undone, by the provenance stamped on
+each value, #44, and that is an operator action taken against a pairing after the
+fact. It is not an exchange reversing itself while it runs, which is what this
+rule refuses.
+
+Nothing in the tree holds this today. There is no apply path, so the rule is a
+sentence a reading enforces at the review of the change that writes one, which is
+#54's own condition and the bound the section below states for this whole
+document.
+
 ## How this document is held true
 
 By a reading, at the review of the change that touches it.
