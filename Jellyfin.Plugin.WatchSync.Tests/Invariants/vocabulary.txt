@@ -52,3 +52,13 @@ log-provider-identifier :: log-holds-no-viewing :: 67 :: Log(Trace|Debug|Informa
 # that is the whole reason the queue, the matcher and the resolver are wanted behind
 # constructors instead.
 plugin-instance-read :: static-instance-not-read :: 8 :: \bPlugin\s*\.\s*Instance\b :: reaches the plugin's static instance from a type that was handed nothing :: the dependency taken through the constructor, so the type can be built in a test with no server present
+
+# Whether a send that timed out is ever repeated is not this plugin's to decide, so
+# #50 takes the pessimistic answer and makes a second delivery indistinguishable from
+# the first. The mechanism is the write itself: an apply that assigns is idempotent
+# whatever arrives twice, and an apply that adds is not. The set of recently seen
+# envelopes that issue also asks for only bounds the window in which the addition is
+# invisible, which is why these rules are on the operator rather than on the set.
+play-count-increment :: applied-change-is-assigned :: 50 :: \.PlayCount\s*(\+\+|\+=) :: adds a play to whatever the record holds at the moment of the write :: the count reconciled against the agreed record and then assigned, which is #33
+play-count-pre-increment :: applied-change-is-assigned :: 50 :: \+\+\s*[A-Za-z_][A-Za-z0-9_.]*\.PlayCount\b :: the same addition, spelled the other way round :: the count reconciled against the agreed record and then assigned, which is #33
+position-accumulated :: applied-change-is-assigned :: 50 :: \.PlaybackPositionTicks\s*(\+\+|\+=) :: adds to the stored position instead of assigning the point the person stopped at :: the position the change carries, assigned

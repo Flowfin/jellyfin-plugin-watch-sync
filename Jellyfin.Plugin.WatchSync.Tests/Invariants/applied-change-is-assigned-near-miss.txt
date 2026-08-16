@@ -1,0 +1,32 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The apply path is already right about the other three fields, and each of them takes
+// the value the two sides agreed. That is what makes this the near-miss rather than an
+// obviously broken one: one line adds a play instead of assigning one, and it reads as
+// the more careful of the two, because a count is a thing you increase.
+//
+// It costs nothing on the first delivery, and that is the whole difficulty. The second
+// delivery is the one that produces two plays for one watch, and by then nothing on
+// either server says which of the two was invented. A send that timed out may or may not
+// have arrived, so the second delivery is not an unlikely case; it is the case #50 is
+// written for.
+
+internal sealed class ApplyChange
+{
+    private readonly IUserDataWriter _writer;
+
+    internal ApplyChange(IUserDataWriter writer)
+    {
+        _writer = writer;
+    }
+
+    internal void Apply(SyncedState agreed, UserItemData data)
+    {
+        data.Played = agreed.Played;
+        data.PlayCount++;
+        data.PlaybackPositionTicks = agreed.PlaybackPositionTicks;
+        data.LastPlayedDate = agreed.LastPlayedDate;
+
+        _writer.Save(data);
+    }
+}

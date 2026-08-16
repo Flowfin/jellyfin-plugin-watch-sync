@@ -1,0 +1,25 @@
+// The repair of the near-miss next to it, and nothing else. The count arrives already
+// reconciled against the agreed record, so the apply assigns it like the other three
+// fields and a second delivery writes the same four values again. If the guard passes
+// this and refuses its neighbour, what it refused was the addition and not the field,
+// the write or the method.
+
+internal sealed class ApplyChange
+{
+    private readonly IUserDataWriter _writer;
+
+    internal ApplyChange(IUserDataWriter writer)
+    {
+        _writer = writer;
+    }
+
+    internal void Apply(SyncedState agreed, UserItemData data)
+    {
+        data.Played = agreed.Played;
+        data.PlayCount = agreed.PlayCount;
+        data.PlaybackPositionTicks = agreed.PlaybackPositionTicks;
+        data.LastPlayedDate = agreed.LastPlayedDate;
+
+        _writer.Save(data);
+    }
+}
