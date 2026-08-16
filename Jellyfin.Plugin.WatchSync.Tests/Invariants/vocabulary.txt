@@ -62,3 +62,14 @@ plugin-instance-read :: static-instance-not-read :: 8 :: \bPlugin\s*\.\s*Instanc
 play-count-increment :: applied-change-is-assigned :: 50 :: \.PlayCount\s*(\+\+|\+=) :: adds a play to whatever the record holds at the moment of the write :: the count reconciled against the agreed record and then assigned, which is #33
 play-count-pre-increment :: applied-change-is-assigned :: 50 :: \+\+\s*[A-Za-z_][A-Za-z0-9_.]*\.PlayCount\b :: the same addition, spelled the other way round :: the count reconciled against the agreed record and then assigned, which is #33
 position-accumulated :: applied-change-is-assigned :: 50 :: \.PlaybackPositionTicks\s*(\+\+|\+=) :: adds to the stored position instead of assigning the point the person stopped at :: the position the change carries, assigned
+
+# Where this plugin's store sits is the server's answer, not this plugin's. #68 asks for a
+# folder taken from the application paths the server provides, and every rule below is one of
+# the roots somebody reaches for instead. The first is the expensive one, because it is the
+# reading the issue's own wording invites and it survives every test until an upgrade.
+store-path-plugin-data-folder :: store-path-from-the-server :: 68 :: \bDataFolderPath\b :: keeps the store in the plugin's own install directory, which the server deletes and re-extracts on an upgrade :: the store folder under the data path the server hands over, which survives a plugin version
+store-path-environment-variable :: store-path-from-the-server :: 68 :: Environment\.GetEnvironmentVariable\b :: takes a path from the environment of whatever process happened to start the server :: the store folder under the data path the server hands over
+store-path-user-profile :: store-path-from-the-server :: 68 :: Environment\.GetFolderPath\b|\bSpecialFolder\. :: takes a path from the account the server runs as, which is not where that server keeps its data :: the store folder under the data path the server hands over
+store-path-temporary :: store-path-from-the-server :: 68 :: Path\.GetTempPath\b|Path\.GetTempFileName\b|Directory\.CreateTempSubdirectory\b :: keeps a record that has to survive a restart somewhere a machine is entitled to empty :: the store folder under the data path the server hands over
+store-path-beside-the-assembly :: store-path-from-the-server :: 68 :: AppContext\.BaseDirectory\b|\.Assembly\.Location\b|Assembly\.GetExecutingAssembly\(\) :: derives the store from where the plugin was loaded from, which is the install directory under another name :: the store folder under the data path the server hands over
+store-path-absolute-literal :: store-path-from-the-server :: 68 :: "(/(etc|var|usr|home|opt|srv)/|[A-Za-z]:\\) :: writes an absolute path into the source, which is right on the machine it was written on :: the store folder under the data path the server hands over

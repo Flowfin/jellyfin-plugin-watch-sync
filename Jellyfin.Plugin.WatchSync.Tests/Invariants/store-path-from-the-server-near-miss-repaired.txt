@@ -1,0 +1,22 @@
+// The repair of the near-miss next to it, and nothing else. The root is the one the server
+// creates for its own data and keeps across plugin versions, so an upgrade replaces the plugin
+// and leaves the store where it was. If the guard passes this and refuses its neighbour, what it
+// refused was the directory the server owns and replaces, and not the combine, the field or the
+// creation.
+
+internal sealed class WatchSyncStore
+{
+    private readonly string _folder;
+
+    internal WatchSyncStore(IApplicationPaths applicationPaths)
+    {
+        _folder = Path.Combine(applicationPaths.DataPath, "watch-sync");
+    }
+
+    internal string Folder => _folder;
+
+    internal void Create()
+    {
+        Directory.CreateDirectory(_folder);
+    }
+}

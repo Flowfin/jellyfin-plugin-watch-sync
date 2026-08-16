@@ -21,3 +21,4 @@ injected-clock :: 32 :: the plugin's own sources :: InvariantGuardTests
 log-holds-no-viewing :: 67 :: the plugin's own sources :: InvariantGuardTests
 static-instance-not-read :: 8 :: the plugin's own sources :: InvariantGuardTests
 applied-change-is-assigned :: 50 :: the plugin's own sources :: InvariantGuardTests
+store-path-from-the-server :: 68 :: the plugin's own sources :: InvariantGuardTests

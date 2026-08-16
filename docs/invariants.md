@@ -33,6 +33,7 @@ without covering the rest.
 | `log-holds-no-viewing` | #67 | the plugin's own sources | `InvariantGuardTests` |
 | `static-instance-not-read` | #8 | the plugin's own sources | `InvariantGuardTests` |
 | `applied-change-is-assigned` | #50 | the plugin's own sources | `InvariantGuardTests` |
+| `store-path-from-the-server` | #68 | the plugin's own sources | `InvariantGuardTests` |
 
 ## What each one is for
 
@@ -81,6 +82,20 @@ failure the prior art in that issue produces from the other direction. The plugi
 record is immutable, so the mistake has nowhere to be made except on the server's
 record at the moment of the write, which is exactly where the apply path will be.
 
+**`store-path-from-the-server`.** No path this plugin stores anything under is taken from
+anywhere but the application paths the server hands over. #68 asks for that in one
+sentence, and the sentence has a trap in it: it says the store lives in the plugin's own
+data folder, and the server offers a property with that name. On both supported lines
+`BasePlugin.DataFolderPath` is the plugin's install directory with the version appended,
+and the server deletes and re-extracts that directory when it installs a new version. So
+the reading the wording invites produces a store that works, keeps its documents, and
+empties itself on the one day the agreed record and the document upgrade are what
+everything depends on. The other rules are the roots somebody reaches for when that one is
+refused: the environment, the account the server runs as, a temporary directory, the
+directory the assembly was loaded from, and an absolute path typed into the source. What
+the plugin does instead is `StoreFolder`, which composes one name under
+`IApplicationPaths.DataPath` and nothing else.
+
 ## What these patterns cannot see
 
 A pattern reads one line of text. That is enough for the mistakes above as they are
@@ -90,15 +105,24 @@ green run.
 
 **A scan is only as wide as its subject.** These rules read the plugin's own sources.
 The plugin is small today. Nothing in it logs, names a user, reads a machine clock or
-writes a change, so four of the five invariants carried by that guard scan sources that
+writes a change, so four of the six invariants carried by that guard scan sources that
 could not have violated them:
 
     grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)|\.(PlayCount|PlaybackPositionTicks)\s*(\+\+|\+=)' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
     exit=1
 
-The fifth is not in that position. The static that `static-instance-not-read` refuses
+The other two are not in that position. The static that `static-instance-not-read` refuses
 reaching for is in `Plugin.cs`, and every source in the project can see it, so that rule
-has had something to be true of since the day the project was created.
+has had something to be true of since the day the project was created. And
+`store-path-from-the-server` arrived with the one type that composes a path, so it has
+been about a real line from the change that added it:
+
+    grep -rn 'DataPath' --include=*.cs Jellyfin.Plugin.WatchSync/
+    Jellyfin.Plugin.WatchSync/Storage/StoreFolder.cs:15:/// The root is <see cref="IApplicationPaths.DataPath"/>, which the server creates and keeps across
+    Jellyfin.Plugin.WatchSync/Storage/StoreFolder.cs:48:    public string FullPath => Path.Combine(_applicationPaths.DataPath, FolderName);
+
+The first of the two is the comment saying so and the second is the line. One type composes
+a path and the rules above are about the roots it did not take.
 
 A run that finds nothing is not evidence that the rule holds over code that has not been
 written. The near-miss fixtures are what make each rule a guard rather than a green tick,
@@ -148,6 +172,16 @@ one-character version, which is the one that gets written while the apply path i
 written, and the reconciliation that decides the count is #33 rather than this guard.
 They also name two fields by name, so they say nothing at all about a field this plugin
 does not carry.
+
+**`store-path-from-the-server` sees the roots that have names, and it does not read the
+combine.** The rules refuse the calls and the property that produce a root, so a root
+obtained through a variable assigned somewhere else, handed in by a caller, or read out of
+a setting reaches the same wrong directory with none of those names on the line. The one
+name this plugin composes under the server's root is a constant in `StoreFolder`, and no
+rule here refuses a constant, because a leaf name has to be something: what the rules hold
+is that the part above it was not chosen here. Which folder the store actually sits in is
+asserted by `StoreFolderTests` rather than by this guard, and the two are about different
+halves of the same sentence.
 
 ## Departures
 
