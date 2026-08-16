@@ -1,0 +1,28 @@
+# A fixture, not the guide, and its vocabulary is a fixture vocabulary. Judging this
+# against the real enumerations would prove the state of the tree on the day it ran
+# rather than proving the guard.
+#
+# The mistake is one character, in the place a document of nine similar names
+# actually goes wrong. The section heading says NoEpisodeNumbers where the code and
+# the table say NoEpisodeNumber. The section is present, its prose is right, and the
+# row beneath it is right, so nothing about the document reads as broken: it is one
+# heading naming a reason that does not exist, and one reason with no section. That
+# is what makes it a near-miss rather than an obviously wrong file.
+
+### `NoIdentifierAtAll`
+
+The item carries no provider identifier of any kind.
+
+### `NoEpisodeNumbers`
+
+The episode carries no episode number.
+
+### `Ambiguous`
+
+More than one local item claims the key.
+
+| reason | effect | what the repair is |
+| --- | --- | --- |
+| `NoIdentifierAtAll` | refresh | An identifier on the item. |
+| `NoEpisodeNumber` | refresh | The episode number. |
+| `Ambiguous` | sweep | The duplicate removed. |

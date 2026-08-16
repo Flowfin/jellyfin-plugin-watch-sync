@@ -74,6 +74,8 @@ operator does not hold.
   checked against, and what nothing has checked.
 - [docs/matching.md](docs/matching.md), which kinds of item carry watch state
   across and by which key.
+- [docs/unmatched.md](docs/unmatched.md), what an item that did not match means
+  and what repairs it.
 - [docs/parity.md](docs/parity.md), the checks this repository runs and the ones
   it has decided not to.
 - [CONTRIBUTING.md](CONTRIBUTING.md), how to sign off a change.

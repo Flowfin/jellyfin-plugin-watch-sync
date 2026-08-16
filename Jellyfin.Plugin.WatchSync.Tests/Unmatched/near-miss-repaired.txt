@@ -1,0 +1,21 @@
+# The repair of the near-miss next to it, and nothing else. One character comes off
+# one heading. If the guard passes this and refuses its neighbour, what it refused
+# was the mistake and not something else about the fixture.
+
+### `NoIdentifierAtAll`
+
+The item carries no provider identifier of any kind.
+
+### `NoEpisodeNumber`
+
+The episode carries no episode number.
+
+### `Ambiguous`
+
+More than one local item claims the key.
+
+| reason | effect | what the repair is |
+| --- | --- | --- |
+| `NoIdentifierAtAll` | refresh | An identifier on the item. |
+| `NoEpisodeNumber` | refresh | The episode number. |
+| `Ambiguous` | sweep | The duplicate removed. |
