@@ -28,12 +28,20 @@ public class UnmatchedGuideTests
     /// <summary>
     /// The whole point, run against the guide as it is. Every reason has a section, no
     /// section names something the sources do not carry, and nothing has two sections.
+    ///
+    /// The set is asserted non-empty first. A regular expression that stopped matching
+    /// would otherwise report every reason as missing, which is a red suite naming nine
+    /// documentation defects when the defect is one character of a pattern.
     /// </summary>
     [Fact]
     public void TheGuideHasASectionForEveryUnmatchedReasonExactlyOnce()
     {
+        var sections = UnmatchedGuide.Sections(UnmatchedGuide.Text());
+
+        Assert.NotEmpty(sections);
+
         var report = UnmatchedGuide.Check(
-            UnmatchedGuide.Sections(UnmatchedGuide.Text()),
+            sections,
             UnmatchedGuide.Vocabulary());
 
         Assert.Empty(report.Missing.Select(reason =>
@@ -191,6 +199,33 @@ public class UnmatchedGuideTests
     }
 
     /// <summary>
+    /// Both reads survive a checkout whose lines end in a carriage return.
+    ///
+    /// This is the mistake the first version of the guard made. The heading pattern ended
+    /// in a run of spaces and tabs before the line end, which matches nothing on a Windows
+    /// checkout, so the read returned no section at all and the suite reported every reason
+    /// as undocumented. The line ending is a property of the machine rather than of the
+    /// file, so it is varied here rather than carried in a fixture the repository would
+    /// normalise on the way in.
+    /// </summary>
+    [Fact]
+    public void BothReadsSurviveACarriageReturnAtTheEndOfEveryLine()
+    {
+        var text = UnmatchedGuide.Text().Replace("\r\n", "\n", StringComparison.Ordinal);
+        var carriageReturned = text.Replace("\n", "\r\n", StringComparison.Ordinal);
+
+        Assert.Equal(
+            UnmatchedGuide.Sections(text),
+            UnmatchedGuide.Sections(carriageReturned));
+
+        Assert.Equal(
+            UnmatchedGuide.Rows(text).Select(row => row.Reason),
+            UnmatchedGuide.Rows(carriageReturned).Select(row => row.Reason));
+
+        Assert.NotEmpty(UnmatchedGuide.Sections(carriageReturned));
+    }
+
+    /// <summary>
     /// The vocabulary is derived rather than listed, so this asserts what it is derived
     /// from. The two members that are not a reason are the two that mean nothing went
     /// wrong, and a member added to either enumeration joins the set without anybody
@@ -285,7 +320,7 @@ public class UnmatchedGuideTests
         /// <returns>The reasons the headings name, in the order they appear.</returns>
         internal static IReadOnlyList<string> Sections(string text) =>
             Regex
-                .Matches(text, @"(?m)^###[ \t]+`(?<reason>[A-Za-z0-9]+)`[ \t]*$")
+                .Matches(text, @"(?m)^###[ \t]+`(?<reason>[A-Za-z0-9]+)`\s*$")
                 .Select(match => match.Groups["reason"].Value)
                 .ToList();
 
