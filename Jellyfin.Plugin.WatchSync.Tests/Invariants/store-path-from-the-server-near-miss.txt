@@ -1,0 +1,30 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// This is the near-miss because it is the reading of #68 that the words invite. That issue says
+// the store lives in the plugin's own data folder, and the server offers a property with exactly
+// that name, already absolute, already the plugin's. Nothing about the line looks wrong, it needs
+// no path composed by hand, and it is handed the plugin rather than reaching for a static, so the
+// invariant against the static instance passes it too.
+//
+// What it costs arrives on the first upgrade rather than on the first run. On both supported
+// lines that property is the plugin's own install directory with the version appended, and the
+// server deletes and re-extracts that directory when it installs a new version. So this store
+// works, keeps its documents, and empties itself the day somebody updates the plugin, which is
+// the one day the agreed record and the document upgrade are the things being relied on.
+
+internal sealed class WatchSyncStore
+{
+    private readonly string _folder;
+
+    internal WatchSyncStore(BasePlugin plugin)
+    {
+        _folder = Path.Combine(plugin.DataFolderPath, "store");
+    }
+
+    internal string Folder => _folder;
+
+    internal void Create()
+    {
+        Directory.CreateDirectory(_folder);
+    }
+}
