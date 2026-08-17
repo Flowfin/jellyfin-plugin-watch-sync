@@ -293,6 +293,134 @@ than the ordinary path with an empty record, and the shape of what it records.
 The record is bounded by the number of matched items and not by the number of
 playback events. Watching one item a hundred times adds no rows.
 
+## The reason the server gives when it saves
+
+The server raises one event whenever it saves what a user's record holds for an
+item, and the event carries the reason it saved. That reason is the first thing the
+handler in #15 reads, before the item and before the user, because one of the seven
+arrives several times a minute while something is playing and one of them can change
+nothing this plugin carries.
+
+The seven are the same set on both server lines, so the table below is one decision
+and not two:
+
+    GP="$(dotnet nuget locals global-packages --list | sed 's/^.*: //' | tr -d '\r')"
+    for v in 10.11.11/lib/net9.0 12.0.0-rc4/lib/net10.0; do
+      printf '%s: ' "${v%%/*}"
+      grep -o 'F:MediaBrowser\.Model\.Entities\.UserDataSaveReason\.[A-Za-z]*' \
+        "$GP/jellyfin.model/$v/MediaBrowser.Model.xml" | sed 's/.*\.//' | sort | tr '\n' ' '
+      echo
+    done
+    10.11.11: Import PlaybackFinished PlaybackProgress PlaybackStart TogglePlayed UpdateUserData UpdateUserRating
+    12.0-rc4: Import PlaybackFinished PlaybackProgress PlaybackStart TogglePlayed UpdateUserData UpdateUserRating
+
+Three treatments, and every reason carries exactly one of them.
+
+- The treatment `enqueued` reads the event and turns every moved field whose value
+  differs from the record of what the two sides last agreed into one change. Nothing
+  else is carried, and a value equal to the agreed one is not a change. Direction is
+  pull, so the change waits for the peer to fetch it, which is the queue in #48.
+- The treatment `thresholded` is the same as `enqueued`, behind the position
+  thresholds #17 fixes. A position that has not moved past the threshold is counted
+  and carried no further, and the position that does leave is the one the playback
+  stopped at rather than one report in the middle of it.
+- The treatment `dropped` is for a reason under which no moved field can change. The
+  event is counted at the handler and carried no further. Counted rather than
+  ignored, because a reason that has stopped arriving is a change this plugin has
+  stopped noticing, and #62 is the surface a count is read from.
+
+| the reason | treatment | what the server writes under it | why that treatment |
+| --- | --- | --- | --- |
+| `PlaybackStart` | enqueued | `PlayCount`, `LastPlayedDate`, and `Played`, which it sets false on an item that supports resuming | Starting something is a play the server has already counted, and on a resumable item it also writes `Played` false. Both are the server's own state about what was watched, so both move, and what the receiving side does with them is #33 and #31 rather than a decision here. |
+| `PlaybackProgress` | thresholded | `PlaybackPositionTicks`, and `Played` where the position reaches the end of the item | One save per progress report, several a minute for as long as something plays, and every one of them but the last is a position nobody will ever resume from. |
+| `PlaybackFinished` | enqueued | `PlaybackPositionTicks`, and `PlayCount`, `Played` and a zeroed position where the client reported no position at all | The stop is the moment the position is worth carrying, which is what lets the threshold above drop every report before it without losing where somebody got to. |
+| `TogglePlayed` | enqueued | `Played`, `PlayCount`, `PlaybackPositionTicks` and `LastPlayedDate` | Somebody said watched or unwatched by hand. It is the reason a deliberate unplayed arrives under, which #34 holds against the ratchet undoing it. |
+| `UpdateUserRating` | dropped | `IsFavorite`, or `Likes` | Both are refused by the field table above, so no moved field can change under this reason. |
+| `Import` | enqueued | `Played`, `PlayCount` or `LastPlayedDate`, one save per element of the metadata file | A metadata file writes the same fields a person watching writes, and a scan writes them for a whole library at once, which is the run the cap in #38 stands against rather than a reason to stop reading them. |
+| `UpdateUserData` | enqueued | every moved field, as one document | The route the server's own interface writes through, so anything with an access token can produce it, and so can another plugin. |
+
+### Where each reason is written
+
+Read at the two tags the referenced packages are built from, so the table above is a
+statement about both lines rather than about the newer one:
+
+    for tag in v10.11.11 v12.0-rc4; do
+      printf '%s\n' "$tag"
+      for r in PlaybackStart PlaybackProgress PlaybackFinished TogglePlayed \
+               UpdateUserRating Import UpdateUserData; do
+        printf '  %-17s ' "$r"
+        git -C jellyfin grep -l "UserDataSaveReason\.$r" "$tag" -- '*.cs' \
+          | grep -v 'UserDataSaveReason.cs' | sed "s/^$tag://" | tr '\n' ' '
+        echo
+      done
+    done
+    v10.11.11
+      PlaybackStart     Emby.Server.Implementations/Session/SessionManager.cs
+      PlaybackProgress  Emby.Server.Implementations/EntryPoints/UserDataChangeNotifier.cs Emby.Server.Implementations/Session/SessionManager.cs
+      PlaybackFinished  Emby.Server.Implementations/Session/SessionManager.cs MediaBrowser.XbmcMetadata/NfoUserDataSaver.cs
+      TogglePlayed      MediaBrowser.Controller/Entities/BaseItem.cs MediaBrowser.XbmcMetadata/NfoUserDataSaver.cs
+      UpdateUserRating  Jellyfin.Api/Controllers/UserLibraryController.cs MediaBrowser.XbmcMetadata/NfoUserDataSaver.cs
+      Import            MediaBrowser.XbmcMetadata/Parsers/BaseNfoParser.cs
+      UpdateUserData    Jellyfin.Api/Controllers/ItemsController.cs
+    v12.0-rc4
+      PlaybackStart     Emby.Server.Implementations/Session/SessionManager.cs
+      PlaybackProgress  Emby.Server.Implementations/EntryPoints/UserDataChangeNotifier.cs Emby.Server.Implementations/Session/SessionManager.cs
+      PlaybackFinished  Emby.Server.Implementations/Session/SessionManager.cs MediaBrowser.XbmcMetadata/NfoUserDataSaver.cs
+      TogglePlayed      MediaBrowser.Controller/Entities/BaseItem.cs MediaBrowser.Controller/Entities/Video.cs MediaBrowser.XbmcMetadata/NfoUserDataSaver.cs
+      UpdateUserRating  Jellyfin.Api/Controllers/UserLibraryController.cs MediaBrowser.XbmcMetadata/NfoUserDataSaver.cs
+      Import            MediaBrowser.XbmcMetadata/Parsers/BaseNfoParser.cs
+      UpdateUserData    Jellyfin.Api/Controllers/ItemsController.cs
+
+`NfoUserDataSaver` is in that listing because it reads the reason off the event and
+not because it writes one, which is worth separating: it is another consumer of the
+same event, filtering on three of the seven.
+
+The one difference between the two lines is `Video.cs` under `TogglePlayed` on the
+newer one, where marking a video played writes a document carrying `Played` and, on
+a reset, a zeroed position. It is the same reason with the same fields, reached from
+one more place.
+
+The write columns above were read out of those two trees. Nothing in this repository
+compares them against anything, so a line that starts writing a different field
+under a reason it already raises leaves this table saying what used to be true. A
+reason added or removed upstream is the half a machine does hold, and it is under
+`## How this document is held true`.
+
+### The echo is not a reason
+
+Two of these reasons look like the place to recognise this plugin's own write coming
+back, and neither of them is, because the reason is chosen by whoever calls the
+save. It is a parameter on the interface, on both lines:
+
+    GP="$(dotnet nuget locals global-packages --list | sed 's/^.*: //' | tr -d '\r')"
+    for v in 10.11.11/lib/net9.0 12.0.0-rc4/lib/net10.0; do
+      printf '%s: ' "${v%%/*}"
+      grep -c 'M:MediaBrowser\.Controller\.Library\.IUserDataManager\.SaveUserData([^)]*UserDataSaveReason' \
+        "$GP/jellyfin.controller/$v/MediaBrowser.Controller.xml"
+    done
+    10.11.11: 2
+    12.0-rc4: 2
+
+Both overloads take a `UserDataSaveReason` from the caller, so a write this plugin
+makes carries whichever reason this plugin passes, and a write somebody else makes
+can carry the same one. `Import` and `UpdateUserData` are the two an applied change
+would plausibly arrive under, and both of them are also produced without this plugin
+being involved: `Import` by a metadata scan and `UpdateUserData` by anything holding
+an access token.
+
+So no treatment in the table above is `dropped` on the ground that the event is this
+plugin's own. The echo is stopped by the agreed record and by the suppression in
+#16, which compare the value against what this plugin just applied, and the reason
+is not evidence either way. What the apply path passes is decided where that path is
+built, in #54, and it changes nothing here.
+
+### What the treatment does not decide
+
+The treatment is what the reason decides and it is not the whole gate. An event
+about an item this plugin does not sync, or about a user with no mapping, is dropped
+at the handler whatever its reason, and the mapping is consumed rather than inferred
+under #42. #15 carries both.
+
 ## Direction
 
 Data is pulled. Decision 3 in #1 was answered on 2026-08-08.
@@ -349,8 +477,6 @@ down.
   direction that document is written against is the section above.
 - What a first exchange records and how it is distinguishable from an ordinary run,
   which is #37. The rule it applies is the section above.
-- The treatment of each reason the server gives when it saves user data, which
-  #15 adds to this document.
 - The position thresholds, their defaults and the reason for each default, which
   #17 adds to this document.
 - The envelope version and the bounds on what one may carry, which are #18 and
@@ -358,7 +484,8 @@ down.
 
 ## How this document is held true
 
-By the suite, for the field table, and by a reading at review for everything else.
+By the suite, for the field table and the save reason table, and by a reading at
+review for everything else.
 
 `SyncModelDocumentTests` reads the properties of the server's record off the
 referenced assembly by reflection, reads the rows of the field table out of this
@@ -368,6 +495,17 @@ a row naming no property, and a property named twice. It reads the members of
 member that is not a `moved` row. So a property added on a future server line
 reddens the suite rather than being dropped in silence, and a field moved into or
 out of the moved set has to move in the table and in the type together.
+
+The save reason table is held the same way, against the members of the server's
+`UserDataSaveReason` rather than against a list kept here: a reason with no row, a
+row naming no reason, and a reason named twice are each refused, and so is a row
+whose treatment is not one of the three the section declares. The treatments are
+read out of the prose that declares them rather than restated in the test, so a
+treatment removed from the document and left in a row is refused as well. A reason
+added upstream therefore reddens the suite instead of arriving as an event nothing
+has a treatment for, which is the failure that matters: an unclassified reason is
+either carried as a change nobody decided to carry or dropped in silence, and
+nothing in the middle.
 
 The reflection is over the assembly this project compiles against, which is a
 different one per target, and the suite runs once per target. So the table is
