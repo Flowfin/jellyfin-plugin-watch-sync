@@ -1,0 +1,19 @@
+# Declared departures from the rules in the vocabulary beside this file.
+#
+# Three fields per entry, separated by " :: ":
+#   path relative to the repository root :: vocabulary id :: the reason
+#
+# An entry whose file is not in the scanned set, or whose file no longer carries a hit
+# for that id, fails the guard as dangling. A departure is a debt with the thing that
+# retires it written next to it rather than a permanent hole, so it is removed by the
+# change that removes the call rather than left to rot.
+#
+# Blank lines and lines beginning with # are ignored.
+#
+# The two entries below are the type the rules point at. A rule saying "use this
+# instead" has to let that one thing make the call, and the alternative is a scanner
+# that knows a file name, which is a hole nothing later reads. Both are retired the day
+# the suite stops taking directories under the temporary root at all.
+
+Jellyfin.Plugin.WatchSync.Tests/TemporaryDirectory.cs :: temp-root-read :: this is the one place the root is read, and it hands it over without writing anything into it
+Jellyfin.Plugin.WatchSync.Tests/TemporaryDirectory.cs :: temp-subdirectory :: this is the one place a directory under the root is created, and the same type removes it on disposal
