@@ -337,12 +337,12 @@ public class ChangelogFragmentTests
                 last = name;
             }
 
-            foreach (var field in known.Where(entry => entry.Value).Select(entry => entry.Key).OrderBy(name => name, StringComparer.Ordinal))
+            foreach (var field in known.Where(entry => entry.Value)
+                .Select(entry => entry.Key)
+                .Where(name => !fields.ContainsKey(name))
+                .OrderBy(name => name, StringComparer.Ordinal))
             {
-                if (!fields.ContainsKey(field))
-                {
-                    findings.Add(new Finding(path, "missing-field", $"{field} is required on every entry and has no default, because the default would be the permissive one every time"));
-                }
+                findings.Add(new Finding(path, "missing-field", $"{field} is required on every entry and has no default, because the default would be the permissive one every time"));
             }
 
             findings.AddRange(Markings(path, fields));
