@@ -1,0 +1,21 @@
+// The same fixture with the directory taken from the type that removes it and nothing
+// else changed. The guard has to pass this, otherwise it is refusing a case that wants
+// a directory rather than the way of taking one the rule is about. The assertion still
+// fails where it failed before, and the directory still goes.
+using Xunit;
+
+namespace Jellyfin.Plugin.WatchSync.Tests;
+
+public class QueueOnDiskTests
+{
+    [Fact]
+    public void TheQueueIsStillThereAfterARestart()
+    {
+        using var directory = TemporaryDirectory.Create("queue");
+
+        var queue = new OutboundQueue(directory.FullPath);
+        queue.Add(Change.Played("item-1"));
+
+        Assert.Single(new OutboundQueue(directory.FullPath).Pending());
+    }
+}

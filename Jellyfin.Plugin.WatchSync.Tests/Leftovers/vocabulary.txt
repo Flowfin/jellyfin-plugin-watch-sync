@@ -1,0 +1,28 @@
+# The calls this guard refuses in the tracked test sources, one rule per line.
+#
+# Four fields per entry, separated by " :: ":
+#   id :: regular expression :: what a case matching it leaves unheld :: what to use instead
+#
+# Blank lines and lines beginning with # are ignored.
+#
+# The rule the three carry is #86's: no test writes outside a directory it created and
+# removes. A case that reaches the temporary root itself removes what it created on the
+# last line of its own body, which is right until the line before it fails, and a
+# directory left behind on a failing run is left behind on exactly the run where
+# somebody is already reading a different error. TemporaryDirectory removes on disposal,
+# so the failing path is covered by the same line as the passing one.
+#
+# This file is data rather than source for the reason the two vocabularies already in
+# the tree are. A scanner carrying these literals in a .cs file inside the scanned set
+# would match itself, and the exclusion repairing that would be a hole in the middle of
+# the guard.
+#
+# What these patterns cannot see: they read the call, so a case handed a path from
+# somewhere else writes under the temporary root with none of the three on the line and
+# passes. That is the half the reading after the run covers, which is a step of the
+# suite workflow rather than anything in this project, and it is why neither of the two
+# is the whole of the condition on its own.
+
+temp-root-read :: Path\.GetTempPath\b :: composes a path under the temporary root with nothing holding the case to removing what it puts there :: TemporaryDirectory.Create, whose directory goes away with the case, or TemporaryDirectory.Root where only the root is wanted
+temp-subdirectory :: Directory\.CreateTempSubdirectory\b :: creates a directory under the temporary root that nothing removes when the case fails part way through :: TemporaryDirectory.Create in a using statement
+temp-file :: Path\.GetTempFileName\b :: creates a file under the temporary root that nothing removes when the case fails part way through :: a file inside a TemporaryDirectory, which goes with the directory

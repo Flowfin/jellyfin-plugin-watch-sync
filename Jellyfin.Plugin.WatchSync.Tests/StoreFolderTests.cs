@@ -18,13 +18,15 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// file deliberately does not pretend to meet, because a comparison against an empty
 /// configuration type is green over nothing.
 ///
-/// This is the first test in the suite that creates a directory of its own, which is the subject
-/// #86's leftover-file condition has been waiting for. That assertion is that issue's and is not
-/// written here; what is written here is that each case removes what it created.
+/// This was the first test in the suite that created a directory of its own, which is the
+/// subject #86's leftover-file condition had been waiting for. That assertion is that issue's
+/// and is in `LeftoverTests`; what these cases do is take their directory from the type it
+/// points at, so the removal happens on the run where one of them fails as well as on the runs
+/// where none does.
 /// </summary>
 public sealed class StoreFolderTests : IDisposable
 {
-    private readonly string _programData;
+    private readonly TemporaryDirectory _programData;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="StoreFolderTests"/> class, with a directory
@@ -32,16 +34,16 @@ public sealed class StoreFolderTests : IDisposable
     /// </summary>
     public StoreFolderTests()
     {
-        _programData = Directory.CreateTempSubdirectory("watchsync-store-").FullName;
-        Directory.CreateDirectory(Path.Combine(_programData, "data"));
+        _programData = TemporaryDirectory.Create("store");
+        Directory.CreateDirectory(DataPath);
     }
 
     /// <inheritdoc />
-    public void Dispose() => Directory.Delete(_programData, true);
+    public void Dispose() => _programData.Dispose();
 
-    private string DataPath => Path.Combine(_programData, "data");
+    private string DataPath => Path.Combine(_programData.FullPath, "data");
 
-    private string PluginsPath => Path.Combine(_programData, "plugins");
+    private string PluginsPath => Path.Combine(_programData.FullPath, "plugins");
 
     private StoreFolder Folder()
     {
@@ -243,7 +245,7 @@ internal static class SecondFilesystem
     /// <returns>The root, or null.</returns>
     internal static string? Root()
     {
-        var here = Path.GetPathRoot(Path.GetTempPath());
+        var here = Path.GetPathRoot(TemporaryDirectory.Root);
 
         foreach (var drive in Drives().Where(drive => !string.Equals(drive, here, StringComparison.Ordinal)))
         {

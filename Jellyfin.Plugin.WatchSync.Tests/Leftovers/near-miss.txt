@@ -1,0 +1,26 @@
+// A fixture, not a compiled source. It is the test somebody writes the first time a
+// case needs a directory of its own, and it is careful rather than careless: the
+// directory is created, used and removed, and on every run that passes it leaves
+// nothing behind. The removal is the last line of the case body, so the run that leaves
+// the directory is the run where the assertion above it failed, which is the run
+// somebody is already reading a different error on.
+using System.IO;
+using Xunit;
+
+namespace Jellyfin.Plugin.WatchSync.Tests;
+
+public class QueueOnDiskTests
+{
+    [Fact]
+    public void TheQueueIsStillThereAfterARestart()
+    {
+        var directory = Directory.CreateTempSubdirectory("watchsync-queue-").FullName;
+
+        var queue = new OutboundQueue(directory);
+        queue.Add(Change.Played("item-1"));
+
+        Assert.Single(new OutboundQueue(directory).Pending());
+
+        Directory.Delete(directory, true);
+    }
+}

@@ -301,6 +301,54 @@ jobs:
             exit $process.ExitCode
           }
 
+      - name: Refuse a leftover under the temporary root
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # The suite holds one half of #86's third condition by reading its own
+          # sources: a case that takes a directory under the temporary root
+          # outside the one type that removes it is refused, and that holds on
+          # every route the suite runs on including a clone running dotnet test
+          # by hand. What no reading of the sources can show is whether a run
+          # actually left something behind, and nothing inside the suite runs
+          # after the suite, so this step is the other half. It reads the real
+          # root after every run this leg made.
+          #
+          # The root is asked of the runtime rather than assumed. Which variable
+          # it comes from differs per platform, and a step reading the wrong
+          # directory finds nothing and reports it as nothing left, which is the
+          # one outcome a check like this must not produce. The reading is the
+          # same call the suite composes its directories from.
+          #
+          # The match is this suite's own prefix. A step refusing every entry
+          # under a root the whole machine shares would fail on the runner
+          # image's own files and be turned off within a week.
+          #
+          # What it does not see: the Windows run above starts a standard
+          # account with an environment of its own, so that account's temporary
+          # root is not this one and a leftover there is out of reach here. The
+          # second-filesystem case writes outside the temporary root by
+          # definition and is out of reach for the same reason.
+          cat > "${RUNNER_TEMP}/leftovers.cs" <<'CSHARP'
+          var root = Path.GetTempPath();
+          Console.WriteLine($"temporary root: {root}");
+          var left = Directory.EnumerateFileSystemEntries(root, "watchsync-*").ToArray();
+          foreach (var entry in left)
+          {
+              Console.WriteLine(entry);
+          }
+
+          return left.Length == 0 ? 0 : 1;
+          CSHARP
+
+          if ! dotnet run "${RUNNER_TEMP}/leftovers.cs"; then
+            echo "::error::The suite left the entries above under the temporary root. Every directory a case takes is removed when the case is done with it, on the failing path as well as the passing one."
+            exit 1
+          fi
+
+          echo "Nothing carrying this suite's prefix is left under the temporary root."
+
       - name: Remove the standard account
         if: always() && runner.os == 'Windows'
         shell: pwsh
