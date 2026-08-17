@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.WatchSync.Model;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Model.Entities;
 using Xunit;
 
 namespace Jellyfin.Plugin.WatchSync.Tests;
@@ -223,6 +224,153 @@ public class SyncModelDocumentTests
         Assert.Equal("IsFavorite", Assert.Single(rowMissing.MembersWithoutARow));
     }
 
+    /// <summary>
+    /// The save reason table, against the reasons the server actually raises. A reason with no
+    /// row is an event the handler in #15 meets with no declared treatment, and the two things
+    /// it can do then are carry a change nobody decided to carry and drop one in silence.
+    /// </summary>
+    [Fact]
+    public void TheSaveReasonTableNamesEveryReasonExactlyOnce()
+    {
+        var report = SyncModelDocument.Check(
+            SyncModelDocument.AsRows(SyncModelDocument.SaveReasonRows(SyncModelDocument.Text())),
+            SyncModelDocument.SaveReasons());
+
+        Assert.Empty(report.Missing.Select(reason =>
+            $"{reason} is a reason the server saves under and the table does not name, so nothing says what the handler does with it."));
+
+        Assert.Empty(report.Unknown.Select(reason =>
+            $"{reason} is named by the save reason table and is not a reason the server raises, so its row is about nothing."));
+
+        Assert.Empty(report.Repeated.Select(reason =>
+            $"{reason} has more than one row, so which treatment holds is undefined."));
+    }
+
+    /// <summary>
+    /// The treatment column is a closed set, and the set is read out of the document rather than
+    /// restated here. A row carrying a word the document never declared is a treatment somebody
+    /// invented in the table and explained nowhere, and the word that is one step away is in the
+    /// prose beside it: the document says a dropped event is counted rather than ignored.
+    /// </summary>
+    [Fact]
+    public void EverySaveReasonRowCarriesATreatmentTheDocumentDeclares()
+    {
+        var text = SyncModelDocument.Text();
+        var declared = SyncModelDocument.DeclaredTreatments(text);
+
+        Assert.NotEmpty(declared);
+
+        Assert.Empty(SyncModelDocument
+            .SaveReasonRows(text)
+            .Where(row => !declared.Contains(row.Treatment, StringComparer.Ordinal))
+            .Select(row => $"{row.Reason} carries the treatment {row.Treatment}, which the document does not declare."));
+    }
+
+    /// <summary>
+    /// The other direction of the same closure. A treatment declared in the prose and used by no
+    /// row is a rule that was taken out of the table and left where a reader looks first.
+    /// </summary>
+    [Fact]
+    public void NoDeclaredTreatmentHasOutlivedTheRowsThatUsedIt()
+    {
+        var text = SyncModelDocument.Text();
+        var used = SyncModelDocument.SaveReasonRows(text)
+            .Select(row => row.Treatment)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.Empty(SyncModelDocument
+            .DeclaredTreatments(text)
+            .Where(treatment => !used.Contains(treatment))
+            .Select(treatment => $"{treatment} is declared and no row uses it."));
+    }
+
+    /// <summary>
+    /// A row that names no fields, or gives no reason for its treatment, is the shape that reads
+    /// as an oversight and gets filled in by whoever notices it next. The fields column is what
+    /// a later reader checks the treatment against.
+    /// </summary>
+    [Fact]
+    public void EverySaveReasonRowSaysWhatIsWrittenAndWhy()
+    {
+        var rows = SyncModelDocument.SaveReasonRows(SyncModelDocument.Text());
+
+        Assert.NotEmpty(rows);
+
+        Assert.All(rows, row => Assert.False(
+            string.IsNullOrWhiteSpace(row.Writes),
+            $"{row.Reason} carries a treatment and does not say what the server writes under it."));
+
+        Assert.All(rows, row => Assert.False(
+            string.IsNullOrWhiteSpace(row.Why),
+            $"{row.Reason} carries a treatment and no reason for it."));
+    }
+
+    /// <summary>
+    /// The guard proven by deleting it, on the mistake a column of long similar names actually
+    /// produces. The near-miss drops one character from one reason, so the row is present, its
+    /// treatment is right, its fields are right, its reason is right, and the save reason it
+    /// claims to be about does not exist. The repair is that character and nothing else.
+    ///
+    /// The fixture carries its own vocabulary, because a fixture judged against the real
+    /// enumeration would prove the state of the referenced package on the day it ran.
+    /// </summary>
+    [Fact]
+    public void TheSaveReasonGuardRefusesTheNearMissAndPassesItsRepair()
+    {
+        var vocabulary = new[] { "PlaybackStart", "PlaybackFinished", "UpdateUserRating" };
+
+        var refused = SyncModelDocument.Check(
+            SyncModelDocument.AsRows(
+                SyncModelDocument.SaveReasonRows(SyncModelDocument.Fixture("save-reason-near-miss.txt"))),
+            vocabulary);
+
+        Assert.Equal("PlaybackFinished", Assert.Single(refused.Missing));
+        Assert.Equal("PlaybackFinishd", Assert.Single(refused.Unknown));
+        Assert.Empty(refused.Repeated);
+
+        var repaired = SyncModelDocument.Check(
+            SyncModelDocument.AsRows(
+                SyncModelDocument.SaveReasonRows(SyncModelDocument.Fixture("save-reason-near-miss-repaired.txt"))),
+            vocabulary);
+
+        Assert.Empty(repaired.Missing);
+        Assert.Empty(repaired.Unknown);
+        Assert.Empty(repaired.Repeated);
+    }
+
+    /// <summary>
+    /// The treatment leg, driven off the fixture in both directions for the reason the moved-set
+    /// leg is: the document agrees with itself today, so a leg that only ever sees the document
+    /// proves nothing about what it would refuse. The word substituted here is the one the
+    /// document's own prose puts beside the treatment it belongs to.
+    /// </summary>
+    [Fact]
+    public void TheTreatmentLegRefusesAWordTheDocumentDoesNotDeclare()
+    {
+        var fixture = SyncModelDocument.Fixture("save-reason-near-miss-repaired.txt");
+        var declared = SyncModelDocument.DeclaredTreatments(fixture);
+
+        Assert.Equal(new[] { "enqueued", "dropped" }, declared);
+
+        var rows = SyncModelDocument.SaveReasonRows(fixture);
+
+        Assert.Empty(rows
+            .Where(row => !declared.Contains(row.Treatment, StringComparer.Ordinal))
+            .Select(row => $"{row.Reason} carries the treatment {row.Treatment}, which the fixture does not declare."));
+
+        var invented = rows
+            .Select(row => string.Equals(row.Treatment, "dropped", StringComparison.Ordinal)
+                ? row with { Treatment = "ignored" }
+                : row)
+            .ToList();
+
+        var refused = invented
+            .Where(row => !declared.Contains(row.Treatment, StringComparer.Ordinal))
+            .ToList();
+
+        Assert.Equal("ignored", Assert.Single(refused).Treatment);
+    }
+
     internal static class SyncModelDocument
     {
         /// <summary>
@@ -237,6 +385,16 @@ public class SyncModelDocumentTests
         /// <param name="Disposition">The disposition column.</param>
         /// <param name="Why">The reason column.</param>
         internal sealed record Row(string Property, string Disposition, string Why);
+
+        /// <summary>
+        /// A row of the save reason table: the reason it names, the treatment, what the server
+        /// writes under that reason, and why the treatment is the right one.
+        /// </summary>
+        /// <param name="Reason">The save reason the row names.</param>
+        /// <param name="Treatment">The treatment column.</param>
+        /// <param name="Writes">The column naming what the server writes under the reason.</param>
+        /// <param name="Why">The reason for the treatment.</param>
+        internal sealed record SaveReasonRow(string Reason, string Treatment, string Writes, string Why);
 
         /// <summary>
         /// What the table and a vocabulary of property names disagree about.
@@ -347,6 +505,57 @@ public class SyncModelDocumentTests
                     match.Groups["property"].Value,
                     match.Groups["disposition"].Value,
                     match.Groups["why"].Value.Trim()))
+                .ToList();
+
+        /// <summary>
+        /// The reasons the server saves a user's record under, read off the referenced assembly
+        /// rather than out of a list kept here. Raising the package raises what the table is
+        /// judged against, and the suite builds once per target, so both server lines are judged.
+        /// </summary>
+        /// <returns>Every member of the server's save reason enumeration.</returns>
+        internal static IReadOnlyList<string> SaveReasons() =>
+            Enum.GetNames<UserDataSaveReason>();
+
+        /// <summary>
+        /// Reads the rows of the save reason table out of a document. Four columns rather than
+        /// the field table's three, which is also what keeps the two tables out of each other's
+        /// reader: a row of one shape is not a row of the other.
+        /// </summary>
+        /// <param name="text">The document text.</param>
+        /// <returns>The rows.</returns>
+        internal static IReadOnlyList<SaveReasonRow> SaveReasonRows(string text) =>
+            Regex
+                .Matches(
+                    text,
+                    @"(?m)^\|\s*`(?<reason>[A-Za-z0-9]+)`\s*\|\s*(?<treatment>[a-z]+)\s*\|(?<writes>[^|]*)\|(?<why>[^|]*)\|\s*$")
+                .Select(match => new SaveReasonRow(
+                    match.Groups["reason"].Value,
+                    match.Groups["treatment"].Value,
+                    match.Groups["writes"].Value.Trim(),
+                    match.Groups["why"].Value.Trim()))
+                .ToList();
+
+        /// <summary>
+        /// The save reason rows as the rows <see cref="Check"/> judges, so the set comparison is
+        /// the one the field table already uses rather than a second implementation of it.
+        /// </summary>
+        /// <param name="rows">The save reason rows.</param>
+        /// <returns>The same rows in the shape the comparison takes.</returns>
+        internal static IReadOnlyList<Row> AsRows(IReadOnlyList<SaveReasonRow> rows) =>
+            rows.Select(row => new Row(row.Reason, row.Treatment, row.Why)).ToList();
+
+        /// <summary>
+        /// Reads the treatments the document declares. They are the sentences that introduce
+        /// each one, so a treatment used by a row and declared nowhere is refused, and reading
+        /// them is what makes this a check on the document rather than a copy of it.
+        /// </summary>
+        /// <param name="text">The document text.</param>
+        /// <returns>The declared treatments.</returns>
+        internal static IReadOnlyList<string> DeclaredTreatments(string text) =>
+            Regex
+                .Matches(text, "(?m)^- The treatment `(?<treatment>[a-z]+)`")
+                .Select(match => match.Groups["treatment"].Value)
+                .Distinct(StringComparer.Ordinal)
                 .ToList();
 
         /// <summary>

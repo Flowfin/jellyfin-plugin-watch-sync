@@ -1,0 +1,23 @@
+# A fixture, not the document, and its vocabulary is a fixture vocabulary. Judging
+# against the real enumeration would prove the state of the referenced package on the
+# day it ran rather than proving the guard.
+#
+# The mistake is one character. The table names PlaybackFinishd where the server
+# raises PlaybackFinished, which is the mistake a column of long similar names
+# actually produces: the row is present, the treatment is right, the fields are
+# right, the reason for the treatment is right, and the save reason it claims to be
+# about does not exist. So the one reason under which a finished playback reaches
+# this plugin has no row, and nothing says what the handler does with it.
+#
+# Everything else about this fixture is correct, which is what makes it a near-miss
+# rather than an obviously broken table.
+
+- The treatment `enqueued` turns a moved field that differs from the agreed value
+  into one change.
+- The treatment `dropped` counts the event at the handler and carries it no further.
+
+| the reason | treatment | what the server writes under it | why that treatment |
+| --- | --- | --- | --- |
+| `PlaybackStart` | enqueued | `PlayCount` | The server has counted a play. |
+| `PlaybackFinishd` | enqueued | `PlaybackPositionTicks` | The stop is the position worth carrying. |
+| `UpdateUserRating` | dropped | `IsFavorite` | No moved field can change under it. |
