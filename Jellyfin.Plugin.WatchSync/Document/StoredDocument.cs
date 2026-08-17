@@ -54,6 +54,20 @@ public sealed class StoredDocument
     public JsonObject Fields => _fields;
 
     /// <summary>
+    /// A document at a version, out of members that have already been read.
+    ///
+    /// This is what an upgrade answers with, and it is deliberately not a way to parse anything:
+    /// the members arrive as an object rather than as text, so the only route from bytes to a
+    /// document stays <see cref="Read"/> and the version decision cannot be walked around by
+    /// assembling one here.
+    /// </summary>
+    /// <param name="version">The version the document is at.</param>
+    /// <param name="fields">The members beside the version.</param>
+    /// <returns>The document.</returns>
+    internal static StoredDocument At(int version, JsonObject fields) =>
+        new StoredDocument(version, fields);
+
+    /// <summary>
     /// Reads the version off a document and decides whether it may be read at all.
     ///
     /// Nothing is deserialized into a shape before the version has been decided on, because
