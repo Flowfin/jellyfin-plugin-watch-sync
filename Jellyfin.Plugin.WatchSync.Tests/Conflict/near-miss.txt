@@ -1,0 +1,19 @@
+# A fixture, not the document, and its vocabulary is a fixture vocabulary. Judging
+# against the real moved set would prove the state of that type on the day it ran
+# rather than proving the guard.
+#
+# The mistake is one character. The table names PlaybackPositionTick where the moved
+# set carries PlaybackPositionTicks, which is the mistake a table of long similar
+# field names actually produces: the row is present, the rule is right, the evidence
+# is right, the loser is right and the failure is right, and the field it claims to
+# be about is not one that moves. So the field a person notices first when it is
+# wrong has no rule, and a disagreement about it is answered by nothing.
+#
+# Everything else about this fixture is correct, which is what makes it a near-miss
+# rather than an obviously broken table.
+
+| field | rule | the evidence the rule uses | what happens to the value that lost | the failure it prevents |
+| --- | --- | --- | --- | --- |
+| `Played` | ratchet | The played state on both sides. | The position offered against a completion is carried out of the rule. | A stale partial position beating a finished watch. |
+| `PlaybackPositionTick` | recency | Both positions and both last played dates. | The older position is recorded. | Two clocks minutes apart deciding where somebody stopped. |
+| `LastPlayedDate` | maximum | Both dates. | Nothing. | A sync moving somebody's last played date backwards. |
