@@ -1,0 +1,10 @@
+# The repair of near-miss.txt, and the repair is the one character the near-miss
+# dropped. Nothing else about the table differs, so a guard that passes this and
+# refuses the other is refusing the misspelling and not something else about the
+# fixture.
+
+| field | rule | the evidence the rule uses | what happens to the value that lost | the failure it prevents |
+| --- | --- | --- | --- | --- |
+| `Played` | ratchet | The played state on both sides. | The position offered against a completion is carried out of the rule. | A stale partial position beating a finished watch. |
+| `PlaybackPositionTicks` | recency | Both positions and both last played dates. | The older position is recorded. | Two clocks minutes apart deciding where somebody stopped. |
+| `LastPlayedDate` | maximum | Both dates. | Nothing. | A sync moving somebody's last played date backwards. |
