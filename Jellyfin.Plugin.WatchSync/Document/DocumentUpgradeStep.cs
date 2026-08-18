@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.Json.Nodes;
 
 namespace Jellyfin.Plugin.WatchSync.Document;
@@ -117,27 +118,21 @@ public sealed class DocumentUpgradeStep
     {
         var mine = new JsonObject();
 
-        foreach (var member in fields)
+        foreach (var member in fields.Where(member => _members.Contains(member.Key)))
         {
-            if (_members.Contains(member.Key))
-            {
-                mine[member.Key] = member.Value?.DeepClone();
-            }
+            mine[member.Key] = member.Value?.DeepClone();
         }
 
         _carry(mine);
 
-        foreach (var left in mine)
+        if (mine.Any(left => !_members.Contains(left.Key)))
         {
-            if (!_members.Contains(left.Key))
-            {
-                throw new InvalidOperationException(
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        "The step from version {0} left behind a member it did not declare, so"
-                        + " what it may touch and what it touched disagree.",
-                        From));
-            }
+            throw new InvalidOperationException(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "The step from version {0} left behind a member it did not declare, so"
+                    + " what it may touch and what it touched disagree.",
+                    From));
         }
 
         var carried = new JsonObject();
@@ -156,12 +151,9 @@ public sealed class DocumentUpgradeStep
             }
         }
 
-        foreach (var left in mine)
+        foreach (var left in mine.Where(left => !carried.ContainsKey(left.Key)))
         {
-            if (!carried.ContainsKey(left.Key))
-            {
-                carried[left.Key] = left.Value?.DeepClone();
-            }
+            carried[left.Key] = left.Value?.DeepClone();
         }
 
         return carried;
