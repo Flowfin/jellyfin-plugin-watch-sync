@@ -77,6 +77,48 @@ two sides each holding one play may be one play that already moved or two
 watchings that never met, and no reading of the two numbers separates those. That
 case is answered by #37 rather than guessed at by the rule.
 
+## The pair that makes either rule safe
+
+Marking something unwatched is a real thing people do, before a rewatch or after
+somebody else used their account. The `Played` row says the played state never
+regresses to a position, and read on its own that rule makes an unmark impossible
+to carry: the peer holds the work played, the person turns it off here, and the
+ratchet hands the win back to the peer on the next exchange, for as long as both
+servers are running. So the two rules contradict each other on their face, and
+this section is where they are reconciled rather than left to be discovered by
+somebody reading one row.
+
+They are reconciled by the agreed record and by nothing else. A local transition
+from played to unplayed since the last agreement is a change with an intent behind
+it, and it wins over a played state the peer has held unchanged since before that
+agreement. A peer that never agreed to the played state in the first place is not
+offering an intent, it is offering an old value, and the ratchet answers it.
+
+The failure in the other direction is the more dangerous one and is why this is
+not simply softened into letting any unplayed beat any played. A fresh server with
+an empty library, or one restored from a backup taken before any of this history
+existed, holds every item unplayed and has agreed nothing. Under a rule that reads
+unplayed as intent without asking whether an agreement stands behind it, first
+contact between that server and an established one wipes the established one's
+history, and what was overwritten is the part nobody can reconstruct.
+
+So neither rule is safe on its own. The ratchet without the agreed record loses
+every deliberate unmark, and the intent rule without the ratchet is the wipe. #34
+holds the pair and #31 holds the ratchet, and the pair is the reason a later
+reader should not remove either half as redundant.
+
+What the tree holds today is the ratchet and not the pair. `PlayedRatchet` decides
+on the two played states alone, and it reads no agreed record because there is no
+agreed record: that is #14, and it is what the second half of this section waits
+for. Until then a deliberate unmark is carried by nothing, which is a gap rather
+than a rule, and this document says so here rather than describing a reconciliation
+that no code performs.
+
+The save reason the unmark arrives under is `TogglePlayed`, which
+`docs/sync-model.md` classifies with the rest, so the event reaches the plugin and
+the question this section answers is what is done with it rather than whether it is
+seen.
+
 ## Which rows have a rule in the sources today
 
 Two of the four. The document is ahead of the code deliberately, and this section
