@@ -172,22 +172,18 @@ public class ConfigurationPageControlsTests
         var controls = ControlsOn(html);
         var findings = new List<string>();
 
-        foreach (var setting in settings)
+        foreach (var setting in settings.Where(
+                     setting => !controls.Contains(setting, StringComparer.Ordinal)))
         {
-            if (!controls.Contains(setting, StringComparer.Ordinal))
-            {
-                findings.Add(
-                    $"the configuration declares {setting} and the page carries no control with that id");
-            }
+            findings.Add(
+                $"the configuration declares {setting} and the page carries no control with that id");
         }
 
-        foreach (var control in controls)
+        foreach (var control in controls.Where(
+                     control => !settings.Contains(control, StringComparer.Ordinal)))
         {
-            if (!settings.Contains(control, StringComparer.Ordinal))
-            {
-                findings.Add(
-                    $"the page carries a control with id \"{control}\" and the configuration declares no such setting");
-            }
+            findings.Add(
+                $"the page carries a control with id \"{control}\" and the configuration declares no such setting");
         }
 
         return findings;

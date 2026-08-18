@@ -609,3 +609,119 @@ which is where a reader meets it, and this file is still the only place it is
 written down in full.
 
 Nobody else has read this. The commands above stand in place of a second reader.
+
+## The eight findings open on 2026-08-18, read at their sites
+
+Every alert below was read at the line it names. Each one's most recent instance
+is at the commit the mainline is on, so the line an alert names is the line in
+the tree rather than a line that has since moved:
+
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&tool_name=CodeQL&per_page=100" \
+      --jq '.[]|"\(.number)\t\(.rule.id)\t\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)\t\(.most_recent_instance.commit_sha[0:7])"' | sort -n
+    115	cs/useless-tostring-call	Jellyfin.Plugin.WatchSync/Peer/PeerText.cs:93	c08b73a
+    116	cs/linq/missed-where	Jellyfin.Plugin.WatchSync/Document/DocumentUpgradeStep.cs:120	c08b73a
+    117	cs/linq/missed-where	Jellyfin.Plugin.WatchSync/Document/DocumentUpgradeStep.cs:130	c08b73a
+    118	cs/linq/missed-where	Jellyfin.Plugin.WatchSync/Document/DocumentUpgradeStep.cs:159	c08b73a
+    119	cs/path-combine	Jellyfin.Plugin.WatchSync.Tests/DocumentUpgradeTests.cs:432	c08b73a
+    120	cs/path-combine	Jellyfin.Plugin.WatchSync.Tests/DocumentUpgradeTests.cs:443	c08b73a
+    121	cs/linq/missed-where	Jellyfin.Plugin.WatchSync.Tests/ConfigurationPageControlsTests.cs:175	c08b73a
+    122	cs/linq/missed-where	Jellyfin.Plugin.WatchSync.Tests/ConfigurationPageControlsTests.cs:184	c08b73a
+
+    git rev-parse origin/master
+    c08b73acc622e3ec6a6ed372e8bbff7161173482
+
+Five are repaired in the change that adds this section and three are dismissed
+with the reason written on the alert. The split follows the one already recorded
+here for this rule family: the repair is taken where the loop body is nothing but
+the guarded statement, so moving the condition into the sequence leaves the body a
+single line, and it is refused where the fix would relocate a statement without
+removing one.
+
+### The five loops whose body is the guard
+
+Four of them are a `foreach` over a sequence whose whole body is one statement
+under one condition. Moving the condition into a `Where` leaves the body as that
+statement and nothing else, which is what the rule asks for and what alert 93 was
+repaired for. 116 keeps the members the step declared and its body is the
+assignment; 118 carries over the members the step added and its body is the
+assignment; 121 and 122 are the two directions of the page-against-settings
+comparison and each body is the `Add` of one finding.
+
+The fifth, 117, is not a filter. It walks the members a step left behind and
+throws on the first one the step did not declare, so the `Where` the rule proposes
+would produce a loop that can never reach a second element. It is written as the
+question it asks, `mine.Any(...)`, which removes the loop rather than filtering it.
+
+118 is the one to read twice, because its condition reads the object its body
+writes. `Where` is lazy, so the condition is evaluated immediately before the body
+for each element exactly where the `if` stood, and the keys of a `JsonObject` are
+unique, so no element's condition can be moved by an earlier element's write. The
+sequencing is therefore unchanged, and what the repair costs is that a reader has
+to know `Where` is lazy to see that.
+
+Each changed site was perturbed and the suite run, so what is claimed is that the
+tests reach these lines rather than that the change looked equivalent. Dropping
+116's condition turns two legs red, inverting 117's turns six red, inverting 118's
+turns one red, and inverting the two conditions of 121 and 122 turns two red. Each
+was restored before the next, and with all four in place the suite is green:
+
+    dotnet test Jellyfin.Plugin.WatchSync.Tests/Jellyfin.Plugin.WatchSync.Tests.csproj -f net10.0 --nologo
+    Bestanden!   : Fehler:     0, erfolgreich:   355, übersprungen:     1, gesamt:   356
+
+That output is a German locale, quoted as it came, and it is one of the two
+targets. The .NET 9 runtime is not installed on the machine that ran it, so the
+net9.0 leg was not run there and nothing here says it passed.
+
+### Appending a rune, alert 115
+
+The line is `kept.Append(rune.ToString())` in the helper that bounds and strips
+what a peer sent. The rule is right that the same string reaches the builder
+without the call, and acting on it costs more than it saves, because no `Append`
+overload takes a rune. Reflected off `System.Text.StringBuilder`, from a console
+project outside this tree so that nothing here restores a package for it:
+
+    overloads with one param: AppendInterpolatedStringHandler&, Boolean, Byte, Char, Char[], Decimal, Double, Int16, Int32, Int64, Object, ReadOnlyMemory`1, ReadOnlySpan`1, SByte, Single, String, StringBuilder, UInt16, UInt32, UInt64
+
+That is the .NET 10 runtime installed here, and the plugin's net9.0 leg was not
+probed. Removing the call therefore binds to `Append(object)`, which boxes the
+rune and calls the same `ToString` inside it, so the string allocation stays and a
+box is added. It is dismissed as `won't fix` rather than as a false positive,
+because the rule is not wrong about the result being identical, only about the
+change being an improvement.
+
+What ends it is an overload that takes a rune, or this line being rewritten to
+encode into a span, which is a decision about how the helper is written rather
+than a response to this alert.
+
+### The two path-combine sites, and a sixth kind
+
+119 is the second kind already recorded above. Its later arguments are two const
+strings of the test project, so it cannot be rooted while those declarations
+stand:
+
+    git grep -n 'const string TestProject\|const string FixtureDirectory' -- Jellyfin.Plugin.WatchSync.Tests/DocumentUpgradeTests.cs
+    Jellyfin.Plugin.WatchSync.Tests/DocumentUpgradeTests.cs:30:    private const string TestProject = "Jellyfin.Plugin.WatchSync.Tests";
+    Jellyfin.Plugin.WatchSync.Tests/DocumentUpgradeTests.cs:31:    private const string FixtureDirectory = "Document";
+
+120 is a sixth kind, and it is a stronger argument than the fixture-name kind
+rather than a variation of it. The later argument is composed in the same method
+that combines it, from a format whose first characters are literal:
+
+    sed -n '437,444p' Jellyfin.Plugin.WatchSync.Tests/DocumentUpgradeTests.cs
+        private static string Fixture(int version, string? suffix)
+        {
+            var name = suffix is null
+                ? string.Format(CultureInfo.InvariantCulture, "version-{0}.json", version)
+                : string.Format(CultureInfo.InvariantCulture, "version-{0}-{1}.json", version, suffix);
+
+            return Path.Combine(FixtureRoot(), name);
+        }
+
+The fixture-name kind says that every call site passes something that cannot be
+rooted today, and that this can stop being true without the `Path.Combine` line
+moving. Here a rooted `suffix` would not root the argument either, because it
+arrives after the literal `version-` in both branches. What ends this one is the
+format losing its literal prefix, which is a change to the line above the combine
+rather than to the combine.
+
+Nobody else has read this. The commands above stand in place of a second reader.
