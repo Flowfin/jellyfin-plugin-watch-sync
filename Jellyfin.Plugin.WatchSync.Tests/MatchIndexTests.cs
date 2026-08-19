@@ -349,6 +349,56 @@ public class MatchIndexTests
     }
 
     /// <summary>
+    /// An ambiguity answers its own key and reaches no other, which is the fourth condition of
+    /// #27.
+    ///
+    /// The two failures it is written against are the two an implementation that treats an
+    /// ambiguity as an error produces. One stops the walk at the first key two items claim, so
+    /// every item the library holds after that one is unmatched and the operator sees a
+    /// library that half disappeared. The other pools the competing items, so a second
+    /// ambiguity elsewhere in the library names four items rather than two and the operator is
+    /// pointed at two items that have nothing to do with each other.
+    ///
+    /// The library is arranged so both are reachable. Two of six films are ambiguous, they are
+    /// neither the first nor the last item, and the four that are not sit before, between and
+    /// after them.
+    ///
+    /// What this does not cover is the run. There is no sweep and no apply path, so what is
+    /// asserted is that the index goes on answering rather than that a run goes on applying,
+    /// and the second half lands with the sweep in #55.
+    /// </summary>
+    [Fact]
+    public void AnAmbiguityStopsAtItsOwnKeyAndEveryOtherOneGoesOnAnswering()
+    {
+        var films = Films(6);
+        films.Add(new KeyedItem(Item(50), MatchKey.Of(Identifier(2))));
+        films.Add(new KeyedItem(Item(51), MatchKey.Of(Identifier(5))));
+
+        var index = new MatchIndex(new CountingLibrary(films));
+
+        var second = index.Lookup(MatchKey.Of(Identifier(2)));
+
+        Assert.Equal(MatchAnswer.Ambiguous, second.Answer);
+        Assert.Equal(new[] { Item(2), Item(50) }, second.CompetingItems);
+
+        // Asked after the ambiguity rather than before it, because an index that stopped
+        // building at the first key two items claimed would answer these before it and not
+        // after it, and a test that asked in the other order would pass over that.
+        foreach (var number in new[] { 1, 3, 4, 6 })
+        {
+            var found = index.Lookup(MatchKey.Of(Identifier(number)));
+
+            Assert.Equal(MatchAnswer.Matched, found.Answer);
+            Assert.Equal(Item(number), found.Item);
+        }
+
+        var fifth = index.Lookup(MatchKey.Of(Identifier(5)));
+
+        Assert.Equal(MatchAnswer.Ambiguous, fifth.Answer);
+        Assert.Equal(new[] { Item(5), Item(51) }, fifth.CompetingItems);
+    }
+
+    /// <summary>
     /// A rescan takes each item out and puts it back. Only the item being rescanned is out of
     /// the index at any moment, so the rest of the library stays matched for the whole of it.
     /// The failure this refuses is an index that treats a removal as a reason to start again,
