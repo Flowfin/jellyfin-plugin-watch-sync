@@ -1,0 +1,9 @@
+# The repair of coverage-near-miss.txt, which is that one character and nothing else.
+#
+# It is a separate file rather than a comment on the other one so the guard is shown passing
+# what it should pass, in the same run in which it is shown refusing what it should refuse.
+
+Played :: covered :: PlayedRatchetTests :: PlayedRatchet, RatchetAnswer :: The ratchet.
+PlayCount :: covered :: PlayCountReconciliationTests :: PlayCountReconciliation, PlayCountAnswer :: The reckoning against what two sides last agreed.
+PlaybackPositionTicks :: awaited :: - :: - :: The rule is not written.
+LastPlayedDate :: awaited :: - :: - :: The rule is not written.

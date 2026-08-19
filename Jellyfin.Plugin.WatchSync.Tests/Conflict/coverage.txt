@@ -1,0 +1,39 @@
+# Which facts drive which row of the conflict table, one entry per row.
+#
+# Five fields per entry, separated by " :: ":
+#   the field the row is about :: its state :: the test classes that drive it ::
+#   the types in the resolver that decide it :: the reason
+#
+# The two list columns are comma separated and "-" means none.
+#
+# The states are:
+#
+#   covered  a rule in the resolver decides the row and the named classes drive it
+#   awaited  no rule decides the row yet, and the reason says what has to land first
+#
+# ConflictRowCoverageTests holds this file to docs/conflicts.md in both directions and
+# to the tree in both directions. A row of the table with no entry here fails, which is
+# the first condition of #81 and the reason the file exists: a row added to the table
+# with nothing driving it is a rule an operator's history is answered by and no fact
+# ever executes. An entry naming a field the table has no row for fails as well, so a
+# row taken out of the table takes its entry with it rather than leaving one behind.
+#
+# The awaited state is the one that has to fail closed, and the type column is what
+# makes it. A row cannot be declared awaited and also name a class or a type, and every
+# public type the resolver holds is named by exactly one entry, so the day a rule lands
+# for an awaited row the type it arrives as belongs to no entry and this goes red. That
+# is deliberately not keyed on the name anybody predicted for it, because a register
+# that only notices the name it guessed is one that notices nothing.
+#
+# What it cannot see, stated rather than left to be discovered. It reads which classes
+# are named and that they hold facts, and never whether a fact drives the row it is
+# filed under, so a class renamed onto the wrong row passes. The second and third
+# conditions of #81 are what reach that, by removing a rule and requiring only that
+# row's facts to redden, and neither is met today.
+#
+# Blank lines and lines beginning with # are ignored.
+
+Played :: covered :: PlayedRatchetTests :: PlayedRatchet, RatchetAnswer :: The ratchet, which is #31. It answers on the two played states alone and reads the two dates without deciding on them, so its facts are about a completion holding against a position however much newer the position is.
+PlayCount :: covered :: PlayCountReconciliationTests :: PlayCountReconciliation, PlayCountAnswer :: The reckoning against what two sides last agreed, which is #33. Its facts are about a pair over a sequence of exchanges rather than about one answer, because adding the two counts is only visibly wrong after a while.
+PlaybackPositionTicks :: awaited :: - :: - :: #32 writes the rule. The tolerated clock skew it is bounded by is a setting from #58, and the row's tie rule is a sentence in docs/conflicts.md rather than a branch, so nothing in the resolver reads either.
+LastPlayedDate :: awaited :: - :: - :: No issue on this board writes this row. Every issue naming the field is #1, #12, #14, #30 and #35, and none of them carries the maximum rule: #30 is the table itself, #12 is the moved set, #14 is the agreed record. So a rule this table declares is owed by nobody, and this entry is where that is readable rather than found by whoever next tries to close #81.

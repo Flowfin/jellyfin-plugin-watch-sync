@@ -1,0 +1,16 @@
+# The near miss the coverage register is guarded against, kept as a fixture so the guard is
+# proven on a mistake somebody would actually make rather than on an obvious one.
+#
+# One field is a character short. Every row of the table still has an entry that looks like
+# its own, every state is right, every class and type named is real, and every reason is
+# there, so nothing about reading the file says anything is wrong. What it costs is that one
+# row of the table is driven by nothing and one entry describes a row that does not exist.
+#
+# This file carries its own vocabulary of field names for the same reason the conflict table
+# fixtures do: judged against the real table it would prove the state of that document on the
+# day it ran rather than proving the guard.
+
+Played :: covered :: PlayedRatchetTests :: PlayedRatchet, RatchetAnswer :: The ratchet.
+PlayCount :: covered :: PlayCountReconciliationTests :: PlayCountReconciliation, PlayCountAnswer :: The reckoning against what two sides last agreed.
+PlaybackPositionTick :: awaited :: - :: - :: The rule is not written.
+LastPlayedDate :: awaited :: - :: - :: The rule is not written.
