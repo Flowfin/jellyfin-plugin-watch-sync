@@ -121,28 +121,49 @@ seen.
 
 ## Which rows have a rule in the sources today
 
-Two of the four. The document is ahead of the code deliberately, and this section
-is here so that a reader cannot mistake a row for something running:
+Three of the four. The document is ahead of the code deliberately, and this
+section is here so that a reader cannot mistake a row for something running. The
+listing is taken at the commit being read rather than at a remote reference, so it
+answers for the tree in front of the reader:
 
-    git ls-tree -r --name-only origin/master -- Jellyfin.Plugin.WatchSync/Conflict/
+    git ls-tree -r --name-only HEAD -- Jellyfin.Plugin.WatchSync/Conflict/
     Jellyfin.Plugin.WatchSync/Conflict/PlayCountAnswer.cs
     Jellyfin.Plugin.WatchSync/Conflict/PlayCountReconciliation.cs
     Jellyfin.Plugin.WatchSync/Conflict/PlayedRatchet.cs
+    Jellyfin.Plugin.WatchSync/Conflict/PositionAnswer.cs
+    Jellyfin.Plugin.WatchSync/Conflict/PositionRecency.cs
     Jellyfin.Plugin.WatchSync/Conflict/RatchetAnswer.cs
 
 `PlayedRatchet` is the `Played` row and is #31. `PlayCountReconciliation` is the
-`PlayCount` row and is #33. The `PlaybackPositionTicks` row is #32 and has no type
-here, so its tolerated skew is a number no run reads and its tie rule is a
-sentence rather than a branch. The `LastPlayedDate` row is decided nowhere in the
-sources yet.
+`PlayCount` row and is #33. `PositionRecency` is the `PlaybackPositionTicks` row
+and is #32: the tie rule is a branch rather than a sentence, and the two
+boundaries the tolerance draws are opposite, because a difference of exactly the
+tolerance is a comparison while a peer date exactly the tolerance ahead of this
+server's present moment is not yet outside it. The `LastPlayedDate` row is decided
+nowhere in the sources yet.
+
+The tolerance is a number that type declares rather than one this page holds, so
+the two cannot drift apart:
+
+    git grep -n 'ToleratedSkew =>' -- Jellyfin.Plugin.WatchSync/Conflict/PositionRecency.cs
+    Jellyfin.Plugin.WatchSync/Conflict/PositionRecency.cs:55:    public static TimeSpan DefaultToleratedSkew => TimeSpan.FromMinutes(1);
+    Jellyfin.Plugin.WatchSync/Conflict/PositionRecency.cs:70:    public static TimeSpan MaximumToleratedSkew => TimeSpan.FromMinutes(15);
+
+The reason for each is beside it in that file. The default is where a server with
+a time source and a server without one fall on opposite sides. The maximum is a
+refusal rather than advice, because everything inside the tolerance is answered by
+the tie rule, so a tolerance wide enough to hold a viewing session would make the
+tie rule the rule and recency the exception.
 
 ## What this document does not fix
 
 Named so that a gap is readable as a gap rather than as an answer nobody wrote
 down.
 
-- The tolerated clock skew's default and its documented maximum, which are a
-  setting from #58 and a rule from #32. No number in this tree fixes either.
+- The setting an operator changes the tolerated clock skew with, which is #58.
+  The two numbers are fixed by the rule in #32, which refuses a tolerance outside
+  them, and nothing reads either at run time, because no run resolves anything
+  yet.
 - Where a resolved conflict is recorded, what the record holds and how long it is
   kept, which is #36. This file fixes only that a loser exists and what it is.
 - What a run does when the number of changes it is about to make is large, which
