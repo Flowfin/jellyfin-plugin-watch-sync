@@ -27,13 +27,20 @@
 #
 # What it cannot see, stated rather than left to be discovered. It reads which classes
 # are named and that they hold facts, and never whether a fact drives the row it is
-# filed under, so a class renamed onto the wrong row passes. The second and third
-# conditions of #81 are what reach that, by removing a rule and requiring only that
-# row's facts to redden, and neither is met today.
+# filed under, so a class renamed onto the wrong row passes. The second condition of
+# #81 is what reaches that, by removing a rule and requiring only that row's facts to
+# redden, and it is not met today.
+#
+# The third condition is met for the rows that have a rule. Conflict/ordered-pairs.txt
+# declares the states each of those rows can hold and walks every ordered pair of them
+# with the answer in the data, and ConflictOrderedPairTests requires the fields it walks
+# to be exactly the fields entered here as covered. So this register decides which rows
+# that walk is owed for, and a row moving from awaited to covered leaves the walk
+# missing a field rather than leaving it unnoticed.
 #
 # Blank lines and lines beginning with # are ignored.
 
-Played :: covered :: PlayedRatchetTests :: PlayedRatchet, RatchetAnswer :: The ratchet, which is #31. It answers on the two played states alone and reads the two dates without deciding on them, so its facts are about a completion holding against a position however much newer the position is.
-PlayCount :: covered :: PlayCountReconciliationTests :: PlayCountReconciliation, PlayCountAnswer :: The reckoning against what two sides last agreed, which is #33. Its facts are about a pair over a sequence of exchanges rather than about one answer, because adding the two counts is only visibly wrong after a while.
-PlaybackPositionTicks :: covered :: PositionRecencyTests :: PositionRecency, PositionAnswer :: The later play bounded by the tolerated clock skew, which is #32. Its facts are about two clocks rather than about two positions, and the two halves of the rule fail apart: a rule that stopped bounding the comparison reddens the fact about a margin inside the tolerance and nothing else, and a rule that answered every pair with the greater position reddens the three facts about the comparison and leaves the tie ones green. The setting the tolerance is chosen with is still #58, and the two numbers it is bounded by are declared by the type rather than by docs/conflicts.md.
+Played :: covered :: PlayedRatchetTests, ConflictOrderedPairTests :: PlayedRatchet, RatchetAnswer :: The ratchet, which is #31. It answers on the two played states alone and reads the two dates without deciding on them, so its facts are about a completion holding against a position however much newer the position is.
+PlayCount :: covered :: PlayCountReconciliationTests, ConflictOrderedPairTests :: PlayCountReconciliation, PlayCountAnswer :: The reckoning against what two sides last agreed, which is #33. Its facts are about a pair over a sequence of exchanges rather than about one answer, because adding the two counts is only visibly wrong after a while.
+PlaybackPositionTicks :: covered :: PositionRecencyTests, ConflictOrderedPairTests :: PositionRecency, PositionAnswer :: The later play bounded by the tolerated clock skew, which is #32. Its facts are about two clocks rather than about two positions, and the two halves of the rule fail apart: a rule that stopped bounding the comparison reddens the fact about a margin inside the tolerance and nothing else, and a rule that answered every pair with the greater position reddens the three facts about the comparison and leaves the tie ones green. The setting the tolerance is chosen with is still #58, and the two numbers it is bounded by are declared by the type rather than by docs/conflicts.md.
 LastPlayedDate :: awaited :: - :: - :: No issue on this board writes this row. Every issue naming the field is #1, #12, #14, #30 and #35, and none of them carries the maximum rule: #30 is the table itself, #12 is the moved set, #14 is the agreed record. So a rule this table declares is owed by nobody, and this entry is where that is readable rather than found by whoever next tries to close #81.

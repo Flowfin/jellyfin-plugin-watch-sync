@@ -26,9 +26,12 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// direction.
 ///
 /// What this cannot judge is whether a fact filed under a row is about that row. That is the
-/// second and third conditions of #81, which reach it by removing a rule and requiring only
-/// that row's facts to redden, and neither is met while two of the four rows have no rule to
-/// remove.
+/// second condition of #81, which reaches it by removing a rule and requiring only that row's
+/// facts to redden, and it is not met.
+///
+/// The third condition is reached by <see cref="ConflictOrderedPairTests"/>, over the rows this
+/// register enters as covered rather than over the whole table, and the register is what decides
+/// which those are.
 /// </summary>
 public class ConflictRowCoverageTests
 {

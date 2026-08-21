@@ -1,0 +1,18 @@
+# The mistake a hand-written cross product actually makes: one direction of one pair is
+# left out. Every state is declared, every state is used, three of the four pairs are
+# here, and the table reads as complete to anybody counting states rather than pairs.
+#
+# The missing one is two against one. It is the direction that matters, because the two
+# sides of a pair are not interchangeable to a rule that reads one of them against this
+# server's present moment, so a table holding only one direction leaves the branch that
+# is asymmetric unexecuted.
+#
+# The vocabulary is this fixture's own. A fixture judged against the real register would
+# prove the state of that file on the day it ran rather than proving the guard.
+
+state :: Fixture :: one :: false :: 0 :: 100 :: -
+state :: Fixture :: two :: false :: 0 :: 200 :: -
+
+pair :: Fixture :: one :: one :: TheGreaterPositionStands :: 100 :: - :: - :: mirrored
+pair :: Fixture :: one :: two :: TheGreaterPositionStands :: 200 :: 100 :: - :: mirrored
+pair :: Fixture :: two :: two :: TheGreaterPositionStands :: 200 :: - :: - :: mirrored

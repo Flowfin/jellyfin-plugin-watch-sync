@@ -1,0 +1,12 @@
+# The repair, which is the one line the near-miss beside it is missing and nothing else.
+#
+# The vocabulary is this fixture's own. A fixture judged against the real register would
+# prove the state of that file on the day it ran rather than proving the guard.
+
+state :: Fixture :: one :: false :: 0 :: 100 :: -
+state :: Fixture :: two :: false :: 0 :: 200 :: -
+
+pair :: Fixture :: one :: one :: TheGreaterPositionStands :: 100 :: - :: - :: mirrored
+pair :: Fixture :: one :: two :: TheGreaterPositionStands :: 200 :: 100 :: - :: mirrored
+pair :: Fixture :: two :: one :: TheGreaterPositionStands :: 200 :: - :: 100 :: mirrored
+pair :: Fixture :: two :: two :: TheGreaterPositionStands :: 200 :: - :: - :: mirrored
