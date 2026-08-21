@@ -1,0 +1,190 @@
+# Every ordered pair of states the two sides can hold, per row of the conflict table,
+# with the answer in the data rather than in the code. This is the third condition of
+# #81, and the mirror column is the fourth.
+#
+# Three kinds of line, told apart by the first field.
+#
+#   setting :: field :: key :: value
+#       the context one field's rule is driven in. PlaybackPositionTicks takes now and
+#       toleratedSkew, PlayCount takes agreed. A key the driver does not know fails.
+#
+#   state :: field :: name :: played :: playCount :: positionTicks :: lastPlayedDate
+#       one side's state, named. The date is an instant in UTC or "-" for a side that
+#       never played the work. Every state carries all four members of SyncedState, so a
+#       rule that started reading a member it does not read today is driven with a real
+#       value rather than with a default nobody chose.
+#
+#   pair :: field :: here :: peer :: answer :: value :: here-loses :: peer-loses :: mirror
+#       the answer for one ordered pair. The value is what the rule answered with, "-"
+#       where it answers with none. The two loses columns are what that side lost, "-"
+#       where it lost nothing: a discarded position for the two position-carrying rules
+#       and a shortfall for PlayCount, which is the same statement in that row's units.
+#
+# Blank lines and lines beginning with # are ignored.
+#
+# WHICH FIELDS ARE HERE IS NOT A CHOICE MADE IN THIS FILE. Conflict/coverage.txt says
+# which rows of the table have a rule, and this file is required to hold exactly those
+# and no others. So the day the LastPlayedDate row gains a rule, that register moves it
+# to covered and this file is missing a field until somebody walks its pairs too, which
+# is the same fail-closed shape coverage.txt uses for the row itself.
+#
+# THE PAIRS ARE THE WHOLE CROSS PRODUCT AND THAT IS CHECKED. Every ordered pair of the
+# states declared for a field appears exactly once, both orders of a pair included and
+# a state held against itself included. A hand-written cross product goes wrong by
+# leaving out one direction of one pair, which is what the near-miss fixture beside
+# this file is.
+#
+# THE MIRROR COLUMN IS EXECUTED RATHER THAN TRUSTED, in both directions, which is why
+# it carries no reason per entry. "mirrored" means running the rule with the two sides
+# exchanged answers the same thing with the two loses columns exchanged, and it is
+# asserted. "asymmetric" means it does not, and that is asserted as well, so a stale
+# declaration in either direction reddens instead of reading as a decision somebody
+# took.
+#
+# There is one asymmetric branch in the tree today and it is deliberate.
+# PositionRecency reads the peer's last played date against this server's present
+# moment and never reads its own against it, because a peer claiming a play in the
+# future is the failure that rule names and this server's own clock is the thing every
+# other reading here is already relative to. So a state whose date is ahead of the
+# present moment refuses the exchange when the peer holds it and is an ordinary reading
+# when this server holds it.
+#
+# WHAT A VALUE THE SERVER CANNOT PRODUCE DOES IS NOT IN THIS TABLE, and it is asserted
+# rather than left undefined: a position below zero and a count below zero are refused
+# by the rules, and ConflictOrderedPairTests holds each refused state against every
+# state declared here, in both positions, rather than adding a row to the cross product
+# for a state no answer exists for.
+
+setting :: PlaybackPositionTicks :: now :: 2026-01-01T12:00:00Z
+setting :: PlaybackPositionTicks :: toleratedSkew :: 00:01:00
+setting :: PlayCount :: agreed :: 2
+
+# The states no answer exists for. Each one is a value the server does not produce and
+# that reaches a rule only out of an envelope, where #19 is what bounds and refuses what
+# one may carry. They are held against every declared state of their field, in both
+# positions, and every one of those is a refusal rather than an answer, which is how an
+# impossible state is asserted impossible instead of being left undefined.
+refused :: Played :: positionBelowZero :: false :: 0 :: -1 :: -
+refused :: PlaybackPositionTicks :: positionBelowZero :: false :: 0 :: -1 :: -
+refused :: PlayCount :: countBelowZero :: false :: -1 :: 0 :: -
+
+# The Played row. The rule reads the two played states and nothing else, so the dates
+# are set against it rather than with it: the side that is only partway through carries
+# the newest reading of the four and still loses.
+state :: Played :: finished :: true :: 1 :: 0 :: 2026-01-01T11:50:00Z
+state :: Played :: finishedPartWay :: true :: 2 :: 500 :: 2026-01-01T11:50:00Z
+state :: Played :: unstarted :: false :: 0 :: 0 :: -
+state :: Played :: partway :: false :: 0 :: 300 :: 2026-01-01T12:00:00Z
+
+pair :: Played :: finished :: finished :: PlayedStands :: - :: - :: - :: mirrored
+pair :: Played :: finished :: finishedPartWay :: PlayedStands :: - :: - :: - :: mirrored
+pair :: Played :: finished :: unstarted :: PlayedStands :: - :: - :: - :: mirrored
+pair :: Played :: finished :: partway :: PlayedStands :: - :: - :: 300 :: mirrored
+pair :: Played :: finishedPartWay :: finished :: PlayedStands :: - :: - :: - :: mirrored
+pair :: Played :: finishedPartWay :: finishedPartWay :: PlayedStands :: - :: - :: - :: mirrored
+pair :: Played :: finishedPartWay :: unstarted :: PlayedStands :: - :: - :: - :: mirrored
+pair :: Played :: finishedPartWay :: partway :: PlayedStands :: - :: - :: 300 :: mirrored
+pair :: Played :: unstarted :: finished :: PlayedStands :: - :: - :: - :: mirrored
+pair :: Played :: unstarted :: finishedPartWay :: PlayedStands :: - :: - :: - :: mirrored
+pair :: Played :: unstarted :: unstarted :: NoCompletionToHold :: - :: - :: - :: mirrored
+pair :: Played :: unstarted :: partway :: NoCompletionToHold :: - :: - :: - :: mirrored
+pair :: Played :: partway :: finished :: PlayedStands :: - :: 300 :: - :: mirrored
+pair :: Played :: partway :: finishedPartWay :: PlayedStands :: - :: 300 :: - :: mirrored
+pair :: Played :: partway :: unstarted :: NoCompletionToHold :: - :: - :: - :: mirrored
+pair :: Played :: partway :: partway :: NoCompletionToHold :: - :: - :: - :: mirrored
+
+# The PlaybackPositionTicks row. The seven states are chosen so that the three branches
+# of the rule are all reached by ordinary pairs of them: older and nearer are half a
+# minute apart, which is inside the tolerance and therefore not a comparison at all, and
+# newer is minutes away from both, which is. newer also carries the smallest position of
+# the three, so a later play winning is visible as a smaller number rather than as the
+# same number the greater-position rule would have produced.
+state :: PlaybackPositionTicks :: completed :: true :: 1 :: 0 :: 2026-01-01T11:50:00Z
+state :: PlaybackPositionTicks :: unstarted :: false :: 0 :: 0 :: -
+state :: PlaybackPositionTicks :: undated :: false :: 0 :: 400 :: -
+state :: PlaybackPositionTicks :: older :: false :: 0 :: 100 :: 2026-01-01T11:50:00Z
+state :: PlaybackPositionTicks :: nearer :: false :: 0 :: 200 :: 2026-01-01T11:50:30Z
+state :: PlaybackPositionTicks :: newer :: false :: 0 :: 50 :: 2026-01-01T11:59:00Z
+state :: PlaybackPositionTicks :: ahead :: false :: 0 :: 300 :: 2026-01-01T12:02:00Z
+
+pair :: PlaybackPositionTicks :: completed :: completed :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: completed :: unstarted :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: completed :: undated :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: completed :: older :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: completed :: nearer :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: completed :: newer :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: completed :: ahead :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: unstarted :: completed :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: unstarted :: unstarted :: TheGreaterPositionStands :: 0 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: unstarted :: undated :: TheGreaterPositionStands :: 400 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: unstarted :: older :: TheGreaterPositionStands :: 100 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: unstarted :: nearer :: TheGreaterPositionStands :: 200 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: unstarted :: newer :: TheGreaterPositionStands :: 50 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: unstarted :: ahead :: PeerClockOutsideTolerance :: - :: - :: - :: asymmetric
+pair :: PlaybackPositionTicks :: undated :: completed :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: undated :: unstarted :: TheGreaterPositionStands :: 400 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: undated :: undated :: TheGreaterPositionStands :: 400 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: undated :: older :: TheGreaterPositionStands :: 400 :: - :: 100 :: mirrored
+pair :: PlaybackPositionTicks :: undated :: nearer :: TheGreaterPositionStands :: 400 :: - :: 200 :: mirrored
+pair :: PlaybackPositionTicks :: undated :: newer :: TheGreaterPositionStands :: 400 :: - :: 50 :: mirrored
+pair :: PlaybackPositionTicks :: undated :: ahead :: PeerClockOutsideTolerance :: - :: - :: - :: asymmetric
+pair :: PlaybackPositionTicks :: older :: completed :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: older :: unstarted :: TheGreaterPositionStands :: 100 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: older :: undated :: TheGreaterPositionStands :: 400 :: 100 :: - :: mirrored
+pair :: PlaybackPositionTicks :: older :: older :: TheGreaterPositionStands :: 100 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: older :: nearer :: TheGreaterPositionStands :: 200 :: 100 :: - :: mirrored
+pair :: PlaybackPositionTicks :: older :: newer :: LaterPlayStands :: 50 :: 100 :: - :: mirrored
+pair :: PlaybackPositionTicks :: older :: ahead :: PeerClockOutsideTolerance :: - :: - :: - :: asymmetric
+pair :: PlaybackPositionTicks :: nearer :: completed :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: nearer :: unstarted :: TheGreaterPositionStands :: 200 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: nearer :: undated :: TheGreaterPositionStands :: 400 :: 200 :: - :: mirrored
+pair :: PlaybackPositionTicks :: nearer :: older :: TheGreaterPositionStands :: 200 :: - :: 100 :: mirrored
+pair :: PlaybackPositionTicks :: nearer :: nearer :: TheGreaterPositionStands :: 200 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: nearer :: newer :: LaterPlayStands :: 50 :: 200 :: - :: mirrored
+pair :: PlaybackPositionTicks :: nearer :: ahead :: PeerClockOutsideTolerance :: - :: - :: - :: asymmetric
+pair :: PlaybackPositionTicks :: newer :: completed :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: newer :: unstarted :: TheGreaterPositionStands :: 50 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: newer :: undated :: TheGreaterPositionStands :: 400 :: 50 :: - :: mirrored
+pair :: PlaybackPositionTicks :: newer :: older :: LaterPlayStands :: 50 :: - :: 100 :: mirrored
+pair :: PlaybackPositionTicks :: newer :: nearer :: LaterPlayStands :: 50 :: - :: 200 :: mirrored
+pair :: PlaybackPositionTicks :: newer :: newer :: TheGreaterPositionStands :: 50 :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: newer :: ahead :: PeerClockOutsideTolerance :: - :: - :: - :: asymmetric
+pair :: PlaybackPositionTicks :: ahead :: completed :: ACompletionIsHeld :: - :: - :: - :: mirrored
+pair :: PlaybackPositionTicks :: ahead :: unstarted :: TheGreaterPositionStands :: 300 :: - :: - :: asymmetric
+pair :: PlaybackPositionTicks :: ahead :: undated :: TheGreaterPositionStands :: 400 :: 300 :: - :: asymmetric
+pair :: PlaybackPositionTicks :: ahead :: older :: LaterPlayStands :: 300 :: - :: 100 :: asymmetric
+pair :: PlaybackPositionTicks :: ahead :: nearer :: LaterPlayStands :: 300 :: - :: 200 :: asymmetric
+pair :: PlaybackPositionTicks :: ahead :: newer :: LaterPlayStands :: 300 :: - :: 50 :: asymmetric
+pair :: PlaybackPositionTicks :: ahead :: ahead :: PeerClockOutsideTolerance :: - :: - :: - :: mirrored
+
+# The PlayCount row. A side's state here is its count against the agreement, which is
+# why this field carries a setting: two counts on their own say nothing, and the whole
+# rule is what each side holds above what the two sides last agreed. restored is the
+# side whose store went back to before the agreement, which is the failure the shortfall
+# columns are about.
+#
+# The pair with no agreement at all is not an ordered pair of side states. It is a third
+# answer over every one of them, PlayCountReconciliation refuses to invent a count for
+# it, and #37 is where a first exchange decides it. PlayCountReconciliationTests is
+# where that answer is driven.
+state :: PlayCount :: restored :: false :: 0 :: 0 :: -
+state :: PlayCount :: agreed :: true :: 2 :: 0 :: 2026-01-01T11:50:00Z
+state :: PlayCount :: onePlay :: true :: 3 :: 0 :: 2026-01-01T11:50:00Z
+state :: PlayCount :: twoPlays :: true :: 4 :: 0 :: 2026-01-01T11:50:00Z
+
+pair :: PlayCount :: restored :: restored :: BelowTheAgreement :: 2 :: 2 :: 2 :: mirrored
+pair :: PlayCount :: restored :: agreed :: BelowTheAgreement :: 2 :: 2 :: - :: mirrored
+pair :: PlayCount :: restored :: onePlay :: BelowTheAgreement :: 3 :: 2 :: - :: mirrored
+pair :: PlayCount :: restored :: twoPlays :: BelowTheAgreement :: 4 :: 2 :: - :: mirrored
+pair :: PlayCount :: agreed :: restored :: BelowTheAgreement :: 2 :: - :: 2 :: mirrored
+pair :: PlayCount :: agreed :: agreed :: Reconciled :: 2 :: - :: - :: mirrored
+pair :: PlayCount :: agreed :: onePlay :: Reconciled :: 3 :: - :: - :: mirrored
+pair :: PlayCount :: agreed :: twoPlays :: Reconciled :: 4 :: - :: - :: mirrored
+pair :: PlayCount :: onePlay :: restored :: BelowTheAgreement :: 3 :: - :: 2 :: mirrored
+pair :: PlayCount :: onePlay :: agreed :: Reconciled :: 3 :: - :: - :: mirrored
+pair :: PlayCount :: onePlay :: onePlay :: Reconciled :: 4 :: - :: - :: mirrored
+pair :: PlayCount :: onePlay :: twoPlays :: Reconciled :: 5 :: - :: - :: mirrored
+pair :: PlayCount :: twoPlays :: restored :: BelowTheAgreement :: 4 :: - :: 2 :: mirrored
+pair :: PlayCount :: twoPlays :: agreed :: Reconciled :: 4 :: - :: - :: mirrored
+pair :: PlayCount :: twoPlays :: onePlay :: Reconciled :: 5 :: - :: - :: mirrored
+pair :: PlayCount :: twoPlays :: twoPlays :: Reconciled :: 6 :: - :: - :: mirrored
