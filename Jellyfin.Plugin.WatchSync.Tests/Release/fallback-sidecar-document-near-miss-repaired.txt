@@ -1,0 +1,11 @@
+The repair of the document near-miss beside it, and the whole of the repair is the
+removal of one bullet. It is here so the guard is shown passing what it should pass as
+well as refusing what it should refuse.
+
+## Installing while it is gone
+
+A release carries the archive and a checksum file for it, and those are what make an
+install without the index verifiable rather than trusting:
+
+- `.md5`, which is the value a catalog serves as the plugin checksum
+- `.sha256`, for the same archive

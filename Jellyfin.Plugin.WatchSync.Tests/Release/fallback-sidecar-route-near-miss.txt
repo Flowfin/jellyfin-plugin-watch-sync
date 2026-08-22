@@ -1,0 +1,26 @@
+# A slice of the publish route with the second checksum moved to a stronger digest and
+# nothing else touched. It is the change somebody makes on its own merits, in a file that
+# has no reason to mention docs/publication-route.md, and it leaves that document telling
+# an operator who has already lost the manifest address to check a file the release page
+# does not carry.
+#
+# Nothing fails. The run publishes, the archive is fine, and the sidecar beside it is
+# better than the one it replaced. The only thing that is wrong is the instruction the
+# person least able to check it is reading.
+
+      - name: Write the checksums
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          zips=(./*.zip)
+          if [ "${#zips[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one plugin archive, found ${#zips[@]}."
+            exit 1
+          fi
+
+          zip="${zips[0]#./}"
+          # The bare filename, so the checksum line names the file a client downloads.
+          md5sum "${zip}" > "${zip%.zip}.md5"
+          sha512sum "${zip}" > "${zip%.zip}.sha512"
+          ls -l
