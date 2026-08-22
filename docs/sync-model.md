@@ -513,8 +513,8 @@ down.
 
 ## How this document is held true
 
-By the suite, for the field table and the save reason table, and by a reading at
-review for everything else.
+By the suite, for the field table, the save reason table and the unit a transfer is
+about, and by a reading at review for everything else.
 
 `SyncModelDocumentTests` reads the properties of the server's record off the
 referenced assembly by reflection, reads the rows of the field table out of this
@@ -535,6 +535,15 @@ added upstream therefore reddens the suite instead of arriving as an event nothi
 has a treatment for, which is the failure that matters: an unclassified reason is
 either carried as a change nobody decided to carry or dropped in silence, and
 nothing in the middle.
+
+The unit is held by the type rather than by a rule anybody has to remember.
+`TransferSubject` has no public constructor, so the only route to one is a reading
+that refuses every kind `docs/matching.md` gives no key rule to, and a caller that
+wanted to carry a series has nothing to put a series into. `TransferSubjectTests`
+drives every member of the server's own kind enumeration through that reading and
+refuses an answer the disposition column of that table disagrees with, so a kind
+moved between two dispositions there, and a kind added upstream, both redden the
+suite instead of arriving as a subject nothing classified.
 
 The reflection is over the assembly this project compiles against, which is a
 different one per target, and the suite runs once per target. So the table is

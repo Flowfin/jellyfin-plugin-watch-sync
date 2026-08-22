@@ -10,6 +10,7 @@
     "mutate": [
       "Document/**/*.cs",
       "Matching/**/*.cs",
+      "Model/**/*.cs",
       "Peer/**/*.cs",
       "Conflict/**/*.cs",
       "Versions/**/*.cs"
