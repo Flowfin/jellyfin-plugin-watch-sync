@@ -175,6 +175,13 @@ within one minute of each other. Where they differ by more, or where the peer se
 no runtime at all, the position is dropped, the other three fields are applied, and
 the drop is recorded against the item with both runtimes.
 
+The same absence on this side is the same case. An item this server has not analysed
+yet carries no runtime either, and without both numbers the displacement cannot be
+bounded, so the position is dropped for that reason as well. The sentence above names
+the peer's side because that is the side whose number travels, and a reader should not
+take the silence about this one for a decision to apply a position on the strength of
+a number that is not there.
+
 ### Why one minute
 
 The displacement a position can carry is the difference between the two runtimes. A
@@ -215,6 +222,28 @@ work are applied whatever happens to the position. An implementation that treats
 item's change as one unit fails exactly here, because the position and the played
 state arrive together, and refusing the pair is how a watched film comes out
 unwatched on the other server.
+
+### What of this has a rule in the sources today
+
+The comparison and the answer, and nothing on either side of them. The listing is taken
+at the commit being read rather than at a remote reference, so it answers for the tree in
+front of the reader:
+
+    git ls-tree -r --name-only HEAD -- Jellyfin.Plugin.WatchSync/Versions/
+    Jellyfin.Plugin.WatchSync/Versions/VersionLanding.cs
+    Jellyfin.Plugin.WatchSync/Versions/VersionLandingAnswer.cs
+
+The tolerance is a number that type declares rather than one this page holds, so the two
+cannot drift apart:
+
+    git grep -n 'WidestRuntimeDifference =>' -- Jellyfin.Plugin.WatchSync/Versions/VersionLanding.cs
+    Jellyfin.Plugin.WatchSync/Versions/VersionLanding.cs:66:    public static TimeSpan WidestRuntimeDifference => TimeSpan.FromMinutes(1);
+
+What is not there is what the rule is between. Which version this server would resume, and
+therefore whose runtime is handed in, is the adapter in #20. Where a dropped position is
+recorded is #26 and the surface it is read from is #62. So the rule decides and nothing
+yet asks it, and a row on a status page saying how many positions were dropped is a thing
+this page describes rather than a thing a server does.
 
 ### What the two lines answer differently
 
