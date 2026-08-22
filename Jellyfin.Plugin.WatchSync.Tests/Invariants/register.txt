@@ -23,3 +23,4 @@ static-instance-not-read :: 8 :: the plugin's own sources :: InvariantGuardTests
 applied-change-is-assigned :: 50 :: the plugin's own sources :: InvariantGuardTests
 store-path-from-the-server :: 68 :: the plugin's own sources :: InvariantGuardTests
 waiting-is-on-the-injected-clock :: 16 :: the plugin's own sources :: InvariantGuardTests
+user-data-behind-the-adapter :: 20 :: the plugin's own sources :: InvariantGuardTests

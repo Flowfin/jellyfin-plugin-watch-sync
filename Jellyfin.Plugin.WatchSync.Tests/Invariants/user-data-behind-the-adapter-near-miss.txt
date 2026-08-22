@@ -1,0 +1,37 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The adapter is already there, already injected and already used for the write. That is
+// what makes this the near-miss rather than an obviously broken one: somebody built the
+// boundary, and then needed one thing it did not offer yet and took it from the server
+// directly, on one line, in the middle of a method that otherwise goes through the
+// adapter. The reach is a second constructor parameter that reads as ordinary beside the
+// first.
+//
+// The cost is that the promise the adapter exists to keep stops being kept without
+// anything saying so. Both lines carry a member of that name, so this compiles on each;
+// what differs between them is what it returns and what the caller has to do about it.
+// The version this plugin behaves differently on is then decided by which line the
+// operator happens to run, which is the one thing #20 is against.
+
+internal sealed class Sweep
+{
+    private readonly IWatchSyncUserData _userData;
+
+    private readonly IUserDataManager _server;
+
+    internal Sweep(IWatchSyncUserData userData, IUserDataManager server)
+    {
+        _userData = userData;
+        _server = server;
+    }
+
+    internal void Apply(User user, BaseItem item, SyncedState state)
+    {
+        _userData.Write(user, item, state);
+    }
+
+    internal object? ResumePointOf(User user, BaseItem item)
+    {
+        return _server.GetResumeUserData(user, item);
+    }
+}

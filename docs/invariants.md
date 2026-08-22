@@ -35,6 +35,7 @@ without covering the rest.
 | `applied-change-is-assigned` | #50 | the plugin's own sources | `InvariantGuardTests` |
 | `store-path-from-the-server` | #68 | the plugin's own sources | `InvariantGuardTests` |
 | `waiting-is-on-the-injected-clock` | #16 | the plugin's own sources | `InvariantGuardTests` |
+| `user-data-behind-the-adapter` | #20 | the plugin's own sources | `InvariantGuardTests` |
 
 ## What each one is for
 
@@ -106,6 +107,20 @@ side; against a window that waits, those ten exchanges take ten real windows. Th
 this carries is the same one `injected-clock` carries one step over: reading a clock and
 waiting on one are different mistakes, and the second has its own names.
 
+**`user-data-behind-the-adapter`.** No source names the server's user data manager. The
+interface this plugin reads and writes user data through is not the same on the two
+supported lines: the newer one carries a batch read and a notion of which version drives
+the resume point, and the older one carries neither. #20 holds that difference in one
+adapter of this plugin's own, and the bullet with teeth there is that no type outside the
+adapter references the manager.
+
+It is here rather than waiting for the adapter because of what it would be worth
+afterwards. A scan asserting this passes today over sources that could not violate it, and
+it keeps passing while the first call site is written somewhere else. By the time the
+adapter is written the boundary is a refactor across every caller rather than a decision
+taken once, and the promise that the two lines behave alike is the thing that was lost in
+the meantime.
+
 ## What these patterns cannot see
 
 A pattern reads one line of text. That is enough for the mistakes above as they are
@@ -115,10 +130,10 @@ green run.
 
 **A scan is only as wide as its subject.** These rules read the plugin's own sources.
 The plugin is small today. Nothing in it logs, names a user, reads a machine clock, waits
-on one or writes a change, so five of the seven invariants carried by that guard scan
-sources that could not have violated them:
+on one, writes a change or reaches the server's user data, so six of the eight invariants
+carried by that guard scan sources that could not have violated them:
 
-    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)|\.(PlayCount|PlaybackPositionTicks)\s*(\+\+|\+=)|Thread\.Sleep|Task\.Delay|SpinWait|new (System\.Threading\.)?(Periodic)?Timer\(' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
+    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)|\.(PlayCount|PlaybackPositionTicks)\s*(\+\+|\+=)|Thread\.Sleep|Task\.Delay|SpinWait|new (System\.Threading\.)?(Periodic)?Timer\(|I?UserDataManager|GetUserDataBatch|GetResumeUserData|VersionResumeData' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
     exit=1
 
 The other two are not in that position. The static that `static-instance-not-read` refuses
@@ -220,6 +235,32 @@ over one of them, a task that waits inside something else and is blocked on here
 caller and handed in already elapsed all reach real time with none of these names in view.
 What the rules hold is the spellings somebody reaches for while writing a window, which is
 the moment #16 is about.
+
+**`user-data-behind-the-adapter` refuses the adapter too, and that is the design rather
+than an oversight.** The rules read the plugin's own sources and nothing scopes them to a
+directory, so the one type that is allowed to name the manager is refused along with every
+type that is not. When the adapter lands, each of its calls is a declared departure with
+the reason beside it. That is the same shape `static-instance-not-read` takes over the
+accessor #8 names, and it is worth more here than a carve-out would be: the exception list
+is then the list of places this plugin touches the server's user data at all, in one file,
+read by anybody asking how wide the surface is.
+
+**It does not refuse the record.** `UserItemData` is the thing the manager reads and
+writes, and a type outside the adapter holding one has reached past the boundary just as
+surely. There is no rule for it, because the plugin already names it in prose, in the
+comment saying why the wire type is not that record:
+
+    git grep -n 'UserItemData' -- 'Jellyfin.Plugin.WatchSync/**/*.cs'
+    Jellyfin.Plugin.WatchSync/Model/SyncedState.cs:13:/// It is deliberately not the server's <c>UserItemData</c>. Using that record as the wire type
+
+A rule over that name would refuse that comment on the day it landed, and a departure
+covering a sentence is a debt nothing retires. So the record is held by the review and by
+the type that exists instead of it, not here.
+
+**And it sees names rather than reaches.** The manager obtained through a variable typed
+somewhere else, handed in as an interface of another name, or reached through a wrapper
+passes all four rules. What they hold is that the server's own names for it do not appear
+in this plugin's sources, which is the mistake made while writing the first call.
 
 ## Departures
 

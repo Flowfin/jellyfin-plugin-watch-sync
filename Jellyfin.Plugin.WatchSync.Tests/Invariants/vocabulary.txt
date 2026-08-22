@@ -85,3 +85,14 @@ wait-thread-sleep :: waiting-is-on-the-injected-clock :: 16 :: Thread\.Sleep\b :
 wait-spin :: waiting-is-on-the-injected-clock :: 16 :: \bSpinWait\b :: burns real elapsed time and holds a processor while it does :: the injected clock, asked whether the window has closed
 wait-task-delay :: waiting-is-on-the-injected-clock :: 16 :: Task\.Delay\b :: waits until the machine says the span has passed rather than until the caller says so :: the injected clock, asked whether the window has closed
 wait-timer :: waiting-is-on-the-injected-clock :: 16 :: new\s+(System\.Threading\.)?(Periodic)?Timer\s*\( :: fires on real elapsed time, so a window, a backoff or a sweep runs when the machine says so :: a timer created from the injected clock
+
+# The interface this plugin reads and writes user data through is not the same on the two
+# supported lines, so #20 holds the difference in one adapter of this plugin's own. The
+# bullet with teeth there is the last one, that no type outside the adapter references the
+# server's user data manager, and it has to be true from the first call rather than reached
+# later: a scan that passes today keeps passing while the first call site is written
+# somewhere else, and by then the adapter is a refactor rather than a design.
+user-data-manager-interface :: user-data-behind-the-adapter :: 20 :: \bIUserDataManager\b :: names the server's user data manager, whose shape differs between the two supported lines :: this plugin's own interface, which carries read one, read many and write
+user-data-manager-class :: user-data-behind-the-adapter :: 20 :: \bUserDataManager\b :: names the server's own implementation, which is the same reach one name further in :: this plugin's own interface, which carries read one, read many and write
+user-data-batch-read :: user-data-behind-the-adapter :: 20 :: \bGetUserDataBatch\b :: calls the batch read through a variable, so the manager is reached with no type name on the line :: the read many of this plugin's own interface, which the adapter answers with the batch on the line that offers one
+user-data-resume-version :: user-data-behind-the-adapter :: 20 :: \bGetResumeUserData(Batch)?\b|\bVersionResumeData\b :: reaches the resume members one line has and the other does not, which is the difference the adapter exists to hold :: the read of this plugin's own interface, and #28 for which version a position lands on
