@@ -1,0 +1,146 @@
+# Builds the package a release would ship, on every pull request, and publishes
+# the component inventory of what went into it.
+#
+# The inventory is the part nothing produced before. Packaging itself already ran
+# on a pull request: the shared workflow build.yaml calls runs the same packager,
+# which is a third call site rather than a second one, and it is why this file
+# does not claim to be the first thing that packages here.
+#
+# This is a further invocation of the packager rather than a second packaging
+# route: the same action at the same commit the release route resolves to, with
+# the framework build.yaml declares. PackagingGateTests refuses the call sites
+# drifting apart, so moving one pin without the other reddens the suite instead
+# of leaving one route packaging bytes another never built.
+#
+# What it does not do is package the second server line. build.yaml declares two
+# lines and the packager stamps the archive with the manifest's top level
+# targetAbi rather than with the framework it was told to build, so a second call
+# with a second framework produces an archive that claims the line it cannot run
+# on. That reading is on #101 and it is what the remaining half of that issue
+# costs.
+name: package
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+# Deny at the workflow level and grant on the job, so what this runs with is
+# written here rather than inherited from the repository's default workflow
+# permission, which is a repository setting no file in this tree can pin.
+permissions: {}
+
+# Cancel a superseded run on the same ref. Packaging reads the checkout and
+# depends on nothing a cancelled run leaves behind.
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    # The check context comes from this name, so renaming the job removes it from
+    # wherever it is relied on. Change it deliberately or not at all.
+    name: Package and inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # Checkout and restore only. The inventory is attached to the run by the
+      # run token and nothing here writes to the repository.
+      contents: read
+    steps:
+      - name: Check out the commit under review
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing here pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up .NET
+        # Both SDKs. The plugin declares both server lines in one project, so a
+        # restore that evaluates it needs both, and the inventory below is read
+        # off that restore rather than off the one line this run packages.
+        #
+        # No dependency cache. A cache entry written by another run must never be
+        # able to reach the graph the inventory then describes as the truth.
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Restore against the committed lock file
+        # The packager calls dotnet itself and passes no restore arguments, so
+        # without this the graph it compiles from is whatever the feed served at
+        # that minute. Locked mode refuses a graph that does not match
+        # packages.lock.json, which is the file review actually saw, and it is
+        # also what the inventory below reads.
+        run: |
+          set -euo pipefail
+          project="Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj"
+          lock="$(dirname "${project}")/packages.lock.json"
+          if [ ! -f "${lock}" ]; then
+            echo "::error::${lock} does not exist. This run restores in locked mode so the packaged bytes and the inventory come from the dependency graph that was reviewed. Run: dotnet restore ${project} -p:RestorePackagesWithLockFile=true, then commit the file."
+            exit 1
+          fi
+          dotnet restore "${project}" --locked-mode
+
+      - name: Build the plugin package
+        id: jprm
+        # The packager the release route calls, at the same commit and with the
+        # same framework, so what is built here is what a release would build.
+        # PackagingGateTests holds the pin and the framework to that route.
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net9.0"
+
+      - name: Write the component inventory
+        # CycloneDX is a NuGet global tool, so it is pinned by version, which is
+        # the pin a NuGet package has. It reads the restore above rather than
+        # fetching its own, so the inventory describes the locked closure and no
+        # package can be pulled in merely to describe the bill of materials.
+        env:
+          INVENTORY_DIRECTORY: inventory
+        run: |
+          set -euo pipefail
+          mkdir -p "${INVENTORY_DIRECTORY}"
+          dotnet tool install --global CycloneDX --version 6.2.0
+          export PATH="${HOME}/.dotnet/tools:${PATH}"
+          dotnet-CycloneDX "Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj" \
+            --output-format Json \
+            --output "${INVENTORY_DIRECTORY}" \
+            --filename components.cdx.json \
+            --set-nuget-purl \
+            --exclude-test-projects \
+            --disable-package-restore
+
+      - name: Check the run produced both
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+          INVENTORY: inventory/components.cdx.json
+        # if-no-files-found on the upload below fires only when no pattern
+        # matches at all, so a missing inventory would ride through as a warning
+        # and leave the run looking like one that produced both. Named here, one
+        # file at a time.
+        run: |
+          set -euo pipefail
+          for file in "${ARTIFACT}" "${ARTIFACT}.meta.json" "${INVENTORY}"; do
+            if [ ! -f "${file}" ]; then
+              echo "::error::This run did not produce ${file}. The archive, the metadata written beside it and the component inventory are all outputs of packaging."
+              exit 1
+            fi
+          done
+          ls -l "${ARTIFACT}" "${ARTIFACT}.meta.json" "${INVENTORY}"
+
+      - name: Attach the package and its inventory to the run
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-and-inventory
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ steps.jprm.outputs.artifact }}
+            ${{ steps.jprm.outputs.artifact }}.meta.json
+            inventory/components.cdx.json
