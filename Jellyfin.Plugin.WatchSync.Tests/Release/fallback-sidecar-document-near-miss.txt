@@ -1,0 +1,16 @@
+A slice of the fallback document with a third checksum file added to the list, which is
+the same drift arriving from the other side. Nobody touched a workflow, the sentence
+reads as an improvement, and the release page carries no such file.
+
+This one is worse than the route near-miss beside it, because the reader it misleads has
+already established that the manifest address is not answering and has nowhere else to
+check.
+
+## Installing while it is gone
+
+A release carries the archive and a checksum file for it, and those are what make an
+install without the index verifiable rather than trusting:
+
+- `.md5`, which is the value a catalog serves as the plugin checksum
+- `.sha256`, for the same archive
+- `.sha512`, for the same archive again

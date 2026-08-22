@@ -1,0 +1,21 @@
+# The repair of the route near-miss beside it, and the whole of the repair is the digest
+# in the second checksum line. It is here so the guard is shown passing what it should pass
+# as well as refusing what it should refuse, because a comparison that refuses everything
+# proves nothing about the change it is supposed to catch.
+
+      - name: Write the checksums
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          zips=(./*.zip)
+          if [ "${#zips[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one plugin archive, found ${#zips[@]}."
+            exit 1
+          fi
+
+          zip="${zips[0]#./}"
+          # The bare filename, so the checksum line names the file a client downloads.
+          md5sum "${zip}" > "${zip%.zip}.md5"
+          sha256sum "${zip}" > "${zip%.zip}.sha256"
+          ls -l
