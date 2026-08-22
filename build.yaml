@@ -28,7 +28,6 @@ description: >
   Nothing moves except between servers the same operator has paired, and a
   pairing that is absent, disabled or revoked stops the transfer rather
   than falling back to anything.
-category: "General"
 owner: "Flowfin"
 artifacts:
 - "Jellyfin.Plugin.WatchSync.dll"
