@@ -1,0 +1,35 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The clock is already injected, already held, and already the thing the window is
+// measured from: the moment the write happened is stamped through it. That is what makes
+// this the near-miss rather than an obviously broken one. Everything the window is
+// measured from is injected and only the waiting is not, and the waiting is the half a
+// reader skims past, because holding something open for a moment by waiting for that
+// moment is the obvious way to write it.
+//
+// The cost is not a wrong answer on the machine it runs on. It is the third condition of
+// #16, which runs ten exchanges after one change and counts the writes on each side.
+// Against this class those ten exchanges take ten real windows, so the assertion that
+// matters is slow first, flaky on a loaded machine second, and deleted third.
+
+internal sealed class EchoWindow
+{
+    private readonly IClock _clock;
+
+    private DateTimeOffset _written;
+
+    internal EchoWindow(IClock clock)
+    {
+        _clock = clock;
+    }
+
+    internal void RecordOurOwnWrite()
+    {
+        _written = _clock.UtcNow;
+    }
+
+    internal async Task WaitForTheWindowToCloseAsync(TimeSpan window)
+    {
+        await Task.Delay(window).ConfigureAwait(false);
+    }
+}
