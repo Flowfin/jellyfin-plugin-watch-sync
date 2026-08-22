@@ -27,9 +27,13 @@
 #
 # What it cannot see, stated rather than left to be discovered. It reads which classes
 # are named and that they hold facts, and never whether a fact drives the row it is
-# filed under, so a class renamed onto the wrong row passes. The second condition of
-# #81 is what reaches that, by removing a rule and requiring only that row's facts to
-# redden, and it is not met today.
+# filed under, so a class renamed onto the wrong row passes. Conflict/removal.txt is what
+# reaches that, which is the second condition of #81: it records, per row, the change that
+# takes the rule out and the facts that reddened, and ConflictRuleRemovalTests requires
+# every fact it names to sit in a class THIS file files under THAT row. So which facts are
+# a row's own is decided here rather than by whoever wrote the removal entry, and a rule
+# whose removal reaches another row's class reddens. The removal itself is applied by hand
+# and reverted, and nothing in this suite or in any workflow of this repository runs one.
 #
 # The third condition is met for the rows that have a rule. Conflict/ordered-pairs.txt
 # declares the states each of those rows can hold and walks every ordered pair of them

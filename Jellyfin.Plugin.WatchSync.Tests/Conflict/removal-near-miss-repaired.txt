@@ -1,0 +1,12 @@
+# The repair of the near miss beside this file, which is the one pasted fact removed from the
+# Played entry and nothing else.
+#
+# It is kept so the guard is proven in both directions. A guard that refuses the near miss and
+# would also refuse its repair has not been shown to refuse the mistake, only to refuse the
+# file, and the difference is the whole of what a near-miss pair is for.
+#
+# This file carries its own vocabulary for the same reason the near miss does.
+
+Played :: the ratchet settled by recency :: PlayedRatchetTests.PlayedBeatsAPositionHoweverMuchNewerThePositionIs, ConflictOrderedPairTests.EveryPairAnswersWhatTheTableSaysItAnswers :: The simplification #31 predicts.
+PlayCount :: the two counts added :: PlayCountReconciliationTests.APlayOnOneSideLeavesBothSidesOneHigher, ConflictOrderedPairTests.EveryPairAnswersWhatTheTableSaysItAnswers :: The first of the two rules #33 names as wrong.
+PlaybackPositionTicks :: every pair answered with the greater position :: PositionRecencyTests.TheLaterPlayWinsInBothDirections, ConflictOrderedPairTests.EveryPairAnswersWhatTheTableSaysItAnswers :: The whole of the row's rule taken out rather than only its bound.
