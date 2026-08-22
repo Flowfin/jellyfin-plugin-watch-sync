@@ -1,0 +1,26 @@
+// The repair of the near-miss next to it, and nothing else. The second dependency goes,
+// and the question it was asked is asked of the adapter the class already holds, which is
+// where the two lines are made to answer alike.
+//
+// If the guard passes this and refuses its neighbour, what it refused was the reach past
+// the boundary and not the sweep, the constructor, the method or the resume point.
+
+internal sealed class Sweep
+{
+    private readonly IWatchSyncUserData _userData;
+
+    internal Sweep(IWatchSyncUserData userData)
+    {
+        _userData = userData;
+    }
+
+    internal void Apply(User user, BaseItem item, SyncedState state)
+    {
+        _userData.Write(user, item, state);
+    }
+
+    internal long? ResumeRuntimeOf(User user, BaseItem item)
+    {
+        return _userData.RuntimeOfTheVersionThatWouldResume(user, item);
+    }
+}
