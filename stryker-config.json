@@ -11,7 +11,8 @@
       "Document/**/*.cs",
       "Matching/**/*.cs",
       "Peer/**/*.cs",
-      "Conflict/**/*.cs"
+      "Conflict/**/*.cs",
+      "Versions/**/*.cs"
     ],
     "thresholds": {
       "high": 100,
