@@ -73,3 +73,15 @@ store-path-user-profile :: store-path-from-the-server :: 68 :: Environment\.GetF
 store-path-temporary :: store-path-from-the-server :: 68 :: Path\.GetTempPath\b|Path\.GetTempFileName\b|Directory\.CreateTempSubdirectory\b :: keeps a record that has to survive a restart somewhere a machine is entitled to empty :: the store folder under the data path the server hands over
 store-path-beside-the-assembly :: store-path-from-the-server :: 68 :: AppContext\.BaseDirectory\b|\.Assembly\.Location\b|Assembly\.GetExecutingAssembly\(\) :: derives the store from where the plugin was loaded from, which is the install directory under another name :: the store folder under the data path the server hands over
 store-path-absolute-literal :: store-path-from-the-server :: 68 :: "(/(etc|var|usr|home|opt|srv)/|[A-Za-z]:\\) :: writes an absolute path into the source, which is right on the machine it was written on :: the store folder under the data path the server hands over
+
+# Reading a clock and waiting on one are different mistakes, and only the first has
+# names above. #16 suppresses the echo with a window around this plugin's own write, and
+# a window held open by real elapsed time cannot be closed by a test at all: the ten
+# exchanges that issue asks for after one change become ten real waits, which is slow,
+# then flaky on a loaded machine, and then deleted. The suite half is already refused by
+# the headless vocabulary; these rules are the plugin half, which is where the waiting
+# decides whether an echo leaves again.
+wait-thread-sleep :: waiting-is-on-the-injected-clock :: 16 :: Thread\.Sleep\b :: stops the thread for a span nothing in a test can advance :: the injected clock, asked whether the window has closed
+wait-spin :: waiting-is-on-the-injected-clock :: 16 :: \bSpinWait\b :: burns real elapsed time and holds a processor while it does :: the injected clock, asked whether the window has closed
+wait-task-delay :: waiting-is-on-the-injected-clock :: 16 :: Task\.Delay\b :: waits until the machine says the span has passed rather than until the caller says so :: the injected clock, asked whether the window has closed
+wait-timer :: waiting-is-on-the-injected-clock :: 16 :: new\s+(System\.Threading\.)?(Periodic)?Timer\s*\( :: fires on real elapsed time, so a window, a backoff or a sweep runs when the machine says so :: a timer created from the injected clock

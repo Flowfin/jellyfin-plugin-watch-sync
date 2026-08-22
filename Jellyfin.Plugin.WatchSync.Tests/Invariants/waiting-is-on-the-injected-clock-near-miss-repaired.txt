@@ -1,0 +1,28 @@
+// The repair of the near-miss next to it, and nothing else. The window is asked whether
+// it has closed instead of being waited out, and the question is put to the clock the
+// class already holds. A test advances that clock and the window closes; nothing waits.
+//
+// If the guard passes this and refuses its neighbour, what it refused was the waiting and
+// not the window, the span, the stamp or the asynchronous method it was written in.
+
+internal sealed class EchoWindow
+{
+    private readonly IClock _clock;
+
+    private DateTimeOffset _written;
+
+    internal EchoWindow(IClock clock)
+    {
+        _clock = clock;
+    }
+
+    internal void RecordOurOwnWrite()
+    {
+        _written = _clock.UtcNow;
+    }
+
+    internal bool TheWindowHasClosed(TimeSpan window)
+    {
+        return _clock.UtcNow - _written >= window;
+    }
+}

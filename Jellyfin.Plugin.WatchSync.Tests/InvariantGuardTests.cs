@@ -17,12 +17,12 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// closure a register is a list somebody maintains by remembering to, which is the failure mode
 /// of every list in this repository that is not read by something.
 ///
-/// Five of the six invariants are carried here. The sixth, storage identity, is carried by the
-/// guard that landed with the document arguing it, and this register names it rather than
+/// Seven of the eight invariants are carried here. The eighth, storage identity, is carried by
+/// the guard that landed with the document arguing it, and this register names it rather than
 /// re-implementing it, because two scanners over one invariant would disagree about what counts
 /// as a violation.
 ///
-/// Four of the five scan a subject that is nearly empty today. That is stated rather than hidden:
+/// Five of the seven scan a subject that is nearly empty today. That is stated rather than hidden:
 /// a green run over sources that could not have violated the rule is not coverage, and the
 /// near-miss fixtures are what make each rule a guard rather than a green tick. What each pattern
 /// cannot see is written in `docs/invariants.md`, where somebody deciding whether to trust a run

@@ -34,6 +34,7 @@ without covering the rest.
 | `static-instance-not-read` | #8 | the plugin's own sources | `InvariantGuardTests` |
 | `applied-change-is-assigned` | #50 | the plugin's own sources | `InvariantGuardTests` |
 | `store-path-from-the-server` | #68 | the plugin's own sources | `InvariantGuardTests` |
+| `waiting-is-on-the-injected-clock` | #16 | the plugin's own sources | `InvariantGuardTests` |
 
 ## What each one is for
 
@@ -96,6 +97,15 @@ directory the assembly was loaded from, and an absolute path typed into the sour
 the plugin does instead is `StoreFolder`, which composes one name under
 `IApplicationPaths.DataPath` and nothing else.
 
+**`waiting-is-on-the-injected-clock`.** No source waits on real elapsed time. #16
+suppresses the echo with a window around this plugin's own write, so that a change this
+plugin applied is not handed straight back to the peer that sent it, and a window held
+open by waiting closes when the machine says so rather than when a test says so. That
+issue's third condition runs ten exchanges after one change and counts the writes on each
+side; against a window that waits, those ten exchanges take ten real windows. The rule
+this carries is the same one `injected-clock` carries one step over: reading a clock and
+waiting on one are different mistakes, and the second has its own names.
+
 ## What these patterns cannot see
 
 A pattern reads one line of text. That is enough for the mistakes above as they are
@@ -104,11 +114,11 @@ apart, it is written here rather than left for somebody to discover after trusti
 green run.
 
 **A scan is only as wide as its subject.** These rules read the plugin's own sources.
-The plugin is small today. Nothing in it logs, names a user, reads a machine clock or
-writes a change, so four of the six invariants carried by that guard scan sources that
-could not have violated them:
+The plugin is small today. Nothing in it logs, names a user, reads a machine clock, waits
+on one or writes a change, so five of the seven invariants carried by that guard scan
+sources that could not have violated them:
 
-    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)|\.(PlayCount|PlaybackPositionTicks)\s*(\+\+|\+=)' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
+    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)|\.(PlayCount|PlaybackPositionTicks)\s*(\+\+|\+=)|Thread\.Sleep|Task\.Delay|SpinWait|new (System\.Threading\.)?(Periodic)?Timer\(' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
     exit=1
 
 The other two are not in that position. The static that `static-instance-not-read` refuses
@@ -182,6 +192,34 @@ rule here refuses a constant, because a leaf name has to be something: what the 
 is that the part above it was not chosen here. Which folder the store actually sits in is
 asserted by `StoreFolderTests` rather than by this guard, and the two are about different
 halves of the same sentence.
+
+**`waiting-is-on-the-injected-clock` is stronger than the invariant it carries, and it
+sees only the names.** Some of what it refuses has a spelling that takes a time source, so
+the correct way to wait, once this plugin has an injected clock, may well be one of the
+very lines these rules refuse. These three, with `p` a `TimeProvider`, compile against
+both of the target frameworks this project builds:
+
+    Task.Delay(TimeSpan.FromSeconds(1), p);
+    new PeriodicTimer(TimeSpan.FromSeconds(1), p);
+    p.CreateTimer(_ => { }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+
+That is a library compile of those three statements at `<TargetFrameworks>net9.0;net10.0`
+under SDK 10.0.301, and it says the overloads exist rather than that this plugin should
+use them. `wait-task-delay` refuses the first and `wait-timer` refuses the second; nothing
+refuses the third, because its rule reads a `new`. They are refused anyway, because what
+this plugin's injected clock will be is #86 and is undecided: a rule written to permit an
+overload carrying a provider would settle there and then that the clock is a
+`TimeProvider`, which is not this guard's to settle. When the clock arrives, a place that
+legitimately waits on it is a declared departure, which puts the exception where a reader
+meets it and takes it away again with the line. That is the same shape
+`static-instance-not-read` takes over the configuration accessor #8 names.
+
+What the rules do not see is the waiting that has no name on the line. A wrapper written
+over one of them, a task that waits inside something else and is blocked on here with
+`.Result` or `.Wait()`, a cancellation token given a timeout, and a span waited out by a
+caller and handed in already elapsed all reach real time with none of these names in view.
+What the rules hold is the spellings somebody reaches for while writing a window, which is
+the moment #16 is about.
 
 ## Departures
 
