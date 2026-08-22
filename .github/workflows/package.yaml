@@ -1,15 +1,16 @@
 # Builds the package a release would ship, on every pull request, and publishes
 # the component inventory of what went into it.
 #
-# The failure this prevents is a change that breaks packaging being found by the
-# release rather than by the pull request that made it. Packaging ran in exactly
-# one place before this, the release route, and no pull request started it.
+# The inventory is the part nothing produced before. Packaging itself already ran
+# on a pull request: the shared workflow build.yaml calls runs the same packager,
+# which is a third call site rather than a second one, and it is why this file
+# does not claim to be the first thing that packages here.
 #
-# This is a second invocation of the packager rather than a second packaging
+# This is a further invocation of the packager rather than a second packaging
 # route: the same action at the same commit the release route resolves to, with
-# the framework build.yaml declares. PackagingGateTests refuses the two drifting
-# apart, so moving one pin without the other reddens the suite instead of
-# leaving one route packaging bytes the other never built.
+# the framework build.yaml declares. PackagingGateTests refuses the call sites
+# drifting apart, so moving one pin without the other reddens the suite instead
+# of leaving one route packaging bytes another never built.
 #
 # What it does not do is package the second server line. build.yaml declares two
 # lines and the packager stamps the archive with the manifest's top level
