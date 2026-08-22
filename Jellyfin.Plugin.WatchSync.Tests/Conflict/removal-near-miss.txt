@@ -1,0 +1,20 @@
+# The near miss the removal register is guarded against, kept as a fixture so the guard is
+# proven on a mistake somebody would actually make rather than on an obvious one.
+#
+# Two removals are measured in one sitting and one line of the second run's failure list is
+# pasted into the first entry. Every row that has a rule still has an entry, every entry names
+# its own class, every change and every reason is right, and the file reads as a complete
+# record. What it costs is the whole of what this register is for: the Played entry now says
+# that removing the ratchet reddens a fact of the position row, which is the resolver's rules
+# having grown into each other, and a reader takes the record for a demonstration that they
+# have not.
+#
+# The repair beside it is that one fact removed and nothing else.
+#
+# This file carries its own vocabulary for the same reason the coverage fixtures do: judged
+# against the real registers it would prove the state of the tree on the day it ran rather
+# than proving the guard.
+
+Played :: the ratchet settled by recency :: PlayedRatchetTests.PlayedBeatsAPositionHoweverMuchNewerThePositionIs, PositionRecencyTests.TheLaterPlayWinsInBothDirections, ConflictOrderedPairTests.EveryPairAnswersWhatTheTableSaysItAnswers :: The simplification #31 predicts.
+PlayCount :: the two counts added :: PlayCountReconciliationTests.APlayOnOneSideLeavesBothSidesOneHigher, ConflictOrderedPairTests.EveryPairAnswersWhatTheTableSaysItAnswers :: The first of the two rules #33 names as wrong.
+PlaybackPositionTicks :: every pair answered with the greater position :: PositionRecencyTests.TheLaterPlayWinsInBothDirections, ConflictOrderedPairTests.EveryPairAnswersWhatTheTableSaysItAnswers :: The whole of the row's rule taken out rather than only its bound.

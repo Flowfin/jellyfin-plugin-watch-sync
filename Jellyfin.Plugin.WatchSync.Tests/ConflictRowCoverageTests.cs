@@ -25,9 +25,10 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// disagreeing in either direction and the register and the tree disagreeing in either
 /// direction.
 ///
-/// What this cannot judge is whether a fact filed under a row is about that row. That is the
-/// second condition of #81, which reaches it by removing a rule and requiring only that row's
-/// facts to redden, and it is not met.
+/// What this cannot judge is whether a fact filed under a row is about that row.
+/// <see cref="ConflictRuleRemovalTests"/> reaches it, by holding the record of what each rule's
+/// removal reddened to the classes this register files under that row. The removal is applied
+/// by hand and nothing runs it, which that record says about itself.
 ///
 /// The third condition is reached by <see cref="ConflictOrderedPairTests"/>, over the rows this
 /// register enters as covered rather than over the whole table, and the register is what decides
