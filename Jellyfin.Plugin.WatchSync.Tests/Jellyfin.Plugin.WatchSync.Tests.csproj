@@ -17,6 +17,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The coverage collector runs inside the same test host the suite already uses,
+         so the measurement is of the run rather than of a second run arranged to be
+         measurable. Runtime assets only: it instruments the host and nothing it produces
+         is referenced from a test, and a collector on the compile surface would be a
+         package the suite could accidentally start writing against. -->
+    <PackageReference Include="coverlet.collector" Version="6.0.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="Moq" Version="4.20.72" />
     <PackageReference Include="xunit" Version="2.9.2" />

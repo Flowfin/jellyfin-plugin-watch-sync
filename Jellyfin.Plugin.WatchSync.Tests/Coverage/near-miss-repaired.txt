@@ -1,0 +1,8 @@
+# The near-miss beside this file with its one letter restored. Every component the
+# fixture list names is declared and every row names one of them.
+
+. :: ordinary :: 75 :: 65 :: The project root.
+Conflict :: critical :: 95 :: 90 :: The resolver.
+Matching :: critical :: 95 :: 90 :: The matcher.
+Storage :: ordinary :: 75 :: 65 :: The store folder.
+Transfer :: awaited :: 95 :: 90 :: The queue.

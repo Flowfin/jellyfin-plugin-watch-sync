@@ -1,0 +1,121 @@
+# Measures which of this plugin's own lines and branches no test has ever executed.
+#
+# Coverage is a weak signal used well. It does not say the tests are good; it says
+# which code nothing ran, and for a plugin whose failure is somebody's watch
+# history quietly landing on the wrong item that list is worth having. So the list
+# is what this run prints for the areas where a missed branch costs somebody their
+# history, and the percentage is the part that only decides whether the job is red.
+#
+# The floors are in Jellyfin.Plugin.WatchSync.Tests/Coverage/floors.txt and the
+# verdict is .github/check-coverage.py, so a clone gets the same answer this gets
+# by running the same two files. Nothing about what is measured or what is refused
+# is written here. CoverageFloorsTests holds that register to the tree, and this
+# workflow holds it to a run.
+#
+# It measures once per server line rather than once. The suite runs on both
+# targets because the facts differ per target, and a line reachable only on one of
+# them is unmeasured on the other; merging the two would hide exactly that.
+#
+# It is not in the required set on master. Which checks are required is #105, and
+# a workflow adding itself to that set is a decision taken in the wrong place.
+# What this does is fail its own job, which is visible on every pull request and
+# is not a merge condition until somebody makes it one.
+#
+# There is deliberately no path filter, for the reason the two required workflows
+# already carry a note about: a filtered workflow reports no check run at all
+# rather than a green one.
+name: Coverage
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+# Deny by default at the workflow level; the job grants only what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    name: Coverage floors
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # Checkout and restore only; the artifact upload uses the run token.
+      contents: read
+    env:
+      # Every target the suite builds, named once. The measuring step and the
+      # verdict both read this, so a line added to the project and not added here
+      # is one unmeasured list rather than two that disagree, and
+      # CoverageFloorsTests refuses this against the project's own target list.
+      TARGETS: "net9.0 net10.0"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes via git, so do not persist the GITHUB_TOKEN in
+          # .git/config. The suite reads the checkout through git ls-files,
+          # which needs the repository and not the credential.
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          # One SDK per server line. The suite builds and runs once per target,
+          # and this measures each of those runs separately.
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Measure each server line on its own
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Each target writes into a directory named after itself, because the
+          # collector names its own output after a run identifier and the
+          # verdict below has to be able to say which line a number came from.
+          for target in ${TARGETS}; do
+            dotnet test Jellyfin.Plugin.WatchSync.sln --nologo \
+              --framework "${target}" \
+              --collect:"XPlat Code Coverage" \
+              --results-directory "coverage/${target}"
+          done
+
+      - name: Refuse a run that fell below a floor
+        shell: bash
+        run: |
+          set -uo pipefail
+          # The output goes to the log and to the run summary. A number nobody
+          # can see without opening a log is a number nobody reads, and the
+          # uncovered branches are the part somebody acts on.
+          #
+          # The verdict is kept and the summary written before the job takes it,
+          # because a red run is the run whose numbers somebody wants to see and
+          # an exit taken first is an exit that publishes nothing.
+          status=0
+          python3 .github/check-coverage.py \
+            Jellyfin.Plugin.WatchSync.Tests/Coverage/floors.txt \
+            coverage ${TARGETS} > coverage/summary.txt 2>&1 || status="$?"
+          cat coverage/summary.txt
+          {
+            echo '```'
+            cat coverage/summary.txt
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          exit "${status}"
+
+      - name: Keep the reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-reports
+          path: coverage/**
+          if-no-files-found: warn
+          retention-days: 30
