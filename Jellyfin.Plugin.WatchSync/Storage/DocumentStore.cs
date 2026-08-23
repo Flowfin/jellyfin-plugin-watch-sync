@@ -56,6 +56,25 @@ public sealed class DocumentStore
     /// </summary>
     internal const string InFlightSuffix = ".writing";
 
+    /// <summary>
+    /// How many times one write is attempted before the filesystem's refusal is taken as final.
+    ///
+    /// A refusal here is not always an answer. On a platform that opens a file behind this
+    /// process the moment it appears, a rename over a name something else is holding fails and
+    /// then succeeds a moment later, and a store that answered the first of those would drop a
+    /// write for a reason nobody could act on. So the attempt is made again, and what separates
+    /// the two attempts is the work between them rather than a wait: the document is read again,
+    /// the bytes are put down again into a file of their own, and only then is the rename tried.
+    /// Waiting is not available to this type and is not wanted here, because the thing being
+    /// waited for is another process letting go rather than a duration.
+    ///
+    /// It is a small number because the refusal it is against is a transient one. A name
+    /// something holds for longer than eight of these is a name this store is not going to get,
+    /// and going on trying would turn a refusal an operator can read into a call that does not
+    /// come back.
+    /// </summary>
+    internal const int Attempts = 8;
+
     private static readonly UTF8Encoding _bytesOfADocument = new UTF8Encoding(false);
 
     private readonly StoreFolder _folder;
@@ -153,6 +172,7 @@ public sealed class DocumentStore
 
         var path = PathFor(name);
         var gate = _gates.GetOrAdd(name, _ => new Gate());
+        var refusals = 0;
 
         while (true)
         {
@@ -160,7 +180,12 @@ public sealed class DocumentStore
 
             if (!ReadAt(path, out var reading))
             {
-                return DocumentWriteAnswer.RefusedByTheFilesystem();
+                if (++refusals >= Attempts)
+                {
+                    return DocumentWriteAnswer.RefusedByTheFilesystem();
+                }
+
+                continue;
             }
 
             if (reading is not null && reading.Answer == DocumentAnswer.FromTheFuture)
@@ -190,7 +215,13 @@ public sealed class DocumentStore
             if (replaced == ReplaceOutcome.Refused)
             {
                 Discard(inFlight);
-                return DocumentWriteAnswer.RefusedByTheFilesystem();
+
+                if (++refusals >= Attempts)
+                {
+                    return DocumentWriteAnswer.RefusedByTheFilesystem();
+                }
+
+                continue;
             }
 
             return DocumentWriteAnswer.Written(document);
@@ -303,7 +334,19 @@ public sealed class DocumentStore
 
         try
         {
-            json = File.ReadAllText(path);
+            // The share is wide on purpose, and it is what makes the replace and a reader of the
+            // same document able to happen at once. A reader that asked for the ordinary share
+            // would refuse the replace its own attempt is racing, on the platform whose rename
+            // has to remove the name the reader is holding, and the write that lost that race
+            // would come back as a filesystem that refused rather than as one that was busy.
+            using var file = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(file, _bytesOfADocument);
+
+            json = reader.ReadToEnd();
         }
         catch (FileNotFoundException)
         {

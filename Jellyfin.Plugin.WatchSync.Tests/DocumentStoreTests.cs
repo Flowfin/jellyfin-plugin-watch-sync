@@ -195,8 +195,12 @@ public sealed class DocumentStoreTests : IDisposable
         var store = Store();
         var writers = 24;
 
-        Task.WaitAll(Enumerable.Range(0, writers).Select(index => Task.Run(() =>
-            store.Write(Name, reading => Adding(reading, "writer-" + index.ToString(CultureInfo.InvariantCulture), "here")))).ToArray());
+        var running = Enumerable.Range(0, writers).Select(index => Task.Run(() =>
+            store.Write(Name, reading => Adding(reading, "writer-" + index.ToString(CultureInfo.InvariantCulture), "here")))).ToArray();
+
+        Task.WaitAll(running);
+
+        Assert.All(running, each => Assert.Equal(DocumentWriteOutcome.Written, each.Result.Outcome));
 
         var document = store.Read(Name)!.Document!;
 
