@@ -126,8 +126,9 @@ former name, and it reports a conclusion rather than a result:
       --jq '.check_runs[] | select(.conclusion != "success") | "\(.name) \(.conclusion)"'
     call / update_release_draft skipped
 
-Every other name in the list is `success`. That one is `skipped`, and #176 is where
-whether it stays at all is decided.
+Every other name in the list is `success`. That one is `skipped`, and it stays that
+way by the answer on #176 rather than because nobody looked: it is kept, unrun,
+until #116 decides what the release route reads its change list from.
 
 ## The rows
 
@@ -172,7 +173,7 @@ it and the reason is in the row.
 | The headless rule and its guard | here | `Jellyfin.Plugin.WatchSync.Tests/headless-rule.md` and the guard beside it. Neither gate has a check of this shape; this one is in the suite. The class is not hypothetical, and it was met and repaired on the other board rather than avoided there. |
 | The build manifest guards | here | `BuildTargetsTests` and `CompatibilityMatrixTests` hold the declared ABI, the target list and the compatibility matrix to what was actually built. A plugin whose declared ABI is not what it compiled against fails at load on somebody's server, and no generic check in either gate looks for it. |
 | The two-server behaviour | owed, #88 and #104 | This plugin writes into another server's users' data. No amount of static analysis reaches that class, and the other board does not have it. The container harness is where it is checked and #104 decides where that runs. |
-| `changelog.yaml`, `sync-labels.yaml` | owed, #176 | Two workflows this repository carries from the plugin template rather than by a decision of its own. `changelog.yaml` is skipped on every push, because it passes the name this repository carried before it moved and the shared job is guarded on that name, which is why `call / update_release_draft` appears in the mainline list above with the conclusion `skipped`. #165 says why that name is deliberately not repaired. `sync-labels.yaml` writes the template's label set onto this board monthly and has never run. #176 holds the decision on both. |
+| `changelog.yaml`, `sync-labels.yaml` | one answered, one owed, #176 | Two workflows this repository carries from the plugin template rather than by a decision of its own. `changelog.yaml` is answered on #176 and stays, skipped, until #116 decides what the release route reads its change list from, because removing it first would settle that question with a deletion. It is skipped on every push, because it passes the name this repository carried before it moved and the shared job is guarded on that name, which is why `call / update_release_draft` appears in the mainline list above with the conclusion `skipped`; #165 says why that name is deliberately not repaired, and being skipped is the whole of what makes keeping it safe. `sync-labels.yaml` writes the template's label set onto this board monthly and has never run, and it is the half #176 carries no answer for. |
 | `command-dispatch.yaml`, `command-rebase.yaml` | removed, #155 | The row above once named four. The slash command pair came from the same template and no command was ever raised through it, so what it produced was a runner on every comment and a check run on every commit. Removed rather than filtered. |
 
 On the headless row, the class it refuses is one the other board met rather than
