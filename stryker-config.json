@@ -12,6 +12,7 @@
       "Matching/**/*.cs",
       "Model/**/*.cs",
       "Peer/**/*.cs",
+      "Storage/**/*.cs",
       "Conflict/**/*.cs",
       "Versions/**/*.cs"
     ],
