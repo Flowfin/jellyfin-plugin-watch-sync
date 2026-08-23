@@ -1,0 +1,19 @@
+# A fixture, not the document. Judging a mutation of the real table would prove the
+# state of that file on the day it ran rather than proving the comparison.
+#
+# The mistake is one number. The `move` row reads 10 minutes where the rule uses 5,
+# which is the drift a table of plausible durations actually produces: the row is
+# present, the threshold is the right threshold, the unit is the unit every other row
+# uses, and the reason is a reason somebody would write for either number. A reader
+# who opens the document to decide whether five minutes is too coarse for their
+# household is told ten, and the server behaves by neither of the two things they
+# then believe.
+#
+# Everything else about this fixture is correct, which is what makes it a near-miss
+# rather than an obviously broken table.
+
+| the threshold | default | why that default |
+| --- | --- | --- |
+| `move` | 10 minutes | How far a position moves while something is still playing before the move is worth carrying. It bounds the changes one playback produces by the length of the work rather than by the number of reports the player sent. |
+| `finish` | 2 minutes | How close to the end a position has to be to be a finish rather than a place to resume from. It is the length of what sits after the last thing anybody watches. |
+| `shortestItem` | 5 minutes | The length below which no position is carried at all. Below it a resume point is not a thing anybody uses. |

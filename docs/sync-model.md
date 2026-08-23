@@ -450,6 +450,97 @@ about an item this plugin does not sync, or about a user with no mapping, is dro
 at the handler whatever its reason, and the mapping is consumed rather than inferred
 under #42. #15 carries both.
 
+## The position thresholds
+
+The treatment `thresholded` above is one reason and three numbers. The reason
+arrives several times a minute for as long as something is playing, and all but a
+handful of the positions it carries say something the next one contradicts. These
+are the numbers that decide which handful.
+
+Each is a setting, and none of them is a setting yet. `PluginConfiguration` carries
+none and says so in its own body: which settings exist and where each one is stored
+is #58. What is fixed here is the value each setting defaults to and the reason for
+that value.
+
+| the threshold | default | why that default |
+| --- | --- | --- |
+| `move` | 5 minutes | How far a position moves while something is still playing before the move is worth carrying. At five minutes a two hour work produces at most twenty four changes however many reports the player sent, so the count follows the length of the work rather than the chattiness of the client. |
+| `finish` | 2 minutes | How close to the end a position has to be to be a finish rather than a place to resume from. It is the length of what sits after the last thing anybody watches: credits, a distributor card, the black at the end of a container. |
+| `shortestItem` | 5 minutes | The length below which no position is carried at all. Below it a resume point is not a thing anybody uses, and a position on a trailer or a clip fills the record of what two sides last agreed on the part of a library that has the most items in it. |
+
+Three of the four rules refuse and one converts, which is the shape to read them in.
+The order they are asked in is a decision rather than a convenience. The length of
+the item is asked first, because an item nobody resumes carries no position whatever
+the report says, a stop included. The finish is asked next, because a stop at the end
+of a work is a finish and not a resume point, and asking the stop first would carry
+the end of every film as a position. The stop is asked before the move, because the
+only thing that lets the move threshold be as coarse as it is that the stop always
+survives it.
+
+The two boundaries are drawn in opposite directions on purpose. A position exactly
+the finish distance from the end is a finish, because the distance is the widest gap
+that still counts as the end. A move of exactly the threshold is not yet a change,
+because the threshold is the largest move that is still too small to carry.
+
+### Why a finish is carried as watched and not as a number
+
+A tick counts from the start of one file and the peer holds its own, which is the
+same fact `## One work held in several versions` above is about. Two servers with
+different runtimes for one work disagree about where the end is, so a position near
+it, carried as a position, becomes an offer to resume a few minutes from the end of
+something the person has finished. Carried as watched it is the same statement on
+both sides whatever either runtime says.
+
+The finish carries no position beside the watched state. A resolution carrying both
+would hand the receiving side the pair the ratchet in #31 exists to settle, invented
+on this side for no reason.
+
+### What the thresholds cost
+
+The move threshold is the one with a residual and it is stated rather than left to be
+discovered. A playback that ends without the server saving a stop, which is a client
+killed or a server restarted part way through, loses up to the move threshold on the
+peer's side, so the person resumes at most five minutes early. That is recoverable by
+the person in seconds. The failure at the other end of the trade is a peer sent a
+position every few seconds for as long as anybody in the household is watching
+anything, which is what turns a paired server into a load problem for its neighbour.
+
+The two distances also sit at the small end of their ranges deliberately, because the
+two mistakes each of them can make do not cost the same. A finish read as a position
+costs one click. A position read as a finish marks something watched that the person
+had not finished, which is a claim about them they did not make and which the ratchet
+in #31 then holds against the other server correcting it.
+
+### An item with no runtime
+
+Two of the three rules are about the length of the work, and a server that has not
+analysed an item yet holds no runtime for it. Neither question can be asked without
+that number, so neither is asked, and the report is judged by the move and the stop
+alone. The absence is carried out of the rule rather than folded into its answer, so
+that #62 can show it.
+
+What that leaves open is named rather than softened: a position near the end of a
+long item this server has not analysed is carried as a position. It is still bounded
+on the receiving side, where the version rule refuses a position whose two runtimes
+are not within a minute of each other, and where there is no runtime there is nothing
+for that rule to compare either.
+
+### What of this has a rule in the sources today
+
+The judgement and the three numbers, and nothing on either side of them. The listing
+is taken at the commit being read rather than at a remote reference, so it answers for
+the tree in front of the reader:
+
+    git ls-tree -r --name-only HEAD -- Jellyfin.Plugin.WatchSync/Model/ | grep PositionThreshold
+    Jellyfin.Plugin.WatchSync/Model/PositionThreshold.cs
+    Jellyfin.Plugin.WatchSync/Model/PositionThresholdAnswer.cs
+    Jellyfin.Plugin.WatchSync/Model/PositionThresholds.cs
+
+What is not there is what the rule is between. The handler that reads the event and
+hands the report over is #15, the position last carried comes out of the record of
+what two sides last agreed in #14, and the list a peer reads a carried change from is
+#48. So the rule decides and nothing yet asks it.
+
 ## Direction
 
 Data is pulled. Decision 3 in #1 was answered on 2026-08-08.
@@ -506,15 +597,13 @@ down.
   direction that document is written against is the section above.
 - What a first exchange records and how it is distinguishable from an ordinary run,
   which is #37. The rule it applies is the section above.
-- The position thresholds, their defaults and the reason for each default, which
-  #17 adds to this document.
 - The envelope version and the bounds on what one may carry, which are #18 and
   #19.
 
 ## How this document is held true
 
-By the suite, for the field table, the save reason table and the unit a transfer is
-about, and by a reading at review for everything else.
+By the suite, for the field table, the save reason table, the unit a transfer is
+about and the position thresholds, and by a reading at review for everything else.
 
 `SyncModelDocumentTests` reads the properties of the server's record off the
 referenced assembly by reflection, reads the rows of the field table out of this
@@ -544,6 +633,16 @@ drives every member of the server's own kind enumeration through that reading an
 refuses an answer the disposition column of that table disagrees with, so a kind
 moved between two dispositions there, and a kind added upstream, both redden the
 suite instead of arriving as a subject nothing classified.
+
+The position threshold table is held against the type that declares the numbers.
+`PositionThresholdDocumentTests` reads the rows out of this file and the defaults
+off `PositionThresholds` by reflection, and refuses the two disagreeing in either
+direction: a threshold the type declares with no row, a row naming no threshold, a
+row naming one twice, and a row whose default is not the number the type would use.
+So a default changed in one of the two places is a red suite rather than a document
+describing a rule the code stopped following, which is the direction that costs
+most, because the number a person reads before deciding whether to change a setting
+is the one in the document.
 
 The reflection is over the assembly this project compiles against, which is a
 different one per target, and the suite runs once per target. So the table is
