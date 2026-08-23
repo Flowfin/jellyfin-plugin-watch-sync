@@ -14,6 +14,13 @@
          copies the files build.yaml names out of it. IsPublishable keeps the test
          assembly and its runner out of that directory in the first place. -->
     <IsPublishable>false</IsPublishable>
+    <!-- #70 asks that a process be killed in the middle of a write. A killed process has to
+         be a process, and it cannot be the test host, because killing that ends the run. The
+         entry point the test SDK generates does nothing, so it is turned off and Program.cs
+         stands in its place: the case starts this same assembly as a child, lets it write
+         through the plugin's own store, and kills it. `dotnet test` never reaches it, because
+         the adapter loads the assembly and starts at the facts. -->
+    <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
 
   <ItemGroup>
