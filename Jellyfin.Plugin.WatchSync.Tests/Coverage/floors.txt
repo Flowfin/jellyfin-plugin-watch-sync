@@ -1,0 +1,60 @@
+# What the coverage run measures and what it refuses, one component per row.
+#
+# Fields are separated by " :: ": the directory inside the plugin project, its
+# state, the line floor, the branch floor, and the reason. "." is the project
+# root, meaning the sources that sit in no directory at all.
+#
+# The states are:
+#
+#   critical  one of the four areas #87 names, held to the higher floor
+#   ordinary  measured and held to the ordinary floor
+#   awaited   critical, and the directory does not exist yet
+#   empty     in the tree, and the run finds no executable line in it
+#
+# There are two floors and not eleven. A number per component is a number
+# somebody lowers when a component is red, one component at a time, and each
+# lowering looks reasonable on its own. Every row therefore carries one of two
+# pairs, and the pair is repeated on the row so that a reader meets the floor
+# where the component is rather than in a header they have to go and find.
+#
+#   critical and awaited   95 per cent of lines, 90 per cent of branches
+#   ordinary and empty     75 per cent of lines, 65 per cent of branches
+#
+# The ordinary floor sits below the lowest component measured today by more than
+# one platform-conditional branch. Storage is the component that decides that
+# margin: the folder it creates is created with a POSIX mode on a platform that
+# has modes and without one on a platform that does not, so one arm of that
+# choice is unreachable on whichever platform the run happens on, and the two
+# platforms leave different lines uncovered. A floor set at the measurement of
+# one platform is a floor the other platform crosses for no defect.
+#
+# The critical floor is where it is because the four areas it covers are where a
+# missed branch loses somebody's watch history rather than printing something
+# wrong. It is not 100. A floor at 100 is met by writing a fact that executes a
+# line rather than by writing one that would notice the line being wrong, which
+# is the failure the mutation run in Mutation/scope.txt exists against and is not
+# a thing to buy twice.
+#
+# CoverageFloorsTests holds this file to the tree in both directions: a component
+# added to the plugin project and not named here fails, and a row saying awaited
+# whose directory has since appeared fails until somebody moves it. The awaited
+# rows name the directory each area is expected to land in, and that name is a
+# prediction rather than a fact. What holds an area that lands under another name
+# is the undeclared-component leg and not these two rows, so a queue that arrives
+# as Queue rather than as Transfer is a red suite either way.
+#
+# .github/check-coverage.py is what compares a run against this file, so a clone
+# gets the same verdict the workflow gets. The percentage is not the artefact:
+# the uncovered branches in the critical areas are, and the checker prints them.
+
+. :: ordinary :: 75 :: 65 :: The plugin's identity, the pages it serves and the version the server reads. It composes nothing and decides nothing, and it carries no branch at all, so what a floor here refuses is the file ceasing to be executed rather than a rule going unmeasured.
+Configuration :: empty :: 75 :: 65 :: The configuration type and the page it serves. The type carries no setting yet and says so in its own body, so the run finds nothing executable to measure; which settings exist is #58, and the floor above binds the day the first one lands.
+Conflict :: critical :: 95 :: 90 :: The conflict resolver, which is one of the four areas #87 names. An uncovered branch here is a rule that decides which of two servers' watch history stands, never executed by anything, and both of the values it chose between belonged to a person.
+Document :: ordinary :: 75 :: 65 :: The version every document in the store carries and the reading that refuses one from the future. It is not one of the four, and what it protects is caught by the version comparison rather than by a branch count; #69 and #71 hold the rule itself.
+Matching :: critical :: 95 :: 90 :: The matcher, which is one of the four areas #87 names. An uncovered branch here is watch history landing on the wrong item or on none, which is the failure this plugin exists to refuse.
+Model :: ordinary :: 75 :: 65 :: The set of fields that move and the unit one transfer is about. The field table is compared against the server's own record by the suite rather than covered by it, so the floor here refuses the reading ceasing to run and not the table going stale.
+Peer :: ordinary :: 75 :: 65 :: What arrived from another machine, bounded and stripped before a page or a log line is built out of it. It sits below the critical floor because the failures #63 names are refused by facts about particular strings rather than by a branch being reached at all.
+Storage :: ordinary :: 75 :: 65 :: Where the store sits and what creating it does. One arm of the POSIX mode choice is unreachable on whichever platform the run happens on, so a floor high enough to be interesting here would be a floor one platform fails for no defect.
+Versions :: ordinary :: 75 :: 65 :: Where a position from a peer lands when one work is held in several versions. It is not one of the four, and it is at the ordinary floor rather than the critical one because #28 is unfinished and the higher floor is a claim about a finished area.
+Apply :: awaited :: 95 :: 90 :: The apply path, which is one of the four areas #87 names and is #50. Nothing writes into the server's user data yet, so there is no directory to measure; the name is the one that path is expected to land under.
+Transfer :: awaited :: 95 :: 90 :: The queue, which is one of the four areas #87 names and is #48. Nothing is enqueued yet, so there is no directory to measure; the name is the one the queue is expected to land under.

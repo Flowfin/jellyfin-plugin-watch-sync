@@ -1,0 +1,14 @@
+# A register one character away from correct, judged against the component list the
+# fact that reads it carries rather than against the tree. A fixture judged against
+# the real project would prove the state of that project on the day it ran.
+#
+# The miss is the Matching row, spelled with one letter dropped. Every row parses,
+# every state is one this register declares, every floor is a number, and the count
+# is right, so the shapes a parser refuses are all satisfied. What is wrong is that
+# the matcher is undeclared and a component nobody wrote is declared.
+
+. :: ordinary :: 75 :: 65 :: The project root.
+Conflict :: critical :: 95 :: 90 :: The resolver.
+Matchng :: critical :: 95 :: 90 :: The matcher, one letter short of the directory it is about.
+Storage :: ordinary :: 75 :: 65 :: The store folder.
+Transfer :: awaited :: 95 :: 90 :: The queue.

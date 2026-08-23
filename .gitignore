@@ -4,3 +4,7 @@ obj/
 .idea/
 artifacts
 StrykerOutput/
+# The coverage run writes here, at the root and nowhere else. It is anchored,
+# because this clone matches an ignore pattern without regard to case and an
+# unanchored line would take the register in the test project with it.
+/coverage/
