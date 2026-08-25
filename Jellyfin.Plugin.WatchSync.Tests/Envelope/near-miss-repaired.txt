@@ -1,0 +1,13 @@
+# The repair of the near-miss beside it, and it is one line: the body the case hands
+# the reader is one the seed corpus carries, so the harness starts from what the suite
+# already asserts against.
+
+    [Fact]
+    public void AnEnvelopeMissingItsRequiredMemberIsRefused()
+    {
+        var reading = Envelope.Read(
+            """{"version":1}""",
+            EnvelopeVersions.Supported);
+
+        Assert.Equal(EnvelopeAnswer.MemberMissing, reading.Answer);
+    }

@@ -1,0 +1,30 @@
+# The seed corpus the envelope fuzz harness starts from, one body per line.
+#
+# These are not bodies written for the harness. Every one of them is a body the
+# envelope tests already hand to the reader, and EnvelopeFuzzTests refuses this file
+# and those call sites disagreeing in either direction, so there is one set of bytes
+# rather than two that drift. A body added to a case arrives here in the same change
+# or the suite is red, and a line here that no case hands over is refused as a seed
+# nobody's fact is about.
+#
+# A seed is one line. A body carrying a newline cannot be written here and is not a
+# shape any case hands over today; the harness produces multi-line inputs by mutating
+# these rather than by reading them.
+#
+# Blank lines and lines beginning with # are ignored, so a body beginning with # cannot
+# be seeded from this file either. Neither restriction bounds what the harness reaches,
+# because a mutation puts back what the file cannot carry.
+{"version":4,"changes":[]}
+{"version":1,"changes":[]}
+{"version":9,"changes":[]}
+{"version":1}
+{"version":1,"changes":null}
+{"version":7,"changes":[]}
+{}
+not json at all
+[]
+{"version":"1","changes":[]}
+{"version":0,"changes":[]}
+{"version":-1,"changes":[]}
+{"version":1.5,"changes":[]}
+{"version":1,"changes":[1,2],"aMemberThisCodeHasNeverHeardOf":true}

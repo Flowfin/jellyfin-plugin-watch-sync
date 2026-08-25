@@ -1,0 +1,17 @@
+# The near-miss for the corpus guard: a case that hands the reader a body the seed
+# corpus does not carry, so a run would start from a set the suite has already moved
+# past. Everything else about it is right, which is what makes it the near-miss rather
+# than an obviously broken file.
+#
+# It is a fixture rather than a case, because a case would be scanned as one and the
+# near-miss would then be a finding against the tree.
+
+    [Fact]
+    public void AnEnvelopeMissingItsRequiredMemberIsRefused()
+    {
+        var reading = Envelope.Read(
+            """{"version":1,"aBodyTheCorpusDoesNotCarry":true}""",
+            EnvelopeVersions.Supported);
+
+        Assert.Equal(EnvelopeAnswer.MemberMissing, reading.Answer);
+    }
