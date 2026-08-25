@@ -1,0 +1,108 @@
+# Fuzzes the inbound envelope reader and the bounds beside it, which is #102.
+#
+# The envelope is the one surface a peer controls. Everything else this plugin
+# reads is its own store or its own server, so this is where bytes chosen by a
+# machine this operator does not administer meet code.
+#
+# It runs on a schedule and on demand and never on a pull request. That is the
+# whole point of where it sits rather than a cost saving: a fuzz run reddens on
+# an input nobody's change produced, and a required check that does that blocks
+# every unrelated pull request until somebody triages a crasher. The scheduled
+# dependency scan next to it is here for the same reason.
+#
+# Nothing about it is a merge condition. Which checks are required is #105, and
+# a workflow that added itself to that set would be taking that decision in the
+# wrong place.
+#
+# What a run cannot see is in docs/fuzz.md and is printed by the run itself: it
+# is not coverage guided, so a path no mutation reached is a path the run says
+# nothing about, and a green job is not an absence of defects.
+name: Fuzz
+
+on:
+  schedule:
+    # Weekly rather than nightly. The corpus is the suite's own bodies and the
+    # mutations are derived from a seed, so two runs a day apart over the same
+    # tree differ only in the seed they were given, and what a second run buys
+    # is another seed rather than another day.
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: 'How many mutated inputs to judge after the seeds.'
+        required: false
+        default: '2000000'
+      seed:
+        description: 'The number every input of the run is derived from.'
+        required: false
+        default: '1'
+
+# Deny by default at the workflow level; the job grants only what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: Fuzz the envelope reader
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      # Checkout and restore only; the artifact upload uses the run token.
+      contents: read
+    env:
+      # A scheduled run has no inputs, so the defaults live here as well as in
+      # the dispatch form. They are read once into the environment rather than
+      # twice into a command line, so the two routes run the same numbers.
+      ITERATIONS: ${{ github.event.inputs.iterations || '2000000' }}
+      SEED: ${{ github.event.inputs.seed || '1' }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # No step pushes via git, so do not persist the GITHUB_TOKEN in
+          # .git/config. The harness reads the corpus out of the checkout,
+          # which needs the repository and not the credential.
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          # One line rather than both. The reader under test is the same source
+          # on both targets and the harness reads no server type at all, so a
+          # second run would judge the same code twice. Where that stops being
+          # true is a per-line difference in the reader, and that difference is
+          # what the adapter in #20 exists to hold.
+          dotnet-version: |
+            10.0.x
+
+      - name: Run the sweep
+        shell: bash
+        run: |
+          set -uo pipefail
+          # The verdict is kept rather than taken here, because the artefacts
+          # below are what somebody needs in order to act on a crasher and an
+          # exit taken first publishes nothing.
+          status=0
+          dotnet run --project Jellyfin.Plugin.WatchSync.Tests --framework net10.0 \
+            -- fuzz "${ITERATIONS}" "${SEED}" fuzz-out > fuzz-out.log 2>&1 || status="$?"
+          cat fuzz-out.log
+          {
+            echo '```'
+            head -n 40 fuzz-out.log
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          exit "${status}"
+
+      - name: Keep the crashers and the corpus the run evolved
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-${{ github.run_id }}
+          path: |
+            fuzz-out/**
+            fuzz-out.log
+          if-no-files-found: warn
+          retention-days: 30

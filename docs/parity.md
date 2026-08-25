@@ -189,7 +189,7 @@ repair, so the state cannot be reached in the first place.
 
 | what | state here | the one line |
 | --- | --- | --- |
-| `fuzz` | owed, #102 | The inbound envelope reader is the one surface a peer controls, so it is fuzzed, outside the merge gate. |
+| `fuzz` | here | `.github/workflows/fuzz.yaml`, from #102. The inbound envelope reader is the one surface a peer controls, so it is fuzzed, weekly and on demand and never on a pull request: a fuzz run reddens on an input nobody's change produced, and a required check that does that blocks every unrelated pull request until somebody triages a crasher. Not required by the ruleset; #105. It is not coverage guided, which the run prints on every execution and `docs/fuzz.md` argues, so a green job is the absence of a defect these mutations reached rather than the absence of one. The run that landed it found a crasher, which is #253 and is deliberately not repaired in the change that brought the harness. |
 | `stryker-mutation` | here | `Mutation` runs weekly and on demand, over the matcher and over the conflict resolver once it exists, reported and never gating. The scope is in `stryker-config.json` and the components are declared in `Mutation/scope.txt`, so a component the run does not reach is a red suite rather than a score for half of what it claims. `docs/mutation.md` carries the triage. |
 | `manifest-freshness` | owed, #120 | A published manifest that no longer lists the newest release is a silent failure. |
 | `publish-failure-alert` | owed, #121 | A green publish that shipped nothing is the failure this catches, and it has already happened on that board. |

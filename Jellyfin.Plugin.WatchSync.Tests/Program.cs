@@ -71,6 +71,15 @@ public static class EntryPoint
     /// <returns>Zero where the run was asked for something it does not offer.</returns>
     public static int Main(string[] args)
     {
+        // The other thing this assembly does when it is run rather than tested is #102's fuzz
+        // run. It is a second verb rather than a second entry point, for the same reason there
+        // is an entry point here at all: what a run exercises has to be the code this plugin
+        // ships rather than a second arrangement made to be runnable.
+        if (args is not null && args.Length > 0 && string.Equals(args[0], EnvelopeFuzzRun.Verb, StringComparison.Ordinal))
+        {
+            return EnvelopeFuzzRun.Execute(args);
+        }
+
         if (args is null || args.Length != 5 || !string.Equals(args[0], WriteUntilKilled, StringComparison.Ordinal))
         {
             return 0;
