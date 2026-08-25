@@ -12,11 +12,11 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// <summary>
 /// Where this plugin's store sits, and what creating it does.
 ///
-/// These are the conditions of #68 that do not need a record to exist. What the store will hold
-/// is #14, #48, #26, #36 and #44, and none of them is here; the assertion that every one of them
-/// is in the store and nothing but settings is in the plugin configuration is the condition this
-/// file deliberately does not pretend to meet, because a comparison against an empty
-/// configuration type is green over nothing.
+/// These are the conditions of #68 that do not need a record to exist. What the store holds is
+/// #14, #48, #26, #36 and #44, and the first of the five is in the tree; the assertion that every
+/// one of them is in the store and nothing but settings is in the plugin configuration is the
+/// condition this file deliberately does not pretend to meet, because a comparison against an
+/// empty configuration type is green over nothing.
 ///
 /// This was the first test in the suite that created a directory of its own, which is the
 /// subject #86's leftover-file condition had been waiting for. That assertion is that issue's

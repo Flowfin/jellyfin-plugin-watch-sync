@@ -8,11 +8,12 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// The version every document in this plugin's store carries, and the document from the future
 /// that is refused rather than read, which is #69.
 ///
-/// The documents themselves do not exist yet. The agreed record is #14, the outbound queue is
-/// #48, the conflict and unmatched records are #36 and #26, and the provenance is #44, and none
-/// of them is in the tree. That is why the facts here drive the version and the members beside
-/// it rather than any shape: what #69 asks for is the rule that holds for every document, and a
-/// rule proven against the first document to arrive would be a rule about that document.
+/// One document shape exists, which is the agreed record in #14; the outbound queue is #48, the
+/// conflict and unmatched records are #36 and #26, and the provenance is #44, and those four are
+/// not in the tree. The facts here still drive the version and the members beside it rather than
+/// any shape, and that is the point rather than a consequence of the four being absent: what #69
+/// asks for is the rule that holds for every document, and a rule proven against the first
+/// document to arrive would be a rule about that document.
 /// </summary>
 public class StoredDocumentTests
 {

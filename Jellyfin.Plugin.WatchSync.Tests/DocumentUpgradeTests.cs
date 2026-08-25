@@ -19,11 +19,12 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// proves nothing about sequencing; a fixture ladder of three steps proves the rules, and a fact
 /// resting on the real one would be a fact about the state of the tree instead.
 ///
-/// What no fixture here decides is what a document contains. The shapes the store will hold are
-/// #14, #26, #36, #44 and #48 and none of them is in the tree, so the members in the fixture
-/// stand for a shape rather than declaring one, and every rule below is about the version and
-/// about members being carried rather than about any particular member. That is the same bound
-/// #69 landed under and it is stated rather than left to be noticed.
+/// What no fixture here decides is what a document contains, and that is unchanged now that the
+/// first shape has arrived. The agreed record in #14 is in the tree and #26, #36, #44 and #48
+/// are not, and neither the one nor the four are what these fixtures are about: the members in a
+/// fixture stand for a shape rather than declaring one, and every rule below is about the version
+/// and about members being carried rather than about any particular member. That is the same
+/// bound #69 landed under and it is stated rather than left to be noticed.
 /// </summary>
 public class DocumentUpgradeTests
 {
