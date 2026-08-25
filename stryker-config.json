@@ -14,7 +14,8 @@
       "Peer/**/*.cs",
       "Storage/**/*.cs",
       "Conflict/**/*.cs",
-      "Versions/**/*.cs"
+      "Versions/**/*.cs",
+      "Transfer/**/*.cs"
     ],
     "thresholds": {
       "high": 100,
