@@ -1,0 +1,36 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The mistake is the one the first type that needs a pairing makes, and it is not a
+// careless one. The pairing plugin already offers exactly what is wanted here: a set of
+// paired peers, a record per pairing and a state on it. Taking them is shorter than
+// writing an interface of this plugin's own, it compiles, and the sweep it is written for
+// works on the day it is written.
+//
+// What it costs arrives later and arrives everywhere at once. The contract's shape is
+// decided on another board, so a record that gains a member, a state that gains a value or
+// a namespace that moves reaches every caller here rather than one adapter. The last line
+// is the second half of the same mistake: the key is right there on the record, and a
+// consumer that holds one can leak one.
+
+using Jellyfin.Plugin.ServerPairing.Protocol;
+
+internal static class Sweep
+{
+    internal static IReadOnlyList<Guid> PairingsToExchangeWith(IPairedPeers peers)
+    {
+        var active = new List<Guid>();
+
+        foreach (PairingRecord record in peers.All())
+        {
+            if (record.State == PairingState.Active)
+            {
+                active.Add(record.Id);
+            }
+        }
+
+        return active;
+    }
+
+    internal static string Fingerprint(PairingRecord record) =>
+        Convert.ToHexString(record.Keys.Current.KeyMaterial.Span);
+}

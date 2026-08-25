@@ -36,6 +36,7 @@ without covering the rest.
 | `store-path-from-the-server` | #68 | the plugin's own sources | `InvariantGuardTests` |
 | `waiting-is-on-the-injected-clock` | #16 | the plugin's own sources | `InvariantGuardTests` |
 | `user-data-behind-the-adapter` | #20 | the plugin's own sources | `InvariantGuardTests` |
+| `pairing-behind-the-adapter` | #40 | the plugin's own sources | `InvariantGuardTests` |
 
 ## What each one is for
 
@@ -121,6 +122,22 @@ adapter is written the boundary is a refactor across every caller rather than a 
 taken once, and the promise that the two lines behave alike is the thing that was lost in
 the meantime.
 
+**`pairing-behind-the-adapter`.** No source names the pairing plugin's namespace, its
+interfaces, its protocol types or its key material. This plugin holds no pairing, no key
+and no user mapping, and all three come from a plugin whose contract another board
+decides. #40 puts that contract behind one interface of this plugin's own, so that a
+record gaining a member, a state gaining a value or a namespace moving reaches one type
+here rather than every caller.
+
+The last of the four rules is not about the adapter at all. Key material is something the
+contract never offers a consumer, so there is no place in this plugin where it may appear
+and no departure that would be legitimate. A consumer that never holds a key cannot leak
+one, and the rule is what keeps that true rather than a sentence saying it is.
+
+It is here before the adapter for the reason `user-data-behind-the-adapter` is: the first
+type that needs a pairing is the one that reaches for the nearest thing that already
+offers it, and by the time the adapter is written the reach is spread across every caller.
+
 ## What these patterns cannot see
 
 A pattern reads one line of text. That is enough for the mistakes above as they are
@@ -130,10 +147,11 @@ green run.
 
 **A scan is only as wide as its subject.** These rules read the plugin's own sources.
 The plugin is small today. Nothing in it logs, names a user, reads a machine clock, waits
-on one, writes a change or reaches the server's user data, so six of the eight invariants
-carried by that guard scan sources that could not have violated them:
+on one, writes a change, reaches the server's user data or names anything of the pairing
+plugin's, so seven of the nine invariants carried by that guard scan sources that could
+not have violated them:
 
-    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)|\.(PlayCount|PlaybackPositionTicks)\s*(\+\+|\+=)|Thread\.Sleep|Task\.Delay|SpinWait|new (System\.Threading\.)?(Periodic)?Timer\(|I?UserDataManager|GetUserDataBatch|GetResumeUserData|VersionResumeData' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
+    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)|\.(PlayCount|PlaybackPositionTicks)\s*(\+\+|\+=)|Thread\.Sleep|Task\.Delay|SpinWait|new (System\.Threading\.)?(Periodic)?Timer\(|I?UserDataManager|GetUserDataBatch|GetResumeUserData|VersionResumeData|Jellyfin\.Plugin\.ServerPairing|IPair(edPeers|ingKeySource|ingKeyStore|ingRecordStore)|Pairing(Record|State|Message)|Peer(Channel|Reply)|KeyMaterial|PairingKeys|OfferedKey' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
     exit=1
 
 The other two are not in that position. The static that `static-instance-not-read` refuses
@@ -261,6 +279,37 @@ the type that exists instead of it, not here.
 somewhere else, handed in as an interface of another name, or reached through a wrapper
 passes all four rules. What they hold is that the server's own names for it do not appear
 in this plugin's sources, which is the mistake made while writing the first call.
+
+**`pairing-behind-the-adapter` names four interfaces rather than a shape.** The rule that
+reads the pairing plugin's own interfaces lists the four that board declares:
+
+    gh api 'repos/Flowfin/jellyfin-plugin-server-pairing/git/trees/96561b6d60b12f131d009a1749685219dbbc0df3?recursive=1' --jq '[.tree[].path | select(test("/IPair[A-Za-z]+[.]cs$"))] | sort | .[]'
+    Jellyfin.Plugin.ServerPairing/KeyStore/IPairingKeyStore.cs
+    Jellyfin.Plugin.ServerPairing/Protocol/IPairedPeers.cs
+    Jellyfin.Plugin.ServerPairing/Protocol/IPairingKeySource.cs
+    Jellyfin.Plugin.ServerPairing/Protocol/IPairingRecordStore.cs
+
+That is read at one commit of that board and named rather than at its moving head, so the
+quotation reproduces for a reader tomorrow. The four names are what the rule lists.
+
+A fifth one added there is not in that list until somebody adds it here, and this is the
+one place in this file where a list of another repository's names lives. The alternative
+was a pattern over every name that begins the way those four do, and that pattern refuses
+the adapter #40 asks this board to write, because an interface of this plugin's own in
+front of a pairing contract is called something that begins the same way. What holds the
+fifth name meanwhile is the namespace rule, which sees the using directive or the
+qualified name any use of it needs.
+
+**It sees the protocol vocabulary as the other board spells it.** `PairingRecord`,
+`PairingState`, `PairingMessage`, `PeerChannel` and `PeerReply` are refused by name. Two
+of the five are ordinary enough that this plugin might want one of them for a type of its
+own, and if that day comes the answer is a different name here rather than a carve-out,
+because the whole point of the boundary is that the two vocabularies stay apart.
+
+**And it sees names rather than reaches, like its neighbour.** A pairing contract obtained
+through a variable typed somewhere else, handed in under an interface of another name, or
+reached through a wrapper written once, passes all four rules. What they hold is that the
+other plugin's own names for its own things do not appear in this plugin's sources.
 
 ## Departures
 

@@ -96,3 +96,16 @@ user-data-manager-interface :: user-data-behind-the-adapter :: 20 :: \bIUserData
 user-data-manager-class :: user-data-behind-the-adapter :: 20 :: \bUserDataManager\b :: names the server's own implementation, which is the same reach one name further in :: this plugin's own interface, which carries read one, read many and write
 user-data-batch-read :: user-data-behind-the-adapter :: 20 :: \bGetUserDataBatch\b :: calls the batch read through a variable, so the manager is reached with no type name on the line :: the read many of this plugin's own interface, which the adapter answers with the batch on the line that offers one
 user-data-resume-version :: user-data-behind-the-adapter :: 20 :: \bGetResumeUserData(Batch)?\b|\bVersionResumeData\b :: reaches the resume members one line has and the other does not, which is the difference the adapter exists to hold :: the read of this plugin's own interface, and #28 for which version a position lands on
+
+# This plugin holds no pairing, no key and no user mapping, and every one of the three
+# comes from another plugin. #40 puts that contract behind one interface of this plugin's
+# own, and the bullet with teeth there is that no other type in this plugin references the
+# pairing plugin's types. It has to be true from the first call rather than reached later:
+# a scan that passes today keeps passing while the first call site is written somewhere
+# else, and by then the adapter is a refactor across every caller rather than a decision
+# taken once. The last rule is not about the adapter at all, because there is no place in
+# this plugin where key material may appear.
+pairing-namespace :: pairing-behind-the-adapter :: 40 :: \bJellyfin\.Plugin\.ServerPairing\b :: names the pairing plugin's namespace, in a using directive or in a qualified name :: this plugin's own interface, which carries what the contract offers and nothing else
+pairing-contract-interface :: pairing-behind-the-adapter :: 40 :: \b(IPairedPeers|IPairingKeySource|IPairingKeyStore|IPairingRecordStore)\b :: takes one of the pairing plugin's own interfaces as a dependency :: this plugin's own interface, so the contract's shape reaches one type here rather than every caller
+pairing-protocol-type :: pairing-behind-the-adapter :: 40 :: \b(PairingRecord|PairingState|PairingMessage|PeerChannel|PeerReply)\b :: reaches a type of the pairing plugin's protocol, whose shape that board decides and may change :: this plugin's own types, which the adapter answers in
+pairing-key-material :: pairing-behind-the-adapter :: 40 :: \b(KeyMaterial|PairingKeys|OfferedKey)\b :: names key material, which the contract never offers a consumer and this plugin has no use for :: nothing, because a consumer that never holds a key cannot leak one

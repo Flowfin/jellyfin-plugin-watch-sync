@@ -24,3 +24,4 @@ applied-change-is-assigned :: 50 :: the plugin's own sources :: InvariantGuardTe
 store-path-from-the-server :: 68 :: the plugin's own sources :: InvariantGuardTests
 waiting-is-on-the-injected-clock :: 16 :: the plugin's own sources :: InvariantGuardTests
 user-data-behind-the-adapter :: 20 :: the plugin's own sources :: InvariantGuardTests
+pairing-behind-the-adapter :: 40 :: the plugin's own sources :: InvariantGuardTests
