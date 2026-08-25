@@ -24,10 +24,11 @@ public static class DocumentVersions
     /// <summary>
     /// Gets every version this plugin has written a document at, oldest first.
     ///
-    /// There is one today. The shapes the store will hold are #14, #26, #36, #44 and #48 and
-    /// none of them is in the tree, so nothing here says what a document at version 1 contains;
-    /// what it says is that a document carrying that number was written by this plugin and is
-    /// readable, which is what an upgrade needs to know.
+    /// There is one today. The agreed record in #14 is the first shape the store holds and the
+    /// rest are #26, #36, #44 and #48, and nothing here says what a document at version 1
+    /// contains: a shape is declared by the type that writes it, and what this says is that a
+    /// document carrying that number was written by this plugin and is readable, which is what
+    /// an upgrade needs to know.
     /// </summary>
     public static IReadOnlyList<int> Shipped { get; } = new[] { 1 };
 
