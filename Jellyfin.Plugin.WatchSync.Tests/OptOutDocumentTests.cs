@@ -92,6 +92,13 @@ public class OptOutDocumentTests
         /// <summary>
         /// The fields the table names, read as table rows rather than as a search over the whole
         /// document, so prose mentioning a field does not count as giving it a row.
+        ///
+        /// The row ends on optional whitespace rather than on the bar itself, which is the same
+        /// spelling <c>SyncModelDocumentTests</c> uses and is not a stylistic echo of it. The
+        /// checkout carries a carriage return before the newline on one of the three platforms
+        /// the suite runs on, so a pattern anchored straight after the bar matches every row on
+        /// two platforms and no row on the third, and a table read as empty is a document that
+        /// names no field at all.
         /// </summary>
         /// <param name="text">The document text.</param>
         /// <returns>The field named by each row.</returns>
@@ -99,7 +106,7 @@ public class OptOutDocumentTests
             Regex
                 .Matches(
                     text,
-                    @"^\| `(?<field>[A-Za-z]+)` \| (?<what>[^|]+) \|$",
+                    @"^\|\s*`(?<field>[A-Za-z]+)`\s*\|(?<what>[^|]+)\|\s*$",
                     RegexOptions.Multiline,
                     TimeSpan.FromSeconds(5))
                 .Select(match => match.Groups["field"].Value)
