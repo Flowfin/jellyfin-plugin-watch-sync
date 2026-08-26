@@ -39,28 +39,33 @@ is no such guard here.
 
 ## The languages
 
-One entry per language the tree contains, measured rather than assumed:
+One entry per language the tree contains, derived rather than assumed. What each
+command below answers is whether a language is present at all, and none of those
+four answers has moved since this section was written. Their outputs move every
+time the tree grows a file, so the outputs are not written here and the commands
+are handed over instead. Nothing in this repository re-extracts them:
 
     git ls-files -- '*.cs' | wc -l
-    36
-
     git ls-files -- '*.py'
-    .github/assemble-pull-request.py
-    .github/check-pull-request.py
-    .github/check-vulnerable-packages.py
-    .github/check-workflow-branches.py
-
     git ls-files -- '.github/workflows/' | wc -l
-    15
-
     git grep -l -- '<script' -- '*.html'
-    Jellyfin.Plugin.WatchSync/Configuration/configPage.html
+
+Three of the four were pasted with their outputs until #262, and all three had
+gone stale by growth alone: more C# files, more workflows, and two Python files
+added beside the four that were listed. Not one of them changed which languages
+the tree holds, which is the whole reason the paste was not worth its drift.
 
 So `csharp`, `python`, `actions` and `javascript-typescript`. Nothing else in the
 tree is a language CodeQL has an extractor for:
 
     git ls-files -- '*.js' '*.ts' '*.go' '*.java' '*.rb' '*.rs' '*.swift' '*.kt' '*.c' '*.cpp' '*.h' | wc -l
     0
+
+That last output is written down where the four above are not, because it is the
+claim rather than a measurement beside one. A number other than zero there is a
+language nobody added to the matrix, which is the finding this section exists to
+make findable, and a reader who cannot compare against what it said last is left
+running the command with nothing to compare it to.
 
 The last of the four is one inline script in the configuration page and is the
 thinnest of them. It is included rather than left out because that page is the
