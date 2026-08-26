@@ -24,9 +24,16 @@
 #
 # WHICH FIELDS ARE HERE IS NOT A CHOICE MADE IN THIS FILE. Conflict/coverage.txt says
 # which rows of the table have a rule, and this file is required to hold exactly those
-# and no others. So the day the LastPlayedDate row gains a rule, that register moves it
-# to covered and this file is missing a field until somebody walks its pairs too, which
-# is the same fail-closed shape coverage.txt uses for the row itself.
+# and no others. The day the LastPlayedDate row gained a rule that register moved it to
+# covered and this file was missing a field until its pairs were walked, which is the
+# same fail-closed shape coverage.txt uses for the row itself and is what the last
+# section of this file is.
+#
+# THE VALUE COLUMN IS IN THE ROW'S OWN UNITS. Three rows answer with a number of ticks
+# or a count and one answers with a moment, so the column takes an instant as well, in
+# the same written form the state lines use. It is read as the ticks of that instant, so
+# a moment and a number of ticks are one column rather than two, and a value written in
+# the wrong form for its row fails to parse rather than comparing as something else.
 #
 # THE PAIRS ARE THE WHOLE CROSS PRODUCT AND THAT IS CHECKED. Every ordered pair of the
 # states declared for a field appears exactly once, both orders of a pair included and
@@ -188,3 +195,36 @@ pair :: PlayCount :: twoPlays :: restored :: BelowTheAgreement :: 4 :: - :: 2 ::
 pair :: PlayCount :: twoPlays :: agreed :: Reconciled :: 4 :: - :: - :: mirrored
 pair :: PlayCount :: twoPlays :: onePlay :: Reconciled :: 5 :: - :: - :: mirrored
 pair :: PlayCount :: twoPlays :: twoPlays :: Reconciled :: 6 :: - :: - :: mirrored
+
+# The LastPlayedDate row. The rule reads the two dates and nothing else, so the other
+# three members are set against it: the side holding the later date is the one that is
+# not played, holds no plays and carries the greater position, and a rule reaching for
+# any of those three answers half of these pairs with the earlier date. alsoOlder is a
+# second state holding the same moment as older, so the tie is an ordinary pair of the
+# cross product rather than a case somebody remembered to add.
+#
+# There is no refused state for this row. Every pair of moments has a later one, so the
+# rule has no state it cannot decide, and the one input it does refuse is a date that
+# lost its zone, which cannot be written here at all: the state column is read as an
+# instant and a value without one fails to parse.
+state :: LastPlayedDate :: never :: false :: 0 :: 0 :: -
+state :: LastPlayedDate :: older :: true :: 3 :: 0 :: 2026-01-01T11:50:00Z
+state :: LastPlayedDate :: newer :: false :: 0 :: 900 :: 2026-01-01T12:05:00Z
+state :: LastPlayedDate :: alsoOlder :: false :: 1 :: 200 :: 2026-01-01T11:50:00Z
+
+pair :: LastPlayedDate :: never :: never :: NeitherSideHasPlayed :: - :: - :: - :: mirrored
+pair :: LastPlayedDate :: never :: older :: TheLaterDateStands :: 2026-01-01T11:50:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: never :: newer :: TheLaterDateStands :: 2026-01-01T12:05:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: never :: alsoOlder :: TheLaterDateStands :: 2026-01-01T11:50:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: older :: never :: TheLaterDateStands :: 2026-01-01T11:50:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: older :: older :: TheLaterDateStands :: 2026-01-01T11:50:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: older :: newer :: TheLaterDateStands :: 2026-01-01T12:05:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: older :: alsoOlder :: TheLaterDateStands :: 2026-01-01T11:50:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: newer :: never :: TheLaterDateStands :: 2026-01-01T12:05:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: newer :: older :: TheLaterDateStands :: 2026-01-01T12:05:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: newer :: newer :: TheLaterDateStands :: 2026-01-01T12:05:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: newer :: alsoOlder :: TheLaterDateStands :: 2026-01-01T12:05:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: alsoOlder :: never :: TheLaterDateStands :: 2026-01-01T11:50:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: alsoOlder :: older :: TheLaterDateStands :: 2026-01-01T11:50:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: alsoOlder :: newer :: TheLaterDateStands :: 2026-01-01T12:05:00Z :: - :: - :: mirrored
+pair :: LastPlayedDate :: alsoOlder :: alsoOlder :: TheLaterDateStands :: 2026-01-01T11:50:00Z :: - :: - :: mirrored

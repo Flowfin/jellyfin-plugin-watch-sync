@@ -25,6 +25,13 @@
 # is deliberately not keyed on the name anybody predicted for it, because a register
 # that only notices the name it guessed is one that notices nothing.
 #
+# THAT DAY ARRIVED AND THE MECHANISM IS WHAT CAUGHT IT. LastPlayedMaximum and
+# LastPlayedAnswer were written before this entry was, and EveryTypeInTheResolverBelongsToOneEntry
+# was the one fact that reddened, naming both types. Every entry is covered today, so the
+# state exists in this file's vocabulary and in no entry, which is the state to leave it
+# in: a vocabulary that shrank to what is currently in use would have to be widened again
+# by whoever adds the next row of the table.
+#
 # What it cannot see, stated rather than left to be discovered. It reads which classes
 # are named and that they hold facts, and never whether a fact drives the row it is
 # filed under, so a class renamed onto the wrong row passes. Conflict/removal.txt is what
@@ -47,4 +54,4 @@
 Played :: covered :: PlayedRatchetTests, ConflictOrderedPairTests :: PlayedRatchet, RatchetAnswer :: The ratchet, which is #31. It answers on the two played states alone and reads the two dates without deciding on them, so its facts are about a completion holding against a position however much newer the position is.
 PlayCount :: covered :: PlayCountReconciliationTests, ConflictOrderedPairTests :: PlayCountReconciliation, PlayCountAnswer :: The reckoning against what two sides last agreed, which is #33. Its facts are about a pair over a sequence of exchanges rather than about one answer, because adding the two counts is only visibly wrong after a while.
 PlaybackPositionTicks :: covered :: PositionRecencyTests, ConflictOrderedPairTests :: PositionRecency, PositionAnswer :: The later play bounded by the tolerated clock skew, which is #32. Its facts are about two clocks rather than about two positions, and the two halves of the rule fail apart: a rule that stopped bounding the comparison reddens the fact about a margin inside the tolerance and nothing else, and a rule that answered every pair with the greater position reddens the three facts about the comparison and leaves the tie ones green. The setting the tolerance is chosen with is still #58, and the two numbers it is bounded by are declared by the type rather than by docs/conflicts.md.
-LastPlayedDate :: awaited :: - :: - :: No issue on this board writes this row. Every issue naming the field is #1, #12, #14, #30 and #35, and none of them carries the maximum rule: #30 is the table itself, #12 is the moved set, #14 is the agreed record. So a rule this table declares is owed by nobody, and this entry is where that is readable rather than found by whoever next tries to close #81.
+LastPlayedDate :: covered :: LastPlayedMaximumTests, ConflictOrderedPairTests :: LastPlayedMaximum, LastPlayedAnswer :: The later of the two dates, which is the row this table declared and the sources decided nowhere. No issue on this board writes it: every issue naming the field is #1, #12, #14, #30 and #35, and #30 is the table, #12 the moved set and #14 the agreed record, so it arrives with #81 rather than with a rule issue of its own. Its facts are about a pair of moments and nothing else, because the row's evidence column is both dates and nothing else, and the states they are driven with give the later date to the side that is not played, holds no plays and carries the greater position.

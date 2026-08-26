@@ -121,12 +121,15 @@ seen.
 
 ## Which rows have a rule in the sources today
 
-Three of the four. The document is ahead of the code deliberately, and this
-section is here so that a reader cannot mistake a row for something running. The
-listing is taken at the commit being read rather than at a remote reference, so it
+All four. This section said three until the `LastPlayedDate` row gained one, and
+it is kept rather than deleted so that a reader cannot mistake a row for
+something running on the day the document is ahead of the code again. The listing
+is taken at the commit being read rather than at a remote reference, so it
 answers for the tree in front of the reader:
 
     git ls-tree -r --name-only HEAD -- Jellyfin.Plugin.WatchSync/Conflict/
+    Jellyfin.Plugin.WatchSync/Conflict/LastPlayedAnswer.cs
+    Jellyfin.Plugin.WatchSync/Conflict/LastPlayedMaximum.cs
     Jellyfin.Plugin.WatchSync/Conflict/PlayCountAnswer.cs
     Jellyfin.Plugin.WatchSync/Conflict/PlayCountReconciliation.cs
     Jellyfin.Plugin.WatchSync/Conflict/PlayedRatchet.cs
@@ -139,8 +142,13 @@ answers for the tree in front of the reader:
 and is #32: the tie rule is a branch rather than a sentence, and the two
 boundaries the tolerance draws are opposite, because a difference of exactly the
 tolerance is a comparison while a peer date exactly the tolerance ahead of this
-server's present moment is not yet outside it. The `LastPlayedDate` row is decided
-nowhere in the sources yet.
+server's present moment is not yet outside it. `LastPlayedMaximum` is the
+`LastPlayedDate` row, and it arrives with #81 rather than with a rule issue of its
+own, because no issue on this board writes it: every issue naming the field is #1,
+#12, #14, #30 and #35, and #30 is this table, #12 the moved set and #14 the agreed
+record. It reads the two dates and nothing else, which is that row's evidence
+column, so it has no present moment to bound them against and refuses no pair;
+what it does refuse is a date that is not the instant the server stores.
 
 The tolerance is a number that type declares rather than one this page holds, so
 the two cannot drift apart:

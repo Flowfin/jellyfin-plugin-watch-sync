@@ -14,10 +14,11 @@
 #
 # WHICH ROWS ARE HERE IS NOT A CHOICE MADE IN THIS FILE, for the same reason
 # Conflict/ordered-pairs.txt gives for its own fields. Conflict/coverage.txt says which rows
-# of the table have a rule, and this file is required to hold exactly those and no others, so
-# the day the LastPlayedDate row gains a rule this file is missing an entry rather than
-# quietly covering three rows out of four. A row entered here that register calls awaited is
-# refused in the same breath: it is a demonstration of removing something that is not there.
+# of the table have a rule, and this file is required to hold exactly those and no others. The
+# day the LastPlayedDate row gained a rule this file was missing an entry rather than quietly
+# covering three rows out of four, and EveryRowThatHasARuleRecordsItsRemoval is the fact that
+# said so. A row entered here that register calls awaited is refused in the same breath: it is
+# a demonstration of removing something that is not there.
 #
 # THE FILING IS WHAT THE CONDITION IS ABOUT. Every fact named here has to sit in a class
 # Conflict/coverage.txt files under this row, so "only that rule's tests" is decided by that
@@ -25,9 +26,9 @@
 # row's class is what a resolver whose rules have grown into each other looks like from the
 # outside, and it is the failure this file exists to make visible.
 #
-# ONE SHARED CLASS IS NOT A DEMONSTRATION. ConflictOrderedPairTests walks all three rows and
-# is filed under all three, so an entry naming only facts of that class would satisfy the
-# filing leg and say nothing about the row. Every entry therefore also has to reach a fact in
+# ONE SHARED CLASS IS NOT A DEMONSTRATION. ConflictOrderedPairTests walks every row that has
+# a rule and is filed under all of them, so an entry naming only facts of that class would
+# satisfy the filing leg and say nothing about the row. Every entry therefore also has to reach a fact in
 # a class no other row names, which is that row's own test class.
 #
 # WHAT THIS FILE IS AND IS NOT. It is a record of a run that happened, held to the tree in
@@ -39,7 +40,11 @@
 # scores generated changes over a directory rather than executing the one removal a row's
 # rule is about, it gates nothing, and Mutation/scope.txt is where its own bound is written.
 #
-# Read on net10.0 at 1f1bc345ad793a5d3a27b5fe5ace6e00396e89a5, one command per change:
+# Read on net10.0, one command per change. The first three entries were read at
+# 1f1bc345ad793a5d3a27b5fe5ace6e00396e89a5. The LastPlayedDate entry was read at
+# b231817288c77dc8b8a314b71f191a912bbd5977 with the files that bring its rule in the tree,
+# because the rule it removes arrives in the same change as the entry and there is no commit
+# where one exists without the other:
 #
 #     DOTNET_CLI_UI_LANGUAGE=en-US DOTNET_ROLL_FORWARD=Major \
 #       dotnet test Jellyfin.Plugin.WatchSync.sln --nologo -f net10.0
@@ -47,3 +52,4 @@
 Played :: the ratchet settled by recency, so that a position with a later date beats a completion :: PlayedRatchetTests.PlayedBeatsAPositionHoweverMuchNewerThePositionIs, ConflictOrderedPairTests.EveryPairAnswersWhatTheTableSaysItAnswers :: This is the simplification #31 predicts in its own words, a resolver made simpler by dropping the property that the completion wins whatever the dates say, and it is the change that produces the rewatch loop the prior art keeps producing. It reddens one fact of the row's own class rather than eight because every other fact there gives the played side the later of the two dates, so a resolver settling the pair by recency still answers them correctly.
 PlayCount :: the two counts added instead of reckoned against what the two sides last agreed :: PlayCountReconciliationTests.APlayOnOneSideLeavesBothSidesOneHigher, PlayCountReconciliationTests.ExchangingRepeatedlyWithNoPlayInBetweenNeverMovesTheCount, PlayCountReconciliationTests.APlayOnEachSideBetweenTwoExchangesAddsTwo, PlayCountReconciliationTests.ACountBelowTheAgreementIsAConflictAndLowersNothing, PlayCountReconciliationTests.APlayOnTheOtherSideSurvivesAShortfall, PlayCountReconciliationTests.BothSidesBelowTheAgreementKeepTheAgreedCount, PlayCountReconciliationTests.TwoSidesAtTheAgreementAreNotAdded, PlayCountReconciliationTests.ARewatchIsNotOverwrittenByASideThatDidNothing, ConflictOrderedPairTests.EveryPairAnswersWhatTheTableSaysItAnswers :: Adding the two counts is the first of the two rules #33 names as wrong, and it is the one that looks right on the day it ships: a stable pair grows a count that never stops climbing, so it is only visibly wrong after a while. Eight of the row's own facts redden because the agreement is what every one of them is written around.
 PlaybackPositionTicks :: every pair answered with the greater position, so recency decides nothing :: PositionRecencyTests.TheLaterPlayWinsInBothDirections, PositionRecencyTests.TheTwoBoundariesAreWhereTheRuleSaysTheyAre, PositionRecencyTests.TheDiscardedPositionIsCarriedOutOnItsOwnSide, PositionRecencyTests.AToleranceOutsideTheDocumentedBoundsIsRefused, ConflictOrderedPairTests.EveryPairAnswersWhatTheTableSaysItAnswers :: The row's rule is the later play bounded by the tolerated skew, and answering every pair with the greater position takes the whole of it out rather than only the bound. Taking out only the bound is the narrower change Conflict/coverage.txt already describes for this row, and it reddens the one fact about a margin inside the tolerance, which is a demonstration that half a rule was removed rather than that the rule was.
+LastPlayedDate :: the maximum answered with this server's own date rather than the later of the two :: LastPlayedMaximumTests.TheLaterDateIsTheAnswerInBothDirections, LastPlayedMaximumTests.TheDateDecidesItAndNotThePlayedStateTheCountOrThePosition, ConflictOrderedPairTests.EveryPairAnswersWhatTheTableSaysItAnswers, ConflictOrderedPairTests.EveryMirroredPairAnswersTheMirrorWithTheSidesExchanged :: The row's failure is directional, so the removal is the directional change rather than one that answers with nothing: a rule taking whichever side it happened to be handed is right in one of the two runs and moves the date backwards in the other, which is the sync moving somebody's last played date backwards that docs/conflicts.md names. That is why the mirror leg reddens beside the answer leg, and it is the only entry here where it does: the other three removals answer the same wrong thing in both directions and are invisible to a leg that only exchanges the two sides.
