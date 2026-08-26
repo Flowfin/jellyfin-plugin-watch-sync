@@ -17,12 +17,14 @@ public sealed class EnvelopeReading
         Envelope? envelope,
         int? foundVersion,
         string? missingMember,
+        string? duplicateMember,
         IReadOnlyList<int> supportedVersions)
     {
         Answer = answer;
         Envelope = envelope;
         FoundVersion = foundVersion;
         MissingMember = missingMember;
+        DuplicateMember = duplicateMember;
         SupportedVersions = supportedVersions;
     }
 
@@ -52,6 +54,21 @@ public sealed class EnvelopeReading
     public string? MissingMember { get; }
 
     /// <summary>
+    /// Gets the member the envelope carried twice, or null where that is not what was wrong.
+    ///
+    /// One member rather than every duplicated one, for the reason <see cref="MissingMember"/>
+    /// gives: the first one already stops the exchange, and a peer emitting two duplicates is a
+    /// peer with one serializer to repair either way.
+    ///
+    /// It is a separate member from <see cref="MissingMember"/> rather than one field carrying
+    /// whichever member the refusal is about. A member that did not arrive and a member that
+    /// arrived twice are opposite statements, and a caller reading one field would have to
+    /// consult the answer to know which of the two it was holding, which is the reading the
+    /// answer's own shape exists to make unnecessary.
+    /// </summary>
+    public string? DuplicateMember { get; }
+
+    /// <summary>
     /// Gets the versions this reading was made against, which is what a refusal names.
     ///
     /// It is carried out of the reading as numbers rather than as a sentence assembled here.
@@ -77,6 +94,7 @@ public sealed class EnvelopeReading
             envelope,
             envelope.Version,
             null,
+            null,
             supportedVersions);
 
     internal static EnvelopeReading VersionNotSupported(
@@ -86,6 +104,7 @@ public sealed class EnvelopeReading
             EnvelopeAnswer.VersionNotSupported,
             null,
             foundVersion,
+            null,
             null,
             supportedVersions);
 
@@ -98,8 +117,31 @@ public sealed class EnvelopeReading
             null,
             foundVersion,
             missingMember,
+            null,
+            supportedVersions);
+
+    /// <summary>
+    /// The envelope carried one member twice.
+    ///
+    /// No version is named. The duplicate is found before any member is looked up, because
+    /// looking one up is what the ambiguity breaks, and the member carried twice can be the
+    /// version itself; a reading naming a version it read past a duplicate would be naming one of
+    /// two numbers with nothing deciding which.
+    /// </summary>
+    /// <param name="duplicateMember">The member that arrived twice.</param>
+    /// <param name="supportedVersions">The versions this reading was made against.</param>
+    /// <returns>The refusal.</returns>
+    internal static EnvelopeReading MemberCarriedTwice(
+        string duplicateMember,
+        IReadOnlyList<int> supportedVersions) =>
+        new EnvelopeReading(
+            EnvelopeAnswer.MemberCarriedTwice,
+            null,
+            null,
+            null,
+            duplicateMember,
             supportedVersions);
 
     internal static EnvelopeReading NotAnEnvelope(IReadOnlyList<int> supportedVersions) =>
-        new EnvelopeReading(EnvelopeAnswer.NotAnEnvelope, null, null, null, supportedVersions);
+        new EnvelopeReading(EnvelopeAnswer.NotAnEnvelope, null, null, null, null, supportedVersions);
 }

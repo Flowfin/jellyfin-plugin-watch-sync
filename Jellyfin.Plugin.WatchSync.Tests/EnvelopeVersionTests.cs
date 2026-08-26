@@ -100,6 +100,99 @@ public class EnvelopeVersionTests
     }
 
     /// <summary>
+    /// An envelope carrying one member twice is an answer rather than an exception, and the
+    /// refusal names the member that arrived twice.
+    ///
+    /// This is #253. It was found by the fuzz harness rather than by a reading, and what it
+    /// found was that the reader threw: two members of one name make the object throw the first
+    /// time any member is looked up, so a caller written against a reading that always comes
+    /// back was holding an exception nobody wrote a <c>try</c> for. #18's whole shape is that a
+    /// refusal is a value, and an exception on the one surface a peer controls is that shape
+    /// lost on the input a peer chooses.
+    ///
+    /// Which answer it is is decided here rather than by whichever branch happened to catch it.
+    /// Two members of one name decide nothing: first, last and neither are three guesses at what
+    /// the sender meant, and none of them is a reading. So it is refused whole and by its own
+    /// answer, because a peer whose serializer emits a member twice is a different repair from a
+    /// peer speaking a version this server does not know.
+    ///
+    /// The last row is the ordering decision, written as a fact rather than left to be inferred.
+    /// Those bytes carry a version that is not a whole number, which would be
+    /// <see cref="EnvelopeAnswer.NotAnEnvelope"/> on their own; the duplicate is answered first
+    /// because reading the version out of them is what throws.
+    /// </summary>
+    /// <param name="body">The envelope carrying a member twice.</param>
+    /// <param name="member">The member it carries twice.</param>
+    [Theory]
+    [InlineData("""{"version":1,"changes":[],"changes":[]}""", "changes")]
+    [InlineData("""{"version":1,"version":2,"changes":[]}""", "version")]
+    [InlineData("""{"version":1,"changes":[{"a":1,"a":2}]}""", "a")]
+    [InlineData("""{"version":1.5,"changes":1,"changes":null}""", "changes")]
+    public void AMemberCarriedTwiceIsARefusalThatNamesItRatherThanAnException(string body, string member)
+    {
+        var reading = Envelope.Read(body, EnvelopeVersions.Supported);
+
+        Assert.Equal(EnvelopeAnswer.MemberCarriedTwice, reading.Answer);
+        Assert.True(reading.IsRefused);
+        Assert.Equal(member, reading.DuplicateMember);
+        Assert.Null(reading.Envelope);
+        Assert.Null(reading.MissingMember);
+        Assert.Equal(EnvelopeVersions.Supported, reading.SupportedVersions);
+    }
+
+    /// <summary>
+    /// The refusal reaches a duplicate under a change as well as one beside the version.
+    ///
+    /// The third row above already drives it; this says why the walk goes the whole way down
+    /// rather than over the top level, because a top-level walk is the cheaper thing somebody
+    /// will propose. A duplicate under a change does not make this reader throw. It makes the
+    /// reading succeed, puts the ambiguous object into the members a caller is handed, and moves
+    /// the throw into whatever reads that change later, which is after the exchange has stopped
+    /// being the place where the peer that sent it could be named.
+    /// </summary>
+    [Fact]
+    public void ADuplicateUnderAChangeIsRefusedRatherThanCarriedIntoTheMembers()
+    {
+        var reading = Envelope.Read(
+            """{"version":1,"changes":[{"a":1,"a":2}]}""",
+            EnvelopeVersions.Supported);
+
+        Assert.Equal(EnvelopeAnswer.MemberCarriedTwice, reading.Answer);
+        Assert.Null(reading.Envelope);
+
+        var clean = Envelope.Read(
+            """{"version":1,"changes":[{"a":1,"b":2}]}""",
+            EnvelopeVersions.Supported);
+
+        Assert.Equal(EnvelopeAnswer.Readable, clean.Answer);
+        Assert.Null(clean.DuplicateMember);
+    }
+
+    /// <summary>
+    /// The refusal names no version, whichever member was carried twice.
+    ///
+    /// A version carried twice is the sharpest case: the number deciding which rules the rest of
+    /// the envelope is read under is the one in doubt, and a reading naming one of the two would
+    /// be naming a number nothing chose. So none is named for any duplicate, rather than for
+    /// that one alone, because a reader that named a version whenever the duplicate was some
+    /// other member would be naming a version read past an ambiguity it had already refused.
+    /// </summary>
+    [Fact]
+    public void ARefusalForADuplicateNamesNoVersion()
+    {
+        var duplicatedVersion = Envelope.Read(
+            """{"version":1,"version":2,"changes":[]}""",
+            EnvelopeVersions.Supported);
+
+        var duplicatedChanges = Envelope.Read(
+            """{"version":1,"changes":[],"changes":[]}""",
+            EnvelopeVersions.Supported);
+
+        Assert.Null(duplicatedVersion.FoundVersion);
+        Assert.Null(duplicatedChanges.FoundVersion);
+    }
+
+    /// <summary>
     /// A refused envelope carries nothing to read, whichever refusal it was.
     ///
     /// It is a property of the type rather than a rule a caller follows: there is no member on a
@@ -117,9 +210,14 @@ public class EnvelopeVersionTests
 
         var notAnEnvelope = Envelope.Read("{}", EnvelopeVersions.Supported);
 
+        var memberCarriedTwice = Envelope.Read(
+            """{"version":1,"changes":[],"changes":[]}""",
+            EnvelopeVersions.Supported);
+
         Assert.Null(wrongVersion.Envelope);
         Assert.Null(missingMember.Envelope);
         Assert.Null(notAnEnvelope.Envelope);
+        Assert.Null(memberCarriedTwice.Envelope);
     }
 
     /// <summary>

@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Jellyfin.Plugin.WatchSync.Model;
 
@@ -70,7 +69,8 @@ internal static class EnvelopeFuzz
     /// <param name="IsRefused">Whether the reading refuses the envelope.</param>
     /// <param name="HasEnvelope">Whether it carries an envelope to read.</param>
     /// <param name="FoundVersion">The version it names, or null.</param>
-    /// <param name="MissingMember">The member it names, or null.</param>
+    /// <param name="MissingMember">The member it names as absent, or null.</param>
+    /// <param name="DuplicateMember">The member it names as carried twice, or null.</param>
     /// <param name="SupportedVersions">The set it was made against.</param>
     /// <param name="EnvelopeVersion">The version of the envelope it carries, or null.</param>
     /// <param name="Members">The members beside the version, or none.</param>
@@ -80,6 +80,7 @@ internal static class EnvelopeFuzz
         bool HasEnvelope,
         int? FoundVersion,
         string? MissingMember,
+        string? DuplicateMember,
         IReadOnlyList<int> SupportedVersions,
         int? EnvelopeVersion,
         IReadOnlyList<string> Members);
@@ -135,6 +136,7 @@ internal static class EnvelopeFuzz
             reading.Envelope is not null,
             reading.FoundVersion,
             reading.MissingMember,
+            reading.DuplicateMember,
             reading.SupportedVersions,
             reading.Envelope?.Version,
             reading.Envelope is null
@@ -334,6 +336,13 @@ internal static class EnvelopeFuzz
                     "the refusal names no member"));
                 break;
 
+            case nameof(EnvelopeAnswer.MemberCarriedTwice) when string.IsNullOrEmpty(seen.DuplicateMember):
+                findings.Add(new Finding(
+                    "member-carried-twice-names-no-member",
+                    body,
+                    "the refusal names no member, so whoever operates the peer has the whole body to search"));
+                break;
+
             case nameof(EnvelopeAnswer.NotAnEnvelope) when seen.FoundVersion is not null:
                 findings.Add(new Finding(
                     "not-an-envelope-names-a-version",
@@ -447,11 +456,20 @@ internal static class EnvelopeFuzz
     /// <returns>The count.</returns>
     private static int CountedChanges(string body)
     {
-        if (Parsed(body) is JsonObject members
-            && members.TryGetPropertyValue(ChangesMember, out var carried)
-            && carried is JsonArray changes)
+        using var document = Parsed(body);
+
+        if (document is null || document.RootElement.ValueKind != JsonValueKind.Object)
         {
-            return changes.Count;
+            return 0;
+        }
+
+        foreach (var property in document.RootElement.EnumerateObject())
+        {
+            if (string.Equals(property.Name, ChangesMember, StringComparison.Ordinal)
+                && property.Value.ValueKind == JsonValueKind.Array)
+            {
+                return property.Value.GetArrayLength();
+            }
         }
 
         return 0;
@@ -465,33 +483,42 @@ internal static class EnvelopeFuzz
     /// <returns>The length of the longest string, or zero where there is none.</returns>
     private static int LongestString(string body)
     {
+        using var document = Parsed(body);
+
+        if (document is null)
+        {
+            return 0;
+        }
+
         var longest = 0;
-        var pending = new Stack<JsonNode?>();
-        pending.Push(Parsed(body));
+        var pending = new Stack<JsonElement>();
+        pending.Push(document.RootElement);
 
         while (pending.Count > 0)
         {
-            switch (pending.Pop())
+            var element = pending.Pop();
+
+            switch (element.ValueKind)
             {
-                case JsonObject members:
-                    foreach (var pair in members)
+                case JsonValueKind.Object:
+                    foreach (var property in element.EnumerateObject())
                     {
-                        longest = Math.Max(longest, Characters(pair.Key));
-                        pending.Push(pair.Value);
+                        longest = Math.Max(longest, Characters(property.Name));
+                        pending.Push(property.Value);
                     }
 
                     break;
 
-                case JsonArray items:
-                    foreach (var item in items)
+                case JsonValueKind.Array:
+                    foreach (var item in element.EnumerateArray())
                     {
                         pending.Push(item);
                     }
 
                     break;
 
-                case JsonValue value when value.TryGetValue<string>(out var text):
-                    longest = Math.Max(longest, Characters(text));
+                case JsonValueKind.String:
+                    longest = Math.Max(longest, Characters(element.GetString() ?? string.Empty));
                     break;
 
                 default:
@@ -503,16 +530,22 @@ internal static class EnvelopeFuzz
     }
 
     /// <summary>
-    /// The body as a node, or null where it is not one. Parsing here is the harness measuring
-    /// its own input and is never the reader's own parse.
+    /// The body as a document, or null where it is not one. Parsing here is the harness
+    /// measuring its own input and is never the reader's own parse.
+    ///
+    /// A document rather than a node, because a node keeps its members in a dictionary it builds
+    /// the first time one is read, and a body carrying one member twice makes that build throw.
+    /// The measurement would then throw on exactly the input #253 is about, one layer away from
+    /// the reader it is meant to be measuring. A document keeps what the bytes said, duplicates
+    /// included, so the two quantities above are counted off the body a peer actually sent.
     /// </summary>
     /// <param name="body">The bytes.</param>
-    /// <returns>The node, or null.</returns>
-    private static JsonNode? Parsed(string body)
+    /// <returns>The document, or null.</returns>
+    private static JsonDocument? Parsed(string body)
     {
         try
         {
-            return JsonNode.Parse(body);
+            return JsonDocument.Parse(body);
         }
         catch (Exception thrown) when (thrown is JsonException or ArgumentException or InvalidOperationException)
         {

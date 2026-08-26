@@ -28,3 +28,8 @@ not json at all
 {"version":-1,"changes":[]}
 {"version":1.5,"changes":[]}
 {"version":1,"changes":[1,2],"aMemberThisCodeHasNeverHeardOf":true}
+{"version":1,"changes":[],"changes":[]}
+{"version":1,"version":2,"changes":[]}
+{"version":1,"changes":[{"a":1,"a":2}]}
+{"version":1.5,"changes":1,"changes":null}
+{"version":1,"changes":[{"a":1,"b":2}]}

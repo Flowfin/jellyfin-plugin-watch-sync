@@ -100,6 +100,7 @@ public class EnvelopeFuzzTests
     [InlineData("reading-names-no-supported-set")]
     [InlineData("version-not-supported-names-no-version")]
     [InlineData("member-missing-names-no-member")]
+    [InlineData("member-carried-twice-names-no-member")]
     [InlineData("not-an-envelope-names-a-version")]
     [InlineData("readable-version-is-not-spoken")]
     [InlineData("readable-keeps-the-version-member")]
@@ -239,6 +240,7 @@ public class EnvelopeFuzzTests
         {
             "version-not-supported-names-no-version" => "{\"version\":4,\"changes\":[]}",
             "member-missing-names-no-member" => "{\"version\":1}",
+            "member-carried-twice-names-no-member" => "{\"version\":1,\"changes\":[],\"changes\":[]}",
             "not-an-envelope-names-a-version" => "{}",
             _ => "{\"version\":1,\"changes\":[]}",
         };
@@ -256,31 +258,34 @@ public class EnvelopeFuzzTests
             "reader-answered-nothing" => (_, _) => null!,
 
             "refused-carries-an-envelope" => (_, versions) => new EnvelopeFuzz.Observation(
-                nameof(EnvelopeAnswer.VersionNotSupported), true, true, 4, null, versions, 4, new[] { Changes }),
+                nameof(EnvelopeAnswer.VersionNotSupported), true, true, 4, null, null, versions, 4, new[] { Changes }),
 
             "readable-carries-no-envelope" => (_, versions) => new EnvelopeFuzz.Observation(
-                nameof(EnvelopeAnswer.Readable), false, false, 1, null, versions, null, Array.Empty<string>()),
+                nameof(EnvelopeAnswer.Readable), false, false, 1, null, null, versions, null, Array.Empty<string>()),
 
             "reading-names-no-supported-set" => (_, _) => new EnvelopeFuzz.Observation(
-                nameof(EnvelopeAnswer.Readable), false, true, 1, null, Array.Empty<int>(), 1, new[] { Changes }),
+                nameof(EnvelopeAnswer.Readable), false, true, 1, null, null, Array.Empty<int>(), 1, new[] { Changes }),
 
             "version-not-supported-names-no-version" => (_, versions) => new EnvelopeFuzz.Observation(
-                nameof(EnvelopeAnswer.VersionNotSupported), true, false, null, null, versions, null, Array.Empty<string>()),
+                nameof(EnvelopeAnswer.VersionNotSupported), true, false, null, null, null, versions, null, Array.Empty<string>()),
 
             "member-missing-names-no-member" => (_, versions) => new EnvelopeFuzz.Observation(
-                nameof(EnvelopeAnswer.MemberMissing), true, false, 1, string.Empty, versions, null, Array.Empty<string>()),
+                nameof(EnvelopeAnswer.MemberMissing), true, false, 1, string.Empty, null, versions, null, Array.Empty<string>()),
+
+            "member-carried-twice-names-no-member" => (_, versions) => new EnvelopeFuzz.Observation(
+                nameof(EnvelopeAnswer.MemberCarriedTwice), true, false, null, null, string.Empty, versions, null, Array.Empty<string>()),
 
             "not-an-envelope-names-a-version" => (_, versions) => new EnvelopeFuzz.Observation(
-                nameof(EnvelopeAnswer.NotAnEnvelope), true, false, 1, null, versions, null, Array.Empty<string>()),
+                nameof(EnvelopeAnswer.NotAnEnvelope), true, false, 1, null, null, versions, null, Array.Empty<string>()),
 
             "readable-version-is-not-spoken" => (_, versions) => new EnvelopeFuzz.Observation(
-                nameof(EnvelopeAnswer.Readable), false, true, 99, null, versions, 99, new[] { Changes }),
+                nameof(EnvelopeAnswer.Readable), false, true, 99, null, null, versions, 99, new[] { Changes }),
 
             "readable-keeps-the-version-member" => (_, versions) => new EnvelopeFuzz.Observation(
-                nameof(EnvelopeAnswer.Readable), false, true, 1, null, versions, 1, new[] { Version, Changes }),
+                nameof(EnvelopeAnswer.Readable), false, true, 1, null, null, versions, 1, new[] { Version, Changes }),
 
             "readable-misses-a-required-member" => (_, versions) => new EnvelopeFuzz.Observation(
-                nameof(EnvelopeAnswer.Readable), false, true, 1, null, versions, 1, Array.Empty<string>()),
+                nameof(EnvelopeAnswer.Readable), false, true, 1, null, null, versions, 1, Array.Empty<string>()),
 
             _ => throw new ArgumentOutOfRangeException(nameof(rule), rule, "No broken reader is written for that rule."),
         };
