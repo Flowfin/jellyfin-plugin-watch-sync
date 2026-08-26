@@ -77,6 +77,34 @@ leave the field set as whatever anybody happened to type.
   server line, because each of those strands a peer or a server that was working
   yesterday.
 
+The last of those three is the one a machine refuses, and it refuses two of its
+members rather than all three. `dropping-support-carries-a-changelog-entry` in
+`.github/check-pull-request.py` compares two declarations at the base and at the
+head of a pull request: the envelope versions in `EnvelopeVersions.Supported`,
+and the server lines in the `targets` list of `build.yaml`. An entry that is
+there at the base and gone at the head, with no changed path under
+`changelog.d/`, is refused. The version in the manifest does not have to move
+for a drop to happen, so the rule about a version bump sees none of this and
+this rule is not a second reading of it.
+
+The pairing contract version is deliberately outside it. Nothing in this tree
+declares one, so there is no base and no head to compare, and a reading of a
+declaration that does not exist would answer nothing on every pull request while
+making the rule read as though it covered all three. It is refused by this list
+and by a reader, as the first two bullets are.
+
+Two things the rule does not reach, written down so neither is read as covered.
+An ABI moving under a framework that stays is a package bump rather than a line
+dropped, and the reading is over the frameworks the list names. And the rule
+declines where the repository has published no release, which is the state
+today: what a drop strands is a peer or a server running a build somebody
+installed, and there is none. The decline is printed as a note on the run rather
+than passing in silence.
+
+The first two bullets are refused by nobody. Whether a rule change alters what
+happens to history that already exists is a judgement about meaning, and the
+review is where a missing entry for one is caught.
+
 ## What holds this
 
 `ChangelogFragmentTests` reads every fragment `changelog.d/` holds and refuses
@@ -88,6 +116,16 @@ The near miss the guard is proven against is a fragment marked `changed` whose
 `Effect` line is missing, because that is the mistake somebody makes: the
 marking is the part a writer remembers and the sentence for the operator is the
 part they leave for later.
+
+The rule over a drop is proven the same way and in the workflow rather than in
+the suite, because what it reads is a pull request and not the tree. Two near
+misses, one per declaration, each dropping one thing and writing no entry, and
+each has to be refused for the rule's own name; one repair carrying both drops
+and one entry, which has to pass; and two documents where a refusal would be
+wrong, one dropping a version against a repository that has published nothing
+and one that reindents the list the rule reads and takes nothing away. Deleting
+either declaration from the rule leaves the other near miss refused and its own
+passing, which is why there are two documents and not one.
 
 Nothing assembles these fragments into release notes yet. The publish route asks
 GitHub to generate notes from the merged pull requests and reads no fragment at
