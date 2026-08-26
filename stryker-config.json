@@ -17,7 +17,8 @@
       "Versions/**/*.cs",
       "Transfer/**/*.cs",
       "Agreement/**/*.cs",
-      "Records/**/*.cs"
+      "Records/**/*.cs",
+      "UserData/**/*.cs"
     ],
     "thresholds": {
       "high": 100,

@@ -239,11 +239,26 @@ cannot drift apart:
     git grep -n 'WidestRuntimeDifference =>' -- Jellyfin.Plugin.WatchSync/Versions/VersionLanding.cs
     Jellyfin.Plugin.WatchSync/Versions/VersionLanding.cs:66:    public static TimeSpan WidestRuntimeDifference => TimeSpan.FromMinutes(1);
 
-What is not there is what the rule is between. Which version this server would resume, and
-therefore whose runtime is handed in, is the adapter in #20. Where a dropped position is
-recorded is #26 and the surface it is read from is #62. So the rule decides and nothing
-yet asks it, and a row on a status page saying how many positions were dropped is a thing
-this page describes rather than a thing a server does.
+One end of what the rule is between has arrived since. Which version this server would
+resume, and therefore whose runtime is handed in, is answered by the adapter #20 asks for,
+and it is answered in a different place on each line:
+
+    git ls-tree -r --name-only HEAD -- Jellyfin.Plugin.WatchSync/UserData/
+    Jellyfin.Plugin.WatchSync/UserData/IUserDataGateway.cs
+    Jellyfin.Plugin.WatchSync/UserData/NewerLineUserData.cs
+    Jellyfin.Plugin.WatchSync/UserData/OlderLineUserData.cs
+    Jellyfin.Plugin.WatchSync/UserData/ServerUserData.cs
+    Jellyfin.Plugin.WatchSync/UserData/UserDataReading.cs
+
+A read answers with the moved set and that runtime together, so the number this rule is
+handed is the length of the version this server would resume rather than the length of the
+item. The two are the same on the older line and are not on the newer one, which is the
+whole of the difference.
+
+What is still not there is the other end and the surfaces. Nothing calls the adapter, so
+the rule decides and nothing yet asks it. Where a dropped position is recorded is #26 and
+the surface it is read from is #62, so a row on a status page saying how many positions
+were dropped is a thing this page describes rather than a thing a server does.
 
 ### What the two lines answer differently
 
@@ -289,6 +304,43 @@ The caller asks one question either way, which is the whole reason the differenc
 sits behind the adapter in #20: two lines that answer a question differently is a
 place where they quietly behave differently, and the promise that they do not is
 kept in the adapter or nowhere.
+
+That adapter exists and the promise is kept by facts written against its interface rather
+than against either implementation, so each of them runs on both legs of the suite and a
+difference that showed on one line only would redden the leg it showed on. What the two
+implementations do underneath is covered separately, in a file compiled only into the
+target its line is built for, because a fact about a batch read cannot be written on a line
+that has no batch read.
+
+ONE THING THIS ADAPTER DOES NOT ANSWER, FOUND WHILE WRITING IT AND WRITTEN HERE RATHER THAN
+LEFT TO BE MET. The newer line does not only name a version: it merges that version's state
+into what the server shows for the work. The merge is three lines and it is not a
+replacement.
+
+    git -C jellyfin show v12.0-rc4:MediaBrowser.Controller/Library/VersionResumeData.cs | sed -n '25,38p'
+                dto.Played = dto.Played || UserData.Played;
+
+                if ((UserData.LastPlayedDate ?? DateTime.MinValue) > (dto.LastPlayedDate ?? DateTime.MinValue))
+                {
+                    dto.LastPlayedDate = UserData.LastPlayedDate;
+                }
+
+                // A different version was finished (played, no resume position of its own) and is the most
+                // recently played: the whole movie is watched.
+                if (!VersionId.Equals(dto.ItemId) && UserData.Played && UserData.PlaybackPositionTicks <= 0)
+                {
+                    dto.PlaybackPositionTicks = 0;
+                    dto.PlayedPercentage = null;
+                }
+
+So on that line a person who finished the extended cut sees the work as watched, and the
+item's own record may still say otherwise. The adapter reads the item's own record on both
+lines, which is one behaviour rather than two, and it is the behaviour that reports the
+smaller of the two states for a work held in several versions. Whether what this plugin
+offers a peer should be the merged view is a question about what leaves a server rather
+than about where an arriving position lands, so it belongs with the moved set in #12 and
+the handler in #15. Nothing reads either record yet, so nothing is wrong today, and this
+paragraph is here so that the day something does, the question has already been asked.
 
 ## The record of what two sides last agreed
 

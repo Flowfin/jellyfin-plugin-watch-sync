@@ -116,12 +116,20 @@ the resume point, and the older one carries neither. #20 holds that difference i
 adapter of this plugin's own, and the bullet with teeth there is that no type outside the
 adapter references the manager.
 
-It is here rather than waiting for the adapter because of what it would be worth
-afterwards. A scan asserting this passes today over sources that could not violate it, and
-it keeps passing while the first call site is written somewhere else. By the time the
-adapter is written the boundary is a refactor across every caller rather than a decision
-taken once, and the promise that the two lines behave alike is the thing that was lost in
-the meantime.
+IT LANDED BEFORE THE ADAPTER AND THAT IS WHAT IT WAS FOR. A scan asserting this over
+sources that could not violate it keeps passing while the first call site is written
+somewhere else, and by then the boundary is a refactor across every caller rather than a
+decision taken once. The adapter arrived afterwards, into a rule that was already there, so
+the first call this plugin makes to the server's user data is inside it:
+
+    git grep -l 'IUserDataManager' -- 'Jellyfin.Plugin.WatchSync/**/*.cs'
+    Jellyfin.Plugin.WatchSync/UserData/NewerLineUserData.cs
+    Jellyfin.Plugin.WatchSync/UserData/OlderLineUserData.cs
+    Jellyfin.Plugin.WatchSync/UserData/ServerUserData.cs
+
+The interface itself is not among them, which is the point of it: it carries this plugin's
+own types and the server's entities, and the manager whose shape differs between the lines
+is named only by the three files that hold one.
 
 **`pairing-behind-the-adapter`.** No source names the pairing plugin's namespace, its
 interfaces, its protocol types or its key material. This plugin holds no pairing, no key
@@ -278,11 +286,18 @@ the moment #16 is about.
 **`user-data-behind-the-adapter` refuses the adapter too, and that is the design rather
 than an oversight.** The rules read the plugin's own sources and nothing scopes them to a
 directory, so the one type that is allowed to name the manager is refused along with every
-type that is not. When the adapter lands, each of its calls is a declared departure with
-the reason beside it. That is the same shape `static-instance-not-read` takes over the
+type that is not. The adapter has landed, and each of its calls is a declared departure
+with the reason beside it. That is the same shape `static-instance-not-read` takes over the
 accessor #8 names, and it is worth more here than a carve-out would be: the exception list
-is then the list of places this plugin touches the server's user data at all, in one file,
-read by anybody asking how wide the surface is.
+IS the list of places this plugin touches the server's user data at all, in one file, read
+by anybody asking how wide the surface is.
+
+    git grep -c '^Jellyfin' -- Jellyfin.Plugin.WatchSync.Tests/Invariants/exceptions.txt
+    Jellyfin.Plugin.WatchSync.Tests/Invariants/exceptions.txt:5
+
+Deleting any one of the five turns `NoPluginSourceViolatesAnInvariantThisGuardCarries` red
+on the call it covered, and declaring a sixth for a call no file makes turns
+`NoDeclaredDepartureHasOutlivedWhatItWasWrittenFor` red instead. Both directions were run.
 
 **It does not refuse the record.** `UserItemData` is the thing the manager reads and
 writes, and a type outside the adapter holding one has reached past the boundary just as
@@ -291,10 +306,19 @@ comment saying why the wire type is not that record:
 
     git grep -n 'UserItemData' -- 'Jellyfin.Plugin.WatchSync/**/*.cs'
     Jellyfin.Plugin.WatchSync/Model/SyncedState.cs:13:/// It is deliberately not the server's <c>UserItemData</c>. Using that record as the wire type
+    Jellyfin.Plugin.WatchSync/UserData/ServerUserData.cs:69:        var record = Server.GetUserData(user, item) ?? new UserItemData { Key = string.Empty };
+    Jellyfin.Plugin.WatchSync/UserData/ServerUserData.cs:96:    protected static SyncedState? MovedSetOf(UserItemData? record) =>
 
 A rule over that name would refuse that comment on the day it landed, and a departure
 covering a sentence is a debt nothing retires. So the record is held by the review and by
 the type that exists instead of it, not here.
+
+THE OTHER TWO HITS ARE THE ADAPTER AND ARE WHERE THE RECORD IS MEANT TO BE. They are the
+two lines where the server's record is turned into this plugin's moved set and back, which
+is the whole of what the adapter is for. They are not departures, because no rule names
+that type, and the reading above is the reason there is none. What that leaves is what the
+sentence has always left: a type somewhere else holding one would pass, and nothing but a
+reader would notice.
 
 **And it sees names rather than reaches.** The manager obtained through a variable typed
 somewhere else, handed in as an interface of another name, or reached through a wrapper

@@ -8,7 +8,20 @@
 # refused as dangling, so it is removed by the change that removes the call rather
 # than left to rot.
 #
-# The plugin declares none today. The shape to expect first is a read of a property
-# named Name on something that is not a work: a pairing, a scheduled task, a provider.
-# The reason on such an entry has to say what the thing is, because whether the log
-# line names something somebody watched is the only question these rules are about.
+# The shape to expect after the ones below is a read of a property named Name on
+# something that is not a work: a pairing, a scheduled task, a provider. The reason on
+# such an entry has to say what the thing is, because whether the log line names
+# something somebody watched is the only question those rules are about.
+#
+# The entries under user-data-behind-the-adapter are the adapter #20 asks for, and they
+# are the whole of what this plugin touches of the server's user data. That is what the
+# invariant buys and it is worth reading as a list rather than as a set of holes: three
+# files name the manager, one of them calls the two members the newer line adds, and no
+# other source in this plugin reaches any of it. A carve-out by directory would have
+# said only that the calls were somewhere inside one.
+
+Jellyfin.Plugin.WatchSync/UserData/ServerUserData.cs :: user-data-manager-interface :: the adapter holds the manager and is the only type in this plugin that does, which is what the invariant is for
+Jellyfin.Plugin.WatchSync/UserData/OlderLineUserData.cs :: user-data-manager-interface :: the older line's implementation takes the manager in its constructor and hands it to the type above
+Jellyfin.Plugin.WatchSync/UserData/NewerLineUserData.cs :: user-data-manager-interface :: the newer line's implementation takes the manager in its constructor and hands it to the type above
+Jellyfin.Plugin.WatchSync/UserData/NewerLineUserData.cs :: user-data-batch-read :: reading a page in one call is the reason this line has an implementation of its own, and this is the call
+Jellyfin.Plugin.WatchSync/UserData/NewerLineUserData.cs :: user-data-resume-version :: naming the version that drives a resume point is the other reason, and these are the two members that do it
