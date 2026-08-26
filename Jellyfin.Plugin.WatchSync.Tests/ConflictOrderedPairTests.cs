@@ -282,6 +282,7 @@ public class ConflictOrderedPairTests
         "Played" => Array.Empty<string>(),
         "PlaybackPositionTicks" => new[] { "now", "toleratedSkew" },
         "PlayCount" => new[] { "agreed" },
+        "LastPlayedDate" => Array.Empty<string>(),
         _ => throw new InvalidOperationException($"{field} is walked by the ordered pair table and this suite has no driver for it."),
     };
 
@@ -347,6 +348,15 @@ public class ConflictOrderedPairTests
                     reconciliation.Count,
                     Loss(reconciliation.ShortfallHere),
                     Loss(reconciliation.ShortfallAtThePeer));
+
+            case "LastPlayedDate":
+                var maximum = LastPlayedMaximum.Take(here.AsState(), peer.AsState());
+
+                return new Resolution(
+                    maximum.Answer.ToString(),
+                    maximum.LastPlayedDate?.Ticks,
+                    null,
+                    null);
 
             default:
                 throw new InvalidOperationException($"{field} is walked by the ordered pair table and this suite has no driver for it.");
@@ -546,13 +556,28 @@ public class ConflictOrderedPairTests
 
     /// <summary>
     /// A number out of a column, where the empty column is written as a dash.
+    ///
+    /// A column may also carry an instant, in the written form the state lines use, and it is
+    /// read as that instant's ticks. Three rows of the table answer with a number and one
+    /// answers with a moment, and this keeps that one column rather than adding a second that
+    /// is empty for every row but one. Which form a row's column takes is not declared
+    /// anywhere: a value written in the wrong form for its row fails to parse here, and a value
+    /// written in the right form is compared against what the rule answered, so a moment
+    /// written where a count belongs cannot pass as a number that happens to match.
     /// </summary>
     /// <param name="value">The written form.</param>
     /// <returns>The number, or null.</returns>
-    private static long? Number(string value) =>
-        string.Equals(value, "-", StringComparison.Ordinal)
-            ? null
+    private static long? Number(string value)
+    {
+        if (string.Equals(value, "-", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return value.Contains('T', StringComparison.Ordinal)
+            ? Moment(value).Ticks
             : long.Parse(value, CultureInfo.InvariantCulture);
+    }
 
     /// <summary>
     /// Which field of which row a setting is about.
