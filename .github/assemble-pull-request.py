@@ -51,10 +51,22 @@ def objects(text):
     return [json.loads(line) for line in text.splitlines() if line.strip()]
 
 
-def manifest_at(repository, ref):
-    """The text of build.yaml at one commit, or None when it is not there."""
-    encoded = gh("api", "repos/{}/contents/build.yaml?ref={}".format(repository, ref),
-                 "--jq", ".content")
+# The tracked file each declaration the checker compares is read out of. The
+# manifest carries the version and the server lines, and the envelope versions
+# are declared in one place in the plugin's own sources. Both ends of every one
+# of them is fetched, because a rule about what a change dropped cannot be
+# answered from the head alone.
+ENVELOPE_VERSIONS = "Jellyfin.Plugin.WatchSync/Model/EnvelopeVersions.cs"
+
+
+def file_at(repository, path, ref):
+    """The text of a tracked file at one commit, or None when it is not there."""
+    encoded = gh(
+        "api",
+        "repos/{}/contents/{}?ref={}".format(repository, path, ref),
+        "--jq",
+        ".content",
+    )
     if encoded is None:
         return None
     return base64.b64decode("".join(encoded.split())).decode("utf-8")
@@ -116,14 +128,18 @@ def main(argv):
         if line.strip()
     ]
 
+    base, head = request["base"]["sha"], request["head"]["sha"]
+
     json.dump(
         {
             "title": request.get("title"),
             "body": request.get("body"),
             "commits": commits,
             "files": files,
-            "manifest_before": manifest_at(repository, request["base"]["sha"]),
-            "manifest_after": manifest_at(repository, request["head"]["sha"]),
+            "manifest_before": file_at(repository, "build.yaml", base),
+            "manifest_after": file_at(repository, "build.yaml", head),
+            "envelope_versions_before": file_at(repository, ENVELOPE_VERSIONS, base),
+            "envelope_versions_after": file_at(repository, ENVELOPE_VERSIONS, head),
             "releases": published_releases(repository),
         },
         sys.stdout,
