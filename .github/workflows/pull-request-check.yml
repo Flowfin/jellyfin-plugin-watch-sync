@@ -1,9 +1,9 @@
 # Reads the pull request rather than the code.
 #
-# Whether a pull request names an issue, whether its commits name one, and
-# whether a version bump carries its changelog entry are three questions no
-# other check here can answer, because none of the others sees the pull request
-# at all. The compiler and the analyzers read the code, the sign-off gate reads
+# Whether a pull request names an issue, whether its commits name one, whether a
+# version bump carries its changelog entry and whether a change that drops
+# support for something carries one are questions no other check here can
+# answer, because none of the others sees the pull request at all. The compiler and the analyzers read the code, the sign-off gate reads
 # a trailer, the workflow audit reads these files, and the unicode guard reads
 # bytes. This is the class none of them cover.
 #
@@ -85,6 +85,57 @@ jobs:
               *"NOTE a-version-bump-carries-a-changelog-entry"*) ;;
               *)
                 echo "${excused} passed without saying why, which is the silence this rule replaced" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+      - name: The drop rule refuses each declaration on its own, passes the entry, and declines out loud
+        # A change can strand a peer without moving the version, so the rule
+        # above sees none of it and this one does. Two near misses rather than
+        # one repaired document run against both: a single document tripping
+        # both arms would still be refused after either arm was deleted, and
+        # the deletion is the mistake this step exists to catch.
+        #
+        # The other two documents are the directions a refusal is worth less
+        # than. One drops the same thing against a repository that has
+        # published nothing, which is the state this repository is in today, so
+        # what runs on every real pull request here is the decline rather than
+        # the refusal and the decline has to be proven. The other reindents the
+        # list the rule reads and takes nothing away: an unread declaration
+        # answered as an empty set would refuse it, so this asserts it passes
+        # and says which end it could not read.
+        run: |
+          set -euo pipefail
+          for dropped in .github/pull-request-dropped-envelope-version-near-miss.json                          .github/pull-request-dropped-server-line-near-miss.json; do
+            if verdict="$(python3 .github/check-pull-request.py < "${dropped}")"; then
+              echo "${verdict}"
+              echo "${dropped} passed, so one arm of the drop rule is not biting" >&2
+              exit 1
+            fi
+            case "${verdict}" in
+              *"FAIL dropping-support-carries-a-changelog-entry"*) ;;
+              *)
+                echo "${verdict}"
+                echo "${dropped} was refused by another rule, so this one proves nothing" >&2
+                exit 1
+                ;;
+            esac
+          done
+          python3 .github/check-pull-request.py < .github/pull-request-dropped-support-repaired.json
+          for quiet in .github/pull-request-dropped-support-before-any-release.json:"NOTE dropping-support-carries-a-changelog-entry"                        .github/pull-request-support-declaration-unread.json:"WARN a-support-declaration-is-read-or-nothing-is-concluded"; do
+            document="${quiet%%:*}"
+            expected="${quiet#*:}"
+            if ! verdict="$(python3 .github/check-pull-request.py < "${document}")"; then
+              echo "${verdict}"
+              echo "${document} was refused, so the rule refuses where it may not" >&2
+              exit 1
+            fi
+            echo "${verdict}"
+            case "${verdict}" in
+              *"${expected}"*) ;;
+              *)
+                echo "${document} passed without saying why, which is the silence this replaced" >&2
                 exit 1
                 ;;
             esac

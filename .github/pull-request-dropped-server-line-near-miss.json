@@ -1,0 +1,20 @@
+{
+  "_what_this_is": "The same mistake against the other declaration. This one takes a server line out of the manifest's targets list and writes no entry, and the version line is untouched, so again the rule about a version bump declines. An operator running the line that disappeared keeps the plugin they have and learns nothing about why the next update never arrives. Two near misses rather than one, because a document that tripped both arms would stay refused after either of them was deleted.",
+  "title": "Drop the 10.11 server line (#91)",
+  "body": "The oldest supported line goes. Closes #91.",
+  "commits": [
+    {
+      "sha": "4444444444444444444444444444444444444444",
+      "message": "Drop the 10.11 server line\n\nFor #91."
+    }
+  ],
+  "files": [
+    "build.yaml",
+    "Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj"
+  ],
+  "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"0.4.0.0\"\ntargetAbi: \"10.11.11.0\"\nframework: \"net9.0\"\ntargets:\n- framework: \"net9.0\"\n  targetAbi: \"10.11.11.0\"\n- framework: \"net10.0\"\n  targetAbi: \"12.0.0.0\"\n",
+  "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.4.0.0\"\ntargetAbi: \"12.0.0.0\"\nframework: \"net10.0\"\ntargets:\n- framework: \"net10.0\"\n  targetAbi: \"12.0.0.0\"\n",
+  "envelope_versions_before": "public static class EnvelopeVersions\n{\n    public static IReadOnlyList<int> Supported { get; } = new[] { 1, 2 };\n}\n",
+  "envelope_versions_after": "public static class EnvelopeVersions\n{\n    public static IReadOnlyList<int> Supported { get; } = new[] { 1, 2 };\n}\n",
+  "releases": 1
+}

@@ -2,16 +2,17 @@
 """Refuse a pull request that does not say what it is for.
 
 Every other check here reasons about the code. This one reasons about the pull
-request: whether it names an issue, whether its commits do, and whether a
-version bump carries the changelog entry that goes with it. Nothing the
-compiler, the analyzers, the sign-off gate or the workflow audit reads can
-answer any of those, because none of them sees the pull request at all.
+request: whether it names an issue, whether its commits do, whether a version
+bump carries the changelog entry that goes with it, and whether a change that
+drops support for something carries one. Nothing the compiler, the analyzers,
+the sign-off gate or the workflow audit reads can answer any of those, because
+none of them sees the pull request at all.
 
-The three rules above are decidable by reading text, so they fail. Anything
-that needs a judgement warns and never fails, because a gate that blocks on a
-judgement is one people learn to work around, and a warning that can block is
-the same defect wearing a different label. The two tiers are printed with
-different prefixes and the exit code follows the failing tier alone.
+Each of those is decidable by reading text, so they fail. Anything that needs a
+judgement warns and never fails, because a gate that blocks on a judgement is
+one people learn to work around, and a warning that can block is the same
+defect wearing a different label. The two tiers are printed with different
+prefixes and the exit code follows the failing tier alone.
 
 The pull request arrives as one JSON document on standard input, so the same
 file runs in a workflow and against a checkout by hand. Its keys:
@@ -22,6 +23,8 @@ file runs in a workflow and against a checkout by hand. Its keys:
     files            the paths the pull request changes
     manifest_before  the text of build.yaml at the base, or null
     manifest_after   the text of build.yaml at the head, or null
+    envelope_versions_before  the text of EnvelopeVersions.cs at the base, or null
+    envelope_versions_after   the text of EnvelopeVersions.cs at the head, or null
     releases         how many releases the repository has published, or null
 
 The caller supplies the commits rather than this file deriving them, for the
@@ -64,6 +67,21 @@ ISSUE = re.compile(r"#(\d+)")
 # reads it the same way; a version moved into a nested mapping is not found by
 # either, which is a refused build there and no comparison here.
 VERSION = re.compile(r'(?m)^version:[ \t]*"([^"]*)"')
+
+# Where a server line is declared. build.yaml carries one entry per supported
+# line under `targets:`, and that list is the declaration rather than a copy of
+# one: the packaging pair above it is one of those entries and never a third
+# answer, which BuildTargetsTests refuses. An entry is found by its `framework`,
+# because that is what a target is here, and an ABI moving under a framework
+# that stays is a package bump rather than a line dropped. This reading does not
+# reach that case and does not pretend to.
+TARGETS = re.compile(r"(?m)^targets:[ \t]*$")
+TARGET_ENTRY = re.compile(r'(?m)^-[ \t]+framework:[ \t]*"([^"]*)"')
+
+# Where the envelope versions are declared. EnvelopeVersions.Supported is the
+# one place that set exists, which is the fifth rule in #18, so the set a peer
+# can be refused against is read from the same line the plugin refuses by.
+SUPPORTED = re.compile(r"Supported\s*\{\s*get;\s*\}\s*=\s*new\[\]\s*\{([^}]*)\}")
 
 
 def issues_in(text):
@@ -110,6 +128,88 @@ def has_published(document):
 def changelog_fragments(files):
     """The changed paths that are changelog fragments."""
     return [path for path in files if path.startswith(CHANGELOG_DIRECTORY)]
+
+
+def server_lines(manifest):
+    """The server lines a manifest declares, or None where none is readable.
+
+    None and the empty set are different answers, and the difference is the
+    safety of the rule that reads this. A manifest this cannot parse is one
+    where nothing may be concluded about what was dropped, and a list somebody
+    reindented would otherwise read as every line disappearing at once.
+    """
+    if manifest is None:
+        return None
+    if not TARGETS.search(manifest):
+        return None
+    found = set(TARGET_ENTRY.findall(manifest))
+    return found or None
+
+
+def envelope_versions(source):
+    """The envelope versions a source declares, or None where none is readable.
+
+    The same shape as the reading above and for the same reason. A declaration
+    whose initialiser is written in another form is unread rather than empty,
+    because an unread declaration answering the empty set would refuse a change
+    that dropped nothing.
+    """
+    if source is None:
+        return None
+    found = SUPPORTED.search(source)
+    if not found:
+        return None
+    numbers = {part.strip() for part in found.group(1).split(",") if part.strip()}
+    if not numbers or not all(number.isdigit() for number in numbers):
+        return None
+    return numbers
+
+
+# What dropping support is read out of, one entry per thing a drop strands. The
+# pairing contract version is the third member of that sentence in
+# docs/changelog.md and is deliberately absent here: nothing in this tree
+# declares one, so there is no before and no after to compare. An entry reading
+# a declaration that does not exist would answer None on every pull request and
+# refuse nothing, while making the rule read as though it covered all three.
+SUPPORT = (
+    (
+        "envelope version",
+        "envelope_versions_before",
+        "envelope_versions_after",
+        envelope_versions,
+    ),
+    ("server line", "manifest_before", "manifest_after", server_lines),
+)
+
+
+def dropped_support(document):
+    """Yield the declaration and what it lost, per declaration this change cuts."""
+    for what, before_key, after_key, read in SUPPORT:
+        before = read(document.get(before_key))
+        after = read(document.get(after_key))
+        if before is None or after is None:
+            continue
+        gone = sorted(before - after)
+        if gone:
+            yield what, gone
+
+
+def unreadable_support(document):
+    """Yield the declaration and the end that did not parse, where the other did.
+
+    One end readable and the other not is the case worth a word: something was
+    there to compare and the comparison could not be made, which is what a list
+    somebody reindented looks like from here. Neither end readable is a document
+    that never carried the declaration at all, and there is nothing to say about
+    a change that did not touch one.
+    """
+    for what, before_key, after_key, read in SUPPORT:
+        ends = [(key, read(document.get(key))) for key in (before_key, after_key)]
+        if len([end for key, end in ends if end is not None]) != 1:
+            continue
+        for key, end in ends:
+            if end is None:
+                yield what, key
 
 
 def version_change_is_a_release(document, before, after):
@@ -173,27 +273,49 @@ def blocking(document):
             )
         )
 
+    if has_published(document) and not changelog_fragments(files):
+        for what, gone in dropped_support(document):
+            yield (
+                "dropping-support-carries-a-changelog-entry: the {} declaration "
+                "loses {} and no changed path is under {}. Dropping one strands "
+                "a peer or a server that was working yesterday, and the number "
+                "in the manifest does not have to move for that to happen, so "
+                "the rule above sees none of it.".format(
+                    what,
+                    ", ".join(gone),
+                    CHANGELOG_DIRECTORY,
+                )
+            )
+
 
 def notes(document):
     """Yield one line per blocking rule that was considered and did not apply.
 
-    The rule this reports on is the only one that can decline to fire, and a
-    decline that printed nothing would leave a version bump passing for a
-    reason the reader has to guess at, which is the same silence the rule was
-    written against.
+    Both rules that can decline read the same count, and a decline that printed
+    nothing would leave the change passing for a reason the reader has to guess
+    at, which is the same silence the rules were written against.
     """
     before = version_of(document.get("manifest_before"))
     after = version_of(document.get("manifest_after"))
-    if before == after:
-        return
-    excuse = version_change_is_a_release(document, before, after)
-    if excuse is None:
-        return
-    yield (
-        "a-version-bump-carries-a-changelog-entry: not applied, because {}. "
-        "The rule asks for an entry an operator can read against a release "
-        "they can install, and there is none to read it against.".format(excuse)
-    )
+    if before != after:
+        excuse = version_change_is_a_release(document, before, after)
+        if excuse is not None:
+            yield (
+                "a-version-bump-carries-a-changelog-entry: not applied, because "
+                "{}. The rule asks for an entry an operator can read against a "
+                "release they can install, and there is none to read it "
+                "against.".format(excuse)
+            )
+
+    if not has_published(document):
+        for what, gone in dropped_support(document):
+            yield (
+                "dropping-support-carries-a-changelog-entry: not applied, "
+                "although the {} declaration loses {}, because the repository "
+                "has published no release. What a drop strands is a peer or a "
+                "server running a build somebody installed, and there is no "
+                "such build.".format(what, ", ".join(gone))
+            )
 
 
 def advisory(document):
@@ -213,6 +335,16 @@ def advisory(document):
                     ", ".join("#" + number for number in sorted(stray)),
                 )
             )
+
+    for what, key in unreadable_support(document):
+        yield (
+            "a-support-declaration-is-read-or-nothing-is-concluded: the {} "
+            "declaration parses at one end of this change and not in `{}`, so "
+            "what that end declares is unknown and the rule over it is not run "
+            "here. An unread declaration answering the empty set would refuse a "
+            "change that dropped nothing, so this warns and never fails, and "
+            "somebody reads the two ends.".format(what, key)
+        )
 
 
 def main():
