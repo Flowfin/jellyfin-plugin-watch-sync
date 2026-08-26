@@ -598,7 +598,9 @@ down.
 - What a first exchange records and how it is distinguishable from an ordinary run,
   which is #37. The rule it applies is the section above.
 - The envelope version and the bounds on what one may carry, which are #18 and
-  #19.
+  #19. What the reader answers for an envelope carrying one member twice is
+  decided with them rather than here, and `docs/transfer.md` carries what that
+  refusal leaves behind beside the other two.
 
 ## How this document is held true
 

@@ -39,6 +39,7 @@ the contract while the process stays up. The rules, one per way that happens:
 | `readable-carries-no-envelope` | a reading that is not refused carrying nothing |
 | `version-not-supported-names-no-version` | that refusal naming no version |
 | `member-missing-names-no-member` | that refusal naming no member |
+| `member-carried-twice-names-no-member` | that refusal naming no member |
 | `not-an-envelope-names-a-version` | bytes that are not an envelope carrying a version |
 | `readable-version-is-not-spoken` | a readable envelope of a version nobody speaks |
 | `readable-keeps-the-version-member` | the version left among the members beside it |

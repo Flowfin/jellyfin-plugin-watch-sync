@@ -74,6 +74,11 @@ public sealed class Envelope
     /// speak has already been read into a type that does not know half of it by the time
     /// anything compares two numbers.
     ///
+    /// An envelope carrying one member twice is refused before any of that, and by its own
+    /// answer. Two members of one name decide nothing, and a member being looked up is what the
+    /// ambiguity breaks rather than something that survives it, so the question is asked over the
+    /// whole body first and the refusal names the member.
+    ///
     /// The required members are looked up from the version the envelope declared rather than
     /// from the newest one this plugin speaks. That is the fourth rule in #18 seen from the
     /// reader's side: an older version this server still supports is read as that version
@@ -107,6 +112,22 @@ public sealed class Envelope
             throw new ArgumentException(
                 "No envelope version is supported, so nothing could be read and the refusal would name nothing.",
                 nameof(supportedVersions));
+        }
+
+        string? twice;
+
+        try
+        {
+            twice = MemberCarriedTwiceIn(json);
+        }
+        catch (JsonException)
+        {
+            return EnvelopeReading.NotAnEnvelope(supportedVersions);
+        }
+
+        if (twice is not null)
+        {
+            return EnvelopeReading.MemberCarriedTwice(twice, supportedVersions);
         }
 
         JsonNode? parsed;
@@ -155,6 +176,86 @@ public sealed class Envelope
         }
 
         return EnvelopeReading.Readable(new Envelope(version, beside), supportedVersions);
+    }
+
+    /// <summary>
+    /// The member an envelope carries twice, or null where it carries none twice.
+    ///
+    /// It is asked before anything else is read out of the body, because a member being looked
+    /// up is exactly what a duplicate breaks: the object materialises its members the first time
+    /// one is asked for, and two of a name make that materialisation throw rather than answer.
+    /// A reader that asked for the version first and caught what came back would be deciding
+    /// this by which branch happened to catch it, and the answer an operator got would depend on
+    /// which member the peer duplicated.
+    ///
+    /// The whole body is walked rather than its top level. A duplicate under a change is the
+    /// same ambiguity one layer down, and letting it through means the reading succeeds and the
+    /// exception lands in whatever reads that change later, after the point where the peer that
+    /// sent it could still be named.
+    ///
+    /// This is a second pass over the same bytes and it is a cost rather than a free check.
+    /// <see cref="EnvelopeBounds"/> is what keeps it bounded: the byte length is answered from a
+    /// declared length before anything is parsed, so the body that reaches here is already inside
+    /// a limit this plugin chose.
+    /// </summary>
+    /// <param name="json">The bytes of the envelope, as text.</param>
+    /// <returns>The member carried twice, or null.</returns>
+    /// <exception cref="JsonException">The bytes are not JSON at all.</exception>
+    private static string? MemberCarriedTwiceIn(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+
+        return MemberCarriedTwiceIn(document.RootElement);
+    }
+
+    /// <summary>
+    /// The same question over one element and everything under it.
+    ///
+    /// The recursion is bounded by the reader's own maximum depth, which refuses a body deeper
+    /// than it before this is called at all.
+    /// </summary>
+    /// <param name="element">The element to walk.</param>
+    /// <returns>The member carried twice, or null.</returns>
+    private static string? MemberCarriedTwiceIn(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+
+                foreach (var property in element.EnumerateObject())
+                {
+                    if (!seen.Add(property.Name))
+                    {
+                        return property.Name;
+                    }
+
+                    var deeper = MemberCarriedTwiceIn(property.Value);
+
+                    if (deeper is not null)
+                    {
+                        return deeper;
+                    }
+                }
+
+                return null;
+
+            case JsonValueKind.Array:
+                foreach (var item in element.EnumerateArray())
+                {
+                    var deeper = MemberCarriedTwiceIn(item);
+
+                    if (deeper is not null)
+                    {
+                        return deeper;
+                    }
+                }
+
+                return null;
+
+            default:
+                return null;
+        }
     }
 
     private static bool Contains(IReadOnlyList<int> versions, int version)
