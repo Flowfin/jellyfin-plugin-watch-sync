@@ -37,6 +37,7 @@ without covering the rest.
 | `waiting-is-on-the-injected-clock` | #16 | the plugin's own sources | `InvariantGuardTests` |
 | `user-data-behind-the-adapter` | #20 | the plugin's own sources | `InvariantGuardTests` |
 | `pairing-behind-the-adapter` | #40 | the plugin's own sources | `InvariantGuardTests` |
+| `endpoint-authorised-by-the-server` | #66 | the plugin's own sources | `InvariantGuardTests` |
 
 ## What each one is for
 
@@ -137,6 +138,26 @@ one, and the rule is what keeps that true rather than a sentence saying it is.
 It is here before the adapter for the reason `user-data-behind-the-adapter` is: the first
 type that needs a pairing is the one that reaches for the nearest thing that already
 offers it, and by the time the adapter is written the reach is spread across every caller.
+
+**`endpoint-authorised-by-the-server`.** No source opens an endpoint to a caller who has
+not signed in, takes the user an action is about out of the request, names one of the
+server's policies as a string, or decides authorisation with a role comparison of this
+plugin's own. #66 takes the authorisation model from the server rather than inventing one
+here, and these four are the ways the first controller avoids doing that.
+
+The four are not equally expensive. Opening an endpoint and comparing a role by hand are
+visible in review. Naming a policy as a string is not: it compiles, it authorises
+correctly today, and it stops matching on the day the server renames the policy, which
+leaves an endpoint whose attribute refuses nobody. The identifier rule is the one with the
+worst outcome, and it is #66's own last condition seen from the source rather than from a
+test: an endpoint that reads whose history to show out of the query string answers
+correctly for the person who wrote it and answers for everybody else too.
+
+There is no controller in this plugin, so all four are green over a subject that could not
+violate them. That is the order the rest of this register was built in and the argument is
+the same one: a scan written after the first endpoint meets a shape that is a change across
+every route rather than a decision taken once, and the endpoint that forgot its attribute
+is indistinguishable from one that has it until somebody calls it.
 
 ## What these patterns cannot see
 
@@ -310,6 +331,29 @@ because the whole point of the boundary is that the two vocabularies stay apart.
 through a variable typed somewhere else, handed in under an interface of another name, or
 reached through a wrapper written once, passes all four rules. What they hold is that the
 other plugin's own names for its own things do not appear in this plugin's sources.
+
+**It cannot see an endpoint that carries no attribute at all.** This is the largest thing
+the endpoint rules do not do, and it is the condition #66 names second. A pattern reads one
+line, and whether a method has an authorisation attribute is a fact about the lines above
+it, so a route added with nothing declared on it passes every rule here. What answers that
+condition is the reflection over the controllers #66 asks for, which reads assemblies
+rather than text, and that issue's own reading says what such a test has to do to be worth
+anything: refuse an empty comparison as well as a disagreeing one, because a reflection
+over zero controllers is green and reads exactly like coverage.
+
+**A route parameter naming a user is refused whether or not it is trusted.** The rule sees
+the reach and not what is done with it, so an elevated endpoint that deliberately names
+another user, an operator clearing one person's queue, trips
+`endpoint-user-from-the-request` and is a declared departure rather than a carve-out in the
+pattern. The reason on such an entry has to say which policy makes the naming legitimate,
+because that is the whole question the rule is about. Narrowing the pattern to spare that
+case would spare the user-scoped endpoint it exists for as well, since the two are the same
+line of source.
+
+**It does not see the policy that is wrong rather than absent.** An endpoint declaring the
+server's constant for a weaker policy than the action needs passes every rule here, because
+the constant is referenced correctly and only a reader knows what the action does. That is
+the table in #66's first condition, and no pattern over one line replaces it.
 
 ## Departures
 

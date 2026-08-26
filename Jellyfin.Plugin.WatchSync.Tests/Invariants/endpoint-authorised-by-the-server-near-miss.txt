@@ -1,0 +1,38 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The mistake is the one the first controller on this board makes, and none of its four
+// halves is careless. The status page wants a count for whichever user is being looked
+// at, so the identifier arrives in the query string, where it is visible and easy to test
+// with. The page has to load before anybody has signed in while it is being built, so one
+// endpoint is opened and never closed again. The policy name is right there in the
+// server's own documentation, so it is typed rather than referenced. And the clear action
+// is an operator's, so the role is compared in the body, next to the thing it protects,
+// which reads as the more careful place to put it.
+//
+// Each of the four compiles, works on the day it is written, and answers correctly for
+// the person who wrote it. What they have in common is that nothing refuses any of them
+// until somebody calls the endpoint as somebody else.
+
+[ApiController]
+[Route("WatchSync")]
+public class WatchSyncController : ControllerBase
+{
+    [HttpGet("Status")]
+    [AllowAnonymous]
+    public ActionResult<SyncStatus> Status([FromQuery] Guid userId)
+    {
+        return _status.For(userId);
+    }
+
+    [HttpPost("Pairings/{pairingId}/Clear")]
+    [Authorize(Policy = "RequiresElevation")]
+    public ActionResult Clear(Guid pairingId)
+    {
+        if (!User.IsInRole("Administrator"))
+        {
+            return Forbid();
+        }
+
+        return Ok(_queue.Clear(pairingId));
+    }
+}

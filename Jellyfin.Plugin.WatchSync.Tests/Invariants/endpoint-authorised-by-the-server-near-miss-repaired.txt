@@ -1,0 +1,31 @@
+// The repair of the near-miss next to it, and nothing else. The same two endpoints, with
+// the authorisation declared on each of them instead of decided in a body, the policy
+// named by the constant the server declares, and the user the status is about taken from
+// whoever is asking rather than from what they sent.
+//
+// If the guard passes this and refuses its neighbour, what it refused was an endpoint
+// that answers for its own authorisation rather than something else about the fixture.
+//
+// The elevated endpoint keeps its route parameter, because a pairing is not a person.
+// These rules are about the identifier that decides whose watch history is read, and
+// #66's last condition is the shape written here: the authenticated user is used and a
+// user identifier in the request is not consulted at all, so there is nothing to ignore.
+
+[ApiController]
+[Route("WatchSync")]
+[Authorize]
+public class WatchSyncController : ControllerBase
+{
+    [HttpGet("Status")]
+    public ActionResult<SyncStatus> Status()
+    {
+        return _status.For(User.GetUserId());
+    }
+
+    [HttpPost("Pairings/{pairingId}/Clear")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    public ActionResult Clear(Guid pairingId)
+    {
+        return Ok(_queue.Clear(pairingId));
+    }
+}

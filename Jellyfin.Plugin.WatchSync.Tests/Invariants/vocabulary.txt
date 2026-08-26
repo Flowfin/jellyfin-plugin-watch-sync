@@ -109,3 +109,14 @@ pairing-namespace :: pairing-behind-the-adapter :: 40 :: \bJellyfin\.Plugin\.Ser
 pairing-contract-interface :: pairing-behind-the-adapter :: 40 :: \b(IPairedPeers|IPairingKeySource|IPairingKeyStore|IPairingRecordStore)\b :: takes one of the pairing plugin's own interfaces as a dependency :: this plugin's own interface, so the contract's shape reaches one type here rather than every caller
 pairing-protocol-type :: pairing-behind-the-adapter :: 40 :: \b(PairingRecord|PairingState|PairingMessage|PeerChannel|PeerReply)\b :: reaches a type of the pairing plugin's protocol, whose shape that board decides and may change :: this plugin's own types, which the adapter answers in
 pairing-key-material :: pairing-behind-the-adapter :: 40 :: \b(KeyMaterial|PairingKeys|OfferedKey)\b :: names key material, which the contract never offers a consumer and this plugin has no use for :: nothing, because a consumer that never holds a key cannot leak one
+
+# Every action on the administrator surface is an endpoint, and an endpoint that forgot its
+# attribute is indistinguishable from one that has it until somebody calls it. #66 takes the
+# authorisation from the server rather than inventing a model here, and each rule below is one
+# of the four ways the first controller on this board avoids doing that. The identifier rule is
+# the one with the worst outcome: an endpoint that reads whose history to show out of the query
+# string answers correctly for the person who wrote it and answers for anybody else too.
+endpoint-anonymous :: endpoint-authorised-by-the-server :: 66 :: \[AllowAnonymous\] :: opens an endpoint to a caller who has not signed in at all :: the server's own policy declared on the endpoint, because everything this plugin exposes reaches watch history
+endpoint-user-from-the-request :: endpoint-authorised-by-the-server :: 66 :: \[From(Query|Route|Form|Header)\][^\n]*[Uu]serId\b :: takes the user an action is about from the caller, who is free to name somebody else :: the calling user read from the authenticated context, and elevation where the action is deliberately about another user
+endpoint-policy-named-by-a-literal :: endpoint-authorised-by-the-server :: 66 :: Policy\s*=\s*" :: names the server's policy as a string, which stops matching silently on the day that server renames it :: the constant the server declares, so a rename is a build failure here rather than an endpoint nothing authorises
+endpoint-role-checked-by-hand :: endpoint-authorised-by-the-server :: 66 :: \.IsInRole\s*\( :: decides authorisation in the method body with a role comparison of this plugin's own :: the server's policy declared on the endpoint, which is the authorisation model this plugin consumes rather than reinvents
