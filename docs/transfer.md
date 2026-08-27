@@ -148,20 +148,33 @@ each value, #44, and that is an operator action taken against a pairing after th
 fact. It is not an exchange reversing itself while it runs, which is what this
 rule refuses.
 
-Nothing in the tree holds this today. There is no apply path, so the rule is a
-sentence a reading enforces at the review of the change that writes one, which is
-#54's own condition and the bound the section below states for this whole
-document.
+Something in the tree holds this now. The walk that writes a decided set of items
+is `Jellyfin.Plugin.WatchSync/Apply/ItemByItemApply.cs`, and the property is
+structural rather than remembered: the walk keeps no record of what an item held
+before it wrote, so it has nothing to put back. The rule is asserted by a fact
+that reads the order of the writes rather than the state they left, because a
+walk that put an item back leaves the same state as one that never touched it,
+and the order is the only place the difference shows.
+
+What is not held is the rest of the exchange around it. The walk is handed items
+something else decided about and answers a record something else writes, so the
+order this document fixes for the whole exchange, the agreed record and then the
+watermark, is still a sentence a reading enforces. Which of the end states above
+a run reaches is decided by nothing here yet, because there is no exchange, and
+#47 is where one is defined.
 
 ## How this document is held true
 
 By a reading, at the review of the change that touches it.
 
-Nothing in the tree compares this document against anything, and nothing could
-today: every issue it points at is unbuilt, so there is no code for a check to
-read and no table here that names a member of a type. `docs/sync-model.md` and
-`docs/matching.md` each carry a guard because each has a list the tree also holds;
-this document has none yet. When the exchange exists, the end states above are the
-list a guard would read, and a row with an empty next step is what it would refuse.
+Nothing in the tree compares this document against anything. The sentence here
+used to give the reason as every issue this document points at being unbuilt, and
+that has stopped being the reason: the walk in #54 is in the tree and the unwind
+rule above is asserted by facts over it. What is still true is the smaller half.
+There is no table here that names a member of a type, so there is nothing for a
+guard to compare, which is what `docs/sync-model.md` and `docs/matching.md` each
+have and this document does not. When the exchange exists, the end states above
+are the list a guard would read, and a row with an empty next step is what it
+would refuse.
 
 That is a gap and it is named here rather than left for somebody to discover.

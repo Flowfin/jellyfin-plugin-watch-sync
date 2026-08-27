@@ -16,6 +16,7 @@
       "Conflict/**/*.cs",
       "Versions/**/*.cs",
       "Transfer/**/*.cs",
+      "Apply/**/*.cs",
       "Agreement/**/*.cs",
       "Records/**/*.cs",
       "UserData/**/*.cs"
