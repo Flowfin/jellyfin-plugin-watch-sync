@@ -46,7 +46,7 @@ public static class StoredKinds
     /// <summary>
     /// Gets every kind of document this plugin's store holds.
     ///
-    /// Three today. What each of them is for is argued at the type that declares it rather than
+    /// Four today. What each of them is for is argued at the type that declares it rather than
     /// restated here, because a description kept beside a list is the drift this list exists to
     /// refuse, one level in.
     /// </summary>
@@ -55,5 +55,6 @@ public static class StoredKinds
         new StoredKind(AgreedRecords.NamePrefix, typeof(AgreedRecords)),
         new StoredKind(ConflictRecords.NamePrefix, typeof(ConflictRecords)),
         new StoredKind(ProvenanceRecords.NamePrefix, typeof(ProvenanceRecords)),
+        new StoredKind(UnmatchedRecords.NamePrefix, typeof(UnmatchedRecords)),
     };
 }

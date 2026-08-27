@@ -69,6 +69,7 @@ numbers that are not settings as well as the ones that will be.
 | `ProvenanceRecords.MaximumEntries` | `int` | 2000 | none | plugin configuration | twenty runs at the default change cap fit under it whole, and reaching it means one person's record was changed two thousand times |
 | `ProvenanceRecords.DefaultRetention` | `TimeSpan` | 90 days | up to `MaximumRetention` | plugin configuration | the undo is bounded by when a pairing is revoked rather than by how long a diagnostic stays interesting |
 | `ProvenanceRecords.MaximumRetention` | `TimeSpan` | 365 days | none | bound on a setting | past a year the record is kept for a revocation nobody expects and what is held is a year of somebody's viewing |
+| `UnmatchedRecords.MaximumEntries` | `int` | 1000 | none | plugin configuration | a list somebody can work through, and a library that reaches it has a systematic problem rather than rows to repair |
 | `RunCap.DefaultMaximumChanges` | `int` | 100 | up to `MaximumConfigurableChanges` | pairing state | a busy evening and a day of catching up fit under it, and a mass-mark is nowhere near it |
 | `RunCap.DefaultMaximumShare` | `double` | 0.1 | up to `MaximumConfigurableShare` | pairing state | a tenth of a small library is a change nobody makes by watching things |
 | `RunCap.MaximumConfigurableChanges` | `int` | 10000 | none | bound on a setting | above it the count reads as a cap while letting a mass-mark through |
