@@ -44,6 +44,18 @@ namespace Jellyfin.Plugin.WatchSync.Records;
 /// </para>
 ///
 /// <para>
+/// Both values are also absent-or-a-number, and the second of them was a number alone until
+/// this. One of the four moved fields has no number for the state of having none: a last played
+/// date is nullable in the state that travels and is assigned straight through, so a write that
+/// clears somebody's last played date is a write this record had nowhere to put. What that cost
+/// is the value an undo most needs, because a cleared date is exactly what a peer's answer
+/// overwrote, and the record would have looked complete with every other field of that item in
+/// it. A sentinel at the call site would have been worse: zero ticks is the first instant a date
+/// can hold rather than a value meaning none, so an undo reading it back writes a date nobody
+/// ever had, and only the caller that invented it would have known.
+/// </para>
+///
+/// <para>
 /// What this does not decide: nothing writes one yet. #44's first condition asks that every write
 /// path record provenance, asserted over the whole apply surface, and there is no apply surface.
 /// <c>IUserDataGateway.Write</c> is the one place anything this plugin decides reaches a person's
@@ -63,11 +75,13 @@ public sealed class ProvenanceRecord
     /// <param name="before">
     /// What this server held immediately before the write, or <c>null</c> where it held nothing.
     /// </param>
-    /// <param name="written">What this plugin wrote.</param>
+    /// <param name="written">
+    /// What this plugin wrote, or <c>null</c> where what it wrote was the absence of a value.
+    /// </param>
     /// <param name="writtenAt">When it was written.</param>
     /// <exception cref="ArgumentException">
     /// <paramref name="peerUserId"/> is empty, or <paramref name="written"/> is what was already
-    /// there.
+    /// there, which includes nothing written over nothing.
     /// </exception>
     public ProvenanceRecord(
         Guid pairingId,
@@ -76,7 +90,7 @@ public sealed class ProvenanceRecord
         Guid itemId,
         SyncedField field,
         long? before,
-        long written,
+        long? written,
         DateTimeOffset writtenAt)
     {
         if (peerUserId == Guid.Empty)
@@ -89,7 +103,7 @@ public sealed class ProvenanceRecord
         if (before == written)
         {
             throw new ArgumentException(
-                "The value written is the value that was already there, so nothing was replaced and there is nothing for an undo to put back.",
+                "The value written is the value that was already there, so nothing was replaced and there is nothing for an undo to put back. Nothing written where there was nothing is the same statement about a field that had no value and still has none.",
                 nameof(written));
         }
 
@@ -145,13 +159,17 @@ public sealed class ProvenanceRecord
     public long? Before { get; }
 
     /// <summary>
-    /// Gets what this plugin wrote, read as <see cref="Field"/> decides.
+    /// Gets what this plugin wrote, read as <see cref="Field"/> decides, or <c>null</c> where
+    /// what it wrote was the absence of a value.
     ///
     /// This is what an undo compares the current value against. Where they differ the person
     /// changed the value after this plugin wrote it, their action outranks the undo, and the skip
-    /// is recorded rather than forced.
+    /// is recorded rather than forced. It takes <see cref="Before"/>'s shape because the absence
+    /// it has to hold is the same absence one step later: the direction that reads as nothing
+    /// this server held was thought about and the direction that writes nothing was not, and a
+    /// clearing write left out of the record is one an undo cannot put back.
     /// </summary>
-    public long Written { get; }
+    public long? Written { get; }
 
     /// <summary>
     /// Gets the moment the value was written, which the caller supplies rather than this type
