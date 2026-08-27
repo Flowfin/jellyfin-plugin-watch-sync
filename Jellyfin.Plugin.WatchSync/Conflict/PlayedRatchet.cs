@@ -85,10 +85,15 @@ public sealed class PlayedRatchet
     /// the record of what the two sides last agreed: an unplayed that arrived after the last
     /// agreement is an intent, and an unplayed with no agreement behind it is a fresh server
     /// offering an old value. Neither state reaches this rule, which is handed two readings
-    /// and no agreement, so it cannot tell those two apart and does not try. Until #34 lands,
-    /// a deliberate unplayed held against a peer's played is answered here as
-    /// <see cref="RatchetAnswer.PlayedStands"/>, which is the wrong answer for that case and
-    /// the right one for every other.
+    /// and no agreement, so it cannot tell those two apart and does not try.
+    ///
+    /// THAT RULE LANDED AND THIS PARAGRAPH SAID IT HAD NOT. It said that until #34 lands, a
+    /// deliberate unplayed held against a peer's played is answered here as
+    /// <see cref="RatchetAnswer.PlayedStands"/>, which is the wrong answer for that case.
+    /// <see cref="DeliberateUnplayed"/> is that rule and is asked before this one. Asked on
+    /// its own this rule still answers such a pair the same way, which is the right answer for
+    /// every case but that one, and it is why the order is part of the pair rather than a
+    /// preference. <c>docs/conflicts.md</c> is where the two are argued together.
     /// </summary>
     /// <param name="here">The state this server holds for the mapped user and the item.</param>
     /// <param name="atThePeer">The state the peer holds for the same pair.</param>

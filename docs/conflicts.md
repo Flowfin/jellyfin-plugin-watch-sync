@@ -48,7 +48,7 @@ reason it is linked.
 
 | field | rule | the evidence the rule uses | what happens to the value that lost | the failure it prevents |
 | --- | --- | --- | --- | --- |
-| `Played` | ratchet | The played state on both sides, and the agreed record where one side turned it off since the last agreement. The two last played dates reach the rule and are never read by it. | The position offered against a completion is discarded, and it is carried out of the rule rather than dropped inside it, so the record of the conflict names what was lost. | A stale partial position beating a finished watch, which is what a pure recency rule produces: the person watches the last twenty minutes again after every run, because nothing about the pair has changed (https://github.com/luigi311/JellyPlex-Watched/issues/322). |
+| `Played` | ratchet | The played state on both sides, and the agreed record where one side turned it off since the last agreement. The two last played dates reach the rule and are never read by it. | The position offered against a completion is discarded, and it is carried out of the rule rather than dropped inside it, so the record of the conflict names what was lost. Where an unmark carries, what lost is the completion the other side was holding; where that side has watched the work again since the agreement, what lost is the unmark. | A stale partial position beating a finished watch, which is what a pure recency rule produces: the person watches the last twenty minutes again after every run, because nothing about the pair has changed (https://github.com/luigi311/JellyPlex-Watched/issues/322). |
 | `PlayCount` | reckon | Both counts and the count the two sides last agreed. Each side's plays since that agreement are what it holds above the agreement. | Nothing is discarded. A side below the agreement is carried up rather than the other side being lowered, and the shortfall is recorded, because an operator is the only one who can tell a restore from a defect. | Adding the two counts re-counts every play that already moved, so two servers with nothing new to say still climb by the whole history on every run. Taking the newer count overwrites a rewatch the other side recorded, and the field carries no per-play timestamp for anything to notice that with. |
 | `PlaybackPositionTicks` | recency | Both positions and both last played dates, where neither side holds the work played. A difference smaller than the tolerated skew is not a comparison at all and the tie rule applies instead, which is the greater position. | The older position is discarded and recorded. A peer whose clock is outside the tolerated skew produces a refusal that names the clock and is distinct from every other refusal, because a clock failure that reads as anything else costs an evening. | Two home servers disagreeing by seconds deciding which of two positions a person is further into, and a rule that asks whichever side it happens to hold first answering differently in the two directions. |
 | `LastPlayedDate` | maximum | Both dates. Nothing else, because this field is what the other rules read rather than a field they decide. | Nothing. The earlier date is not a loss: it is a moment that happened and that the later one already accounts for. | A sync moving somebody's last played date backwards, which is the field the position rule reads, so an answer that lowers it decides the next exchange as well as this one. |
@@ -107,12 +107,32 @@ every deliberate unmark, and the intent rule without the ratchet is the wipe. #3
 holds the pair and #31 holds the ratchet, and the pair is the reason a later
 reader should not remove either half as redundant.
 
-What the tree holds today is the ratchet and not the pair. `PlayedRatchet` decides
-on the two played states alone, and it reads no agreed record because there is no
-agreed record: that is #14, and it is what the second half of this section waits
-for. Until then a deliberate unmark is carried by nothing, which is a gap rather
-than a rule, and this document says so here rather than describing a reconciliation
-that no code performs.
+WHAT THE TREE HOLDS IS BOTH HALVES NOW, AND THIS PARAGRAPH SAID IT HELD ONE. It
+said `PlayedRatchet` decides on the two played states alone, that it reads no
+agreed record because there was none, and that a deliberate unmark was carried by
+nothing. #14's record landed and the rule followed it: `DeliberateUnplayed` takes
+the two readings and the state the two sides last agreed, and answers which of the
+two is an intent.
+
+The order is part of the rule rather than an implementation detail. The unmark is
+asked first. The ratchet is handed two readings and no agreement, so it cannot tell
+a deliberate unmark from an old value and does not try, and asking it first answers
+the pair before the question the other rule exists for was put.
+
+The third case is one this section owes a reader because neither rule's own row
+states it. One side turned the agreed completion off and the other has watched the
+work again since that agreement, which its count or its last played date says. Both
+are intents and only one of them carries a moment: the server stores no time for
+turning a completion off, so there is nothing to order the two by. The completion
+wins, because keeping a play somebody made is the direction this plan takes wherever
+two intents cannot be ordered, and the unmark is recorded as the loser rather than
+dropped. A side whose count is BELOW the agreed one is not a rewatch and is not read
+as one; that is a restore, it is #33's shortfall, and reading it as movement here
+would take the unmark's win away for the one reason it should have it.
+
+What is still missing is a caller. Nothing drives the two rules together yet, so the
+order above is a rule whoever writes the resolver is held to and not one a machine
+keeps, and this document says so here rather than describing a sequence that runs.
 
 The save reason the unmark arrives under is `TogglePlayed`, which
 `docs/sync-model.md` classifies with the rest, so the event reaches the plugin and
