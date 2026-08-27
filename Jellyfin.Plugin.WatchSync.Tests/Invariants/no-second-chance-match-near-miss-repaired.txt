@@ -1,0 +1,37 @@
+// The repair of the near-miss next to it, and nothing else. The same pass, asking the one
+// question a caller of a lookup has, and answering a non-match with the record #26 asks for
+// rather than with a second attempt. If the guard passes this and refuses its neighbour,
+// what it refused was the branch on which non-match came back rather than the lookup, the
+// pass or the record.
+//
+// One property replaces both branches, and that is the point of it rather than a tidying.
+// A caller that asks only whether the answer was no match writes to a competing item, so
+// the two answers that are not a match differ in what is recorded and never in what is
+// done. The record is where the difference between them belongs, and the reason travels
+// into it from the lookup instead of deciding a branch here.
+
+internal sealed class MatchPass
+{
+    private readonly MatchIndex _index;
+
+    private readonly UnmatchedRecords _unmatched;
+
+    internal MatchPass(MatchIndex index, UnmatchedRecords unmatched)
+    {
+        _index = index;
+        _unmatched = unmatched;
+    }
+
+    internal Guid Resolve(KeyedItem item, IReadOnlyList<KeyedItem> peerItems)
+    {
+        var lookup = _index.For(item.Key);
+
+        if (!lookup.IsMatched)
+        {
+            _unmatched.Record(item, lookup);
+            return Guid.Empty;
+        }
+
+        return lookup.Item;
+    }
+}

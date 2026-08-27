@@ -28,6 +28,15 @@ produces no key at all. Nothing moves, and the item is recorded with the reason 
 an operator can act on it. #26 holds the record. No match is a terminal answer for
 that item in that run. There is no second pass at a weaker comparison.
 
+That last sentence has a machine behind it rather than only this document.
+`no-second-chance-match`, argued in [invariants.md](invariants.md), refuses a source
+that asks which of the two non-matching answers came back: a fallback cannot be
+written without first asking whether the first attempt failed, and those two answers
+are the only place this plugin spells that failure. It covers the ambiguity in the
+same rule, because taking the first of two items that claim one key is the same
+mistake with a worse case behind it. What the rule cannot see is written there
+rather than here.
+
 ## The key, per item kind
 
 The server's own vocabulary for what an item is, is `BaseItemKind`. Every member of
