@@ -108,6 +108,15 @@ they had not reached, and that is the one failure here that cannot be taken back
 how much memory a rebuild holds at once and changes nothing an operator can see. A setting
 for it is one more thing to get wrong with no way of telling that it was.
 
+That row is the one place this table disagrees with an issue rather than collecting one.
+#56 states as a rule that every enumeration is paged and that the page size is a setting,
+and the match index walk is the only enumeration in the tree today. Its own declaration
+says the opposite, in the same words as the paragraph above. The table takes the source's
+side, because the argument there is the specific one and #56's is the general one, and
+because the number bounds a rebuild's memory rather than anything a run produces. Which of
+the two governs is #56's to settle, and a reader who finds it settled the other way should
+expect this row to move rather than the rule above it.
+
 **A number read from another tree is not this plugin's to set.**
 `TransportBodyCeilingBytes` and `FreshnessBudgetPerPairing` are readings of the pairing
 plugin, kept here so the bounds beside them can be held below them by the suite rather than
