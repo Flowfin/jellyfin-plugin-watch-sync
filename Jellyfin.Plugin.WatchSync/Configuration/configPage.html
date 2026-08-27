@@ -8,9 +8,20 @@
     <div id="WatchSyncConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
         <div data-role="content">
             <div class="content-primary">
+                <p id="WatchSyncNeedsPairing">
+                    Watch Sync moves watch history and playback positions between servers that are
+                    already paired. Pairing, trust and the mapping between users belong to the
+                    Server Pairing plugin and are not part of this one, so without that plugin
+                    installed and enabled this plugin syncs nothing.
+                </p>
                 <p id="WatchSyncNoSettings">
                     Watch Sync has no settings yet. Nothing on this page changes what the plugin
                     does, so nothing on this page is offered.
+                </p>
+                <p id="WatchSyncStateNotRead">
+                    This page does not yet read whether the Server Pairing plugin is present,
+                    enabled, or of a version this plugin was built against, so an empty page here
+                    is not a statement that everything is in order.
                 </p>
             </div>
         </div>
