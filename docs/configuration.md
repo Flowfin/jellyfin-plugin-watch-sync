@@ -61,6 +61,8 @@ numbers that are not settings as well as the ones that will be.
 | `PositionThresholds.MaximumMove` | `TimeSpan` | 30 minutes | none | bound on a setting | above it the threshold stops being coarse and becomes a different rule |
 | `PositionThresholds.MaximumFinish` | `TimeSpan` | 15 minutes | none | bound on a setting | beyond it the distance covers a real part of the work |
 | `PositionThresholds.MaximumShortestItem` | `TimeSpan` | 1 hour | none | bound on a setting | above it the ordinary television episode is on the wrong side of the line |
+| `EchoWindow.DefaultWindow` | `TimeSpan` | 30 seconds | up to `MaximumWindow` | plugin configuration | an order of magnitude above the time a server takes to raise the event its own write caused |
+| `EchoWindow.MaximumWindow` | `TimeSpan` | 5 minutes | none | bound on a setting | past it the window stops covering a server normalising a value and starts covering a person acting |
 | `PositionRecency.DefaultToleratedSkew` | `TimeSpan` | 1 minute | up to `MaximumToleratedSkew` | pairing state | a minute never swallows a genuine ordering on a pair of working machines |
 | `PositionRecency.MaximumToleratedSkew` | `TimeSpan` | 15 minutes | none | bound on a setting | wider and the tie rule becomes the rule and recency the exception |
 | `ConflictRecords.MaximumEntries` | `int` | 200 | none | plugin configuration | a day of real disagreement is whole in it and the document stays a file somebody can read |

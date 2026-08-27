@@ -502,6 +502,69 @@ about an item this plugin does not sync, or about a user with no mapping, is dro
 at the handler whatever its reason, and the mapping is consumed rather than inferred
 under #42. #15 carries both.
 
+## The suppression window
+
+The plan takes two mechanisms against the echo and they are not equals. The first is
+the record of what two sides last agreed: an echo is a value already equal to what was
+agreed, so it leaves nothing outstanding and never becomes a change. That covers every
+echo the server hands back unchanged, which is nearly all of them.
+
+The second covers the one case the first cannot see. Where the server normalises a
+value on the way in, what this server holds afterwards is this plugin's own write as
+the server stored it, and it is not the value that arrived. The comparison against the
+agreement finds a difference and the difference is real, so without a second mechanism
+it leaves as a local change, the peer applies it, its own server normalises something,
+and one watched episode becomes an exchange with no end.
+
+`EchoWindow` is that second mechanism. It is asked about one field of one mapped user
+and one leaf item, and it is told three things: whether the field is outstanding
+against the agreement, when this plugin last wrote that field itself, and when the
+reading was observed. Where the field is outstanding and this plugin's own write
+stands inside the window, the answer is that the difference is the server's
+normalisation of it, and what the caller does is agree what is stored rather than send
+it back. Agreeing is what ends the exchange at one write on each side; leaving the
+difference outstanding is the same exchange one round slower.
+
+### Why the order of the two questions is the rule
+
+Whether anything is outstanding is asked first, and where nothing is, the window is
+not consulted at all. The rule carries that out rather than leaving it to be inferred,
+because it is the property that keeps the second mechanism second.
+
+A window asked before the record would answer a question the record has already
+answered. Worse, it would suppress echoes on values the server never normalised, which
+is a defect in the agreed record rather than a case for a window, and nothing would
+say so: the sync would work, and what carried it would be the mechanism that exists to
+cover a gap in the other one.
+
+### What the window cannot see
+
+It is told that this plugin wrote the field and when, and never what was written. So a
+person who changes the same field of the same item inside the window has their change
+read as the server's normalisation, and it does not leave this server. Nothing is
+lost - the person's value stands here - and what converges it is the full
+reconciliation in #52 rather than anything in this rule.
+
+That residual is why the window is short and why it is bounded rather than left to an
+operator. Past the bound it stops covering a server normalising a value and starts
+covering a person acting, and somebody who un-marks a work a few minutes after a sync
+applied it is making the deliberate change #34 exists to carry. Both numbers and where
+each of them lives are in `docs/configuration.md` rather than repeated here.
+
+A window of nothing is legal and switches the second mechanism off, leaving the agreed
+record carrying the rule alone. That is the state the plugin is in whenever the record
+is enough, so it is a setting an operator may choose rather than a configuration the
+rule refuses.
+
+### What of this has a rule in the sources today
+
+The rule and its two numbers, in `EchoWindow`, held by `EchoWindowTests`. Nothing
+calls it. The event it would be asked from is #15 and the walk whose writes it would
+be told about is the apply path in #54, which records nothing about when it wrote, so
+what a caller reads for the second parameter does not exist yet. The three assertions
+#16 asks for are each over an apply and an event together, and they arrive with that
+caller rather than with this rule.
+
 ## The position thresholds
 
 The treatment `thresholded` above is one reason and three numbers. The reason
