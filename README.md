@@ -76,6 +76,8 @@ operator does not hold.
   across and by which key.
 - [docs/unmatched.md](docs/unmatched.md), what an item that did not match means
   and what repairs it.
+- [docs/opt-out.md](docs/opt-out.md), what a person is told when they stop their
+  own history moving, and the two things that wording may not claim.
 - [docs/parity.md](docs/parity.md), the checks this repository runs and the ones
   it has decided not to.
 - [CONTRIBUTING.md](CONTRIBUTING.md), how to sign off a change.
