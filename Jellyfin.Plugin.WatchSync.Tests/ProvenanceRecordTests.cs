@@ -34,16 +34,19 @@ public class ProvenanceRecordTests
     private static readonly DateTimeOffset _evening = new(2026, 8, 24, 20, 0, 0, TimeSpan.Zero);
 
     /// <summary>
-    /// The types a record of a write may be made of. Identifiers, the field, the value that was
-    /// replaced, the value that was written and the moment. A type outside this set is refused
-    /// rather than judged, so the guard does not have to know what a title is called next time.
+    /// The types a record of a write may be made of. Identifiers, the field, the two values and
+    /// the moment. A type outside this set is refused rather than judged, so the guard does not
+    /// have to know what a title is called next time.
+    ///
+    /// Both values are the nullable width and neither is the plain one. A number that has to
+    /// exist cannot express the write that clears a person's last played date, and that write is
+    /// one of the four this record is for.
     /// </summary>
     private static readonly IReadOnlyList<Type> _permitted = new[]
     {
         typeof(Guid),
         typeof(SyncedField),
         typeof(long?),
-        typeof(long),
         typeof(DateTimeOffset),
     };
 
@@ -142,6 +145,59 @@ public class ProvenanceRecordTests
 
         Assert.Null(record.Before);
         Assert.Equal(0, record.Written);
+    }
+
+    /// <summary>
+    /// A write that cleared a value is recordable, and it is the write this record could not hold
+    /// until the value written took the shape the value replaced already had.
+    ///
+    /// One of the four moved fields has no number for having no value. A last played date is
+    /// nullable in the state that travels and is assigned straight through, so a peer's answer
+    /// that clears one is a write that happened and left nothing behind. It is also the value an
+    /// undo most needs: a cleared date is exactly what the peer's answer overwrote, and a record
+    /// missing it looks complete because every other field of that item is in it.
+    /// </summary>
+    [Fact]
+    public void AWriteThatClearedAValueIsRecordable()
+    {
+        var record = new ProvenanceRecord(
+            _pairing,
+            _user,
+            _peerUser,
+            _film,
+            SyncedField.LastPlayedDate,
+            _evening.UtcTicks,
+            null,
+            _evening);
+
+        Assert.Equal(_evening.UtcTicks, record.Before);
+        Assert.Null(record.Written);
+    }
+
+    /// <summary>
+    /// Nothing written where there was nothing is refused, which is the same refusal as a value
+    /// written over itself rather than a second rule.
+    ///
+    /// A field that had no value and still has none is a field this plugin did not change, so
+    /// there is nothing for an undo to put back and the entry would occupy a place under the cap
+    /// that a write which did change something needs. It is the shape a caller produces by
+    /// recording every field of a state rather than the ones that moved, in the one direction
+    /// that has no number to compare.
+    /// </summary>
+    [Fact]
+    public void NothingWrittenWhereThereWasNothingIsRefused()
+    {
+        var refused = Assert.Throws<ArgumentException>(() => new ProvenanceRecord(
+            _pairing,
+            _user,
+            _peerUser,
+            _film,
+            SyncedField.LastPlayedDate,
+            null,
+            null,
+            _evening));
+
+        Assert.Equal("written", refused.ParamName);
     }
 
     /// <summary>

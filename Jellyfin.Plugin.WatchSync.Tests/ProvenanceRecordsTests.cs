@@ -63,6 +63,10 @@ public sealed class ProvenanceRecordsTests : IDisposable
     /// Every member of every entry is compared rather than the count. A record that survives
     /// holding the right number of writes and the wrong values in them is one an undo would act
     /// on, and what it would write back into somebody's record is a value nobody ever had.
+    ///
+    /// The third write is the one that has to cross the bytes rather than only the type: a peer's
+    /// answer that cleared a last played date is written as null and read back as null, and the
+    /// entry beside it holding a real number is what says the two are not being collapsed.
     /// </summary>
     [Fact]
     public void ARecordWrittenBeforeARestartIsTheRecordReadAfterIt()
@@ -71,7 +75,8 @@ public sealed class ProvenanceRecordsTests : IDisposable
 
         var written = ProvenanceRecords.NoneYet(_pairing, _user)
             .With(Write(_film, SyncedField.Played, null, 1, _evening))
-            .With(Write(_episode, SyncedField.PlaybackPositionTicks, 0, 9_000_000_000, _evening.AddHours(1)));
+            .With(Write(_episode, SyncedField.PlaybackPositionTicks, 0, 9_000_000_000, _evening.AddHours(1)))
+            .With(Write(_film, SyncedField.LastPlayedDate, _evening.UtcTicks, null, _evening.AddHours(2)));
 
         new DocumentStore(Folder()).Write(name, _ => written.ToDocument());
 
@@ -83,7 +88,7 @@ public sealed class ProvenanceRecordsTests : IDisposable
 
         Assert.Equal(_pairing, read.PairingId);
         Assert.Equal(_user, read.MappedUserId);
-        Assert.Equal(2, read.Count);
+        Assert.Equal(3, read.Count);
 
         var first = read.All[0];
 
@@ -102,6 +107,15 @@ public sealed class ProvenanceRecordsTests : IDisposable
         Assert.Equal(0, second.Before);
         Assert.Equal(9_000_000_000, second.Written);
         Assert.Equal(_evening.AddHours(1), second.WrittenAt);
+
+        var third = read.All[2];
+
+        Assert.Equal(_peerUser, third.PeerUserId);
+        Assert.Equal(_film, third.ItemId);
+        Assert.Equal(SyncedField.LastPlayedDate, third.Field);
+        Assert.Equal(_evening.UtcTicks, third.Before);
+        Assert.Null(third.Written);
+        Assert.Equal(_evening.AddHours(2), third.WrittenAt);
     }
 
     /// <summary>
@@ -264,25 +278,53 @@ public sealed class ProvenanceRecordsTests : IDisposable
     }
 
     /// <summary>
-    /// A document whose entry holds no written value, or holds null there, is refused.
+    /// A document whose entry has no written value at all is refused, and one holding null there
+    /// over a value that was replaced is read as the write that cleared it.
     ///
-    /// A write wrote something. An entry with nothing in that member is one an undo would compare
-    /// the current value against and never match, so every such write would be skipped as a value
-    /// the person had changed, which is the failure #44's third condition names arriving through
-    /// the reader instead of through the rule.
+    /// The two are different documents on this member for the same reason they are on the other
+    /// one. A missing member is a document that never said what was written, and reading it as a
+    /// clearing would hand an undo a write to reverse that nothing performed. Null beside a
+    /// replaced value is the write one of the four moved fields can actually be: a peer's answer
+    /// that cleared somebody's last played date, which is the value an undo most needs and the
+    /// one this record had nowhere to put until the member took the nullable shape.
     /// </summary>
     [Fact]
-    public void AWriteWithNothingWrittenIsRefused()
+    public void AMissingWrittenValueIsRefusedAndAClearingIsRead()
     {
         var missing = Entry();
         missing.Remove("written");
 
         Assert.True(ProvenanceRecords.Read(Rebuilt(Fields(missing))).IsRefused);
 
-        var empty = Entry();
-        empty["written"] = null;
+        var cleared = Entry();
+        cleared["field"] = JsonValue.Create(SyncedField.LastPlayedDate.ToString());
+        cleared["before"] = JsonValue.Create(_evening.UtcTicks);
+        cleared["written"] = null;
 
-        Assert.True(ProvenanceRecords.Read(Rebuilt(Fields(empty))).IsRefused);
+        var reading = ProvenanceRecords.Read(Rebuilt(Fields(cleared)));
+
+        Assert.False(reading.IsRefused);
+        Assert.Equal(_evening.UtcTicks, reading.Records!.All[0].Before);
+        Assert.Null(reading.Records!.All[0].Written);
+    }
+
+    /// <summary>
+    /// A document whose entry holds null in both values is refused.
+    ///
+    /// It says this plugin wrote nothing over nothing, which is a field it did not change, and it
+    /// is refused by the record's own rule about a write that replaced nothing rather than by a
+    /// rule the reader holds separately. Taking that refusal out of the constructor reddens this,
+    /// because the entry goes back through it rather than into fields of its own.
+    /// </summary>
+    [Fact]
+    public void ADocumentClaimingNothingWrittenOverNothingIsRefused()
+    {
+        var entry = Entry();
+        entry["field"] = JsonValue.Create(SyncedField.LastPlayedDate.ToString());
+        entry["before"] = null;
+        entry["written"] = null;
+
+        Assert.True(ProvenanceRecords.Read(Rebuilt(Fields(entry))).IsRefused);
     }
 
     /// <summary>
@@ -476,7 +518,7 @@ public sealed class ProvenanceRecordsTests : IDisposable
         Guid item,
         SyncedField field,
         long? before,
-        long written,
+        long? written,
         DateTimeOffset writtenAt) =>
         new ProvenanceRecord(_pairing, _user, _peerUser, item, field, before, written, writtenAt);
 

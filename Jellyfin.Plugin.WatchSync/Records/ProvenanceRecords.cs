@@ -109,7 +109,8 @@ public sealed class ProvenanceRecords
     internal const string BeforeMember = "before";
 
     /// <summary>
-    /// The member of one entry holding what this plugin wrote.
+    /// The member of one entry holding what this plugin wrote, which is null where what it wrote
+    /// was the absence of a value.
     /// </summary>
     internal const string WrittenMember = "written";
 
@@ -359,7 +360,7 @@ public sealed class ProvenanceRecords
             JsonValue.Create(write.ItemId.ToString("n", CultureInfo.InvariantCulture)),
         [FieldMember] = JsonValue.Create(write.Field.ToString()),
         [BeforeMember] = write.Before is null ? null : JsonValue.Create(write.Before.Value),
-        [WrittenMember] = JsonValue.Create(write.Written),
+        [WrittenMember] = write.Written is null ? null : JsonValue.Create(write.Written.Value),
         [WrittenAtMember] =
             JsonValue.Create(write.WrittenAt.ToString("o", CultureInfo.InvariantCulture)),
     };
@@ -379,7 +380,9 @@ public sealed class ProvenanceRecords
     ///
     /// It goes back through the record's own constructor rather than into fields of its own, so a
     /// document naming no peer user, or claiming a write that replaced a value with itself, is
-    /// refused on the way in by the same rule that refuses one on the way out. A record that could
+    /// refused on the way in by the same rule that refuses one on the way out. That is what
+    /// refuses an entry holding null in both values, which is a document saying this plugin wrote
+    /// nothing over nothing, rather than the reader holding a rule of its own about the member. A record that could
     /// be read holding either shape would be a way around the refusal for anything written by
     /// hand, and what the second of them would give an undo is a write to revert that never
     /// changed anything.
@@ -403,7 +406,6 @@ public sealed class ProvenanceRecords
             || !TryReadName<SyncedField>(members, FieldMember, out var field)
             || !TryReadValue(members, BeforeMember, out var before)
             || !TryReadValue(members, WrittenMember, out var written)
-            || written is null
             || !TryReadMoment(members, WrittenAtMember, out var writtenAt))
         {
             return false;
@@ -418,7 +420,7 @@ public sealed class ProvenanceRecords
                 itemId,
                 field,
                 before,
-                written.Value,
+                written,
                 writtenAt);
         }
         catch (ArgumentException)
@@ -458,7 +460,10 @@ public sealed class ProvenanceRecords
     /// A missing member and a member holding null are different documents, the way #14's last
     /// played date and #36's two readings are: the first is a document somebody assembled without
     /// the field, and reading it as "this server held nothing" would invent the half of the record
-    /// that decides what an undo puts back.
+    /// that decides what an undo puts back. That holds on both members for the same reason. Null
+    /// under the written value is a write that cleared a person's last played date, and a missing
+    /// member there is a document that never said what was written at all; reading the second as
+    /// the first would give an undo a clearing to reverse that nothing performed.
     ///
     /// Both widths are tried, for the reason written at #14's reader: a number parsed out of bytes
     /// converts between them and one assembled in memory does not, so a document this record has
