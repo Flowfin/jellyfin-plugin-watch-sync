@@ -120,3 +120,12 @@ endpoint-anonymous :: endpoint-authorised-by-the-server :: 66 :: \[AllowAnonymou
 endpoint-user-from-the-request :: endpoint-authorised-by-the-server :: 66 :: \[From(Query|Route|Form|Header)\][^\n]*[Uu]serId\b :: takes the user an action is about from the caller, who is free to name somebody else :: the calling user read from the authenticated context, and elevation where the action is deliberately about another user
 endpoint-policy-named-by-a-literal :: endpoint-authorised-by-the-server :: 66 :: Policy\s*=\s*" :: names the server's policy as a string, which stops matching silently on the day that server renames it :: the constant the server declares, so a rename is a build failure here rather than an endpoint nothing authorises
 endpoint-role-checked-by-hand :: endpoint-authorised-by-the-server :: 66 :: \.IsInRole\s*\( :: decides authorisation in the method body with a role comparison of this plugin's own :: the server's policy declared on the endpoint, which is the authorisation model this plugin consumes rather than reinvents
+
+# An item that produced no key, and a key the index had nothing for, are terminal answers for
+# that item in that run. #26 refuses the fallback that follows one, and docs/matching.md says
+# in the same words that there is no second pass at a weaker comparison. A fallback cannot be
+# written without first asking whether the first attempt failed, and the only place this plugin
+# spells that failure is the two answers below, so the line that names one of them is the line
+# the second chance is written under. Matched is not among them: a caller has to know that it
+# matched, and MatchLookup offers that as a property rather than as a comparison.
+second-chance-on-a-non-match :: no-second-chance-match :: 26 :: MatchAnswer\s*\.\s*(NoMatch|Ambiguous)\b :: asks which of the two non-matching answers came back, which is the question a weaker comparison is written under :: MatchLookup.IsMatched, and the unmatched record, which is what a non-match produces instead of a second attempt

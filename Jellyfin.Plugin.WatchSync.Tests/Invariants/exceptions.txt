@@ -25,3 +25,4 @@ Jellyfin.Plugin.WatchSync/UserData/OlderLineUserData.cs :: user-data-manager-int
 Jellyfin.Plugin.WatchSync/UserData/NewerLineUserData.cs :: user-data-manager-interface :: the newer line's implementation takes the manager in its constructor and hands it to the type above
 Jellyfin.Plugin.WatchSync/UserData/NewerLineUserData.cs :: user-data-batch-read :: reading a page in one call is the reason this line has an implementation of its own, and this is the call
 Jellyfin.Plugin.WatchSync/UserData/NewerLineUserData.cs :: user-data-resume-version :: naming the version that drives a resume point is the other reason, and these are the two members that do it
+Jellyfin.Plugin.WatchSync/Matching/MatchLookup.cs :: second-chance-on-a-non-match :: the type that declares the three answers builds two of them here and explains in its own comment why a caller may not test for one, and it is the only file in this plugin that names them

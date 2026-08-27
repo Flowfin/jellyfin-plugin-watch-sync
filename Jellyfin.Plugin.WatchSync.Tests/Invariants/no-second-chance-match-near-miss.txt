@@ -1,0 +1,43 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The mistake is the one somebody makes on the day the identifiers turn out to be absent,
+// and it is the most reasonable line in the file. The pass is already correct about
+// everything else: it derives the key, it asks the index, and it writes nothing where one
+// item is claimed by two. All it adds is a branch for the case where the key found nothing,
+// and in that branch the two works really are usually the same one.
+//
+// What it costs is not visible in the run that adds it. A weaker comparison matches works
+// that are not the same one, and the state it moves is somebody's watch history landing on
+// the wrong film, on a run that reported nothing unusual. The second branch is the same
+// mistake with a worse case behind it: an ambiguity is two local items claiming one key, so
+// taking the first is choosing at random and choosing differently next run.
+
+internal sealed class MatchPass
+{
+    private readonly MatchIndex _index;
+
+    internal MatchPass(MatchIndex index)
+    {
+        _index = index;
+    }
+
+    internal Guid Resolve(KeyedItem item, IReadOnlyList<KeyedItem> peerItems)
+    {
+        var lookup = _index.For(item.Key);
+
+        if (lookup.Answer == MatchAnswer.NoMatch)
+        {
+            return ByTheWeakerComparison(item, peerItems);
+        }
+
+        if (lookup.Answer == MatchAnswer.Ambiguous)
+        {
+            return lookup.CompetingItems[0];
+        }
+
+        return lookup.Item;
+    }
+
+    private static Guid ByTheWeakerComparison(KeyedItem item, IReadOnlyList<KeyedItem> peerItems) =>
+        peerItems.Count == 0 ? Guid.Empty : peerItems[0].Item;
+}

@@ -38,6 +38,7 @@ without covering the rest.
 | `user-data-behind-the-adapter` | #20 | the plugin's own sources | `InvariantGuardTests` |
 | `pairing-behind-the-adapter` | #40 | the plugin's own sources | `InvariantGuardTests` |
 | `endpoint-authorised-by-the-server` | #66 | the plugin's own sources | `InvariantGuardTests` |
+| `no-second-chance-match` | #26 | the plugin's own sources | `InvariantGuardTests` |
 
 ## What each one is for
 
@@ -167,6 +168,36 @@ the same one: a scan written after the first endpoint meets a shape that is a ch
 every route rather than a decision taken once, and the endpoint that forgot its attribute
 is indistinguishable from one that has it until somebody calls it.
 
+**`no-second-chance-match`.** No source asks which of the two non-matching answers a lookup
+came back with. An item that produced no key, and a key no local item carries, are terminal
+answers for that item in that run: [matching.md](matching.md) fixes three answers and says
+in the same section that there is no second pass at a weaker comparison, and #26 asks for
+the absence of one to be asserted rather than written down. A fallback cannot be written
+without first asking whether the first attempt failed, and the only place this plugin
+spells that failure is `MatchAnswer`, so the line that names `NoMatch` or `Ambiguous` is
+the line the second chance is written under.
+
+The mistake it refuses is not a careless one, which is why it is worth a machine. The line
+gets added on the day the identifiers turn out to be absent, in a pass that is already
+correct about everything else, and in the branch it opens the two works usually are the
+same one. What it costs is invisible in the run that adds it: a weaker comparison matches
+works that are not the same one, and what moves is somebody's watch history landing on the
+wrong film, on a run that reported nothing unusual. The second answer is the same mistake
+with a worse case behind it, because an ambiguity is two local items claiming one key, so
+taking the first of them is choosing at random and choosing differently next run.
+
+`Matched` is deliberately not refused. A caller has to know that it matched, and
+`MatchLookup` offers that as `IsMatched` rather than as a comparison, for the reason its
+own comment gives: the two answers that are not a match differ in what is recorded and
+never in what is done, so a caller that branches on one of them and not the other writes to
+a competing item. That property is what the repaired fixture beside the near-miss uses, and
+it is what a source refused by this rule is pointed at.
+
+It is here before the pass that would call a lookup, for the reason
+`user-data-behind-the-adapter` and `pairing-behind-the-adapter` are: the fallback is the
+line somebody writes at the moment a key comes back with nothing, which is exactly when it
+looks reasonable, and a guard arriving after that line does not prevent it.
+
 ## What these patterns cannot see
 
 A pattern reads one line of text. That is enough for the mistakes above as they are
@@ -176,14 +207,24 @@ green run.
 
 **A scan is only as wide as its subject.** These rules read the plugin's own sources.
 The plugin is small today. Nothing in it logs, names a user, reads a machine clock, waits
-on one, writes a change, reaches the server's user data or names anything of the pairing
-plugin's, so seven of the nine invariants carried by that guard scan sources that could
-not have violated them:
+on one, writes a change, names anything of the pairing plugin's or exposes an endpoint, so
+seven of the eleven invariants carried by that guard scan sources that could not have
+violated them:
 
-    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)|\.(PlayCount|PlaybackPositionTicks)\s*(\+\+|\+=)|Thread\.Sleep|Task\.Delay|SpinWait|new (System\.Threading\.)?(Periodic)?Timer\(|I?UserDataManager|GetUserDataBatch|GetResumeUserData|VersionResumeData|Jellyfin\.Plugin\.ServerPairing|IPair(edPeers|ingKeySource|ingKeyStore|ingRecordStore)|Pairing(Record|State|Message)|Peer(Channel|Reply)|KeyMaterial|PairingKeys|OfferedKey' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
+    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)|\.(PlayCount|PlaybackPositionTicks)\s*(\+\+|\+=)|Thread\.Sleep|Task\.Delay|SpinWait|new (System\.Threading\.)?(Periodic)?Timer\(|Jellyfin\.Plugin\.ServerPairing|IPair(edPeers|ingKeySource|ingKeyStore|ingRecordStore)|Pairing(Record|State|Message)|Peer(Channel|Reply)|KeyMaterial|PairingKeys|OfferedKey|\[AllowAnonymous\]|\[From(Query|Route|Form|Header)\].*[Uu]serId|Policy\s*=\s*"|\.IsInRole\s*\(' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
     exit=1
 
-The other two are not in that position. The static that `static-instance-not-read` refuses
+CORRECTED BY RE-RUNNING IT. THIS PARAGRAPH SAID SEVEN OF NINE AND ITS COMMAND CARRIED THE
+USER DATA NAMES. Two things had moved under it. The guard carries eleven invariants rather
+than nine, and the adapter #20 asks for has landed, so the manager's names are in this
+plugin's sources and that command returned seven hits under a pasted `exit=1`. It was found
+while the entry above was being added rather than by anything that reads this file: what a
+guard carries is derived from the register on every run, and a count typed into a document
+is not. The names that now return hits are out of the command, the endpoint names are in it
+because that invariant arrived after this paragraph was written and never joined its count,
+and the seven the sentence is about are a different seven from the ones it named.
+
+The other four are not in that position. The static that `static-instance-not-read` refuses
 reaching for is in `Plugin.cs`, and every source in the project can see it, so that rule
 has had something to be true of since the day the project was created. And
 `store-path-from-the-server` arrived with the one type that composes a path, so it has
@@ -292,12 +333,19 @@ accessor #8 names, and it is worth more here than a carve-out would be: the exce
 IS the list of places this plugin touches the server's user data at all, in one file, read
 by anybody asking how wide the surface is.
 
-    git grep -c '^Jellyfin' -- Jellyfin.Plugin.WatchSync.Tests/Invariants/exceptions.txt
+    git grep -c 'user-data-manager-interface\|user-data-batch-read\|user-data-resume-version' -- Jellyfin.Plugin.WatchSync.Tests/Invariants/exceptions.txt
     Jellyfin.Plugin.WatchSync.Tests/Invariants/exceptions.txt:5
 
 Deleting any one of the five turns `NoPluginSourceViolatesAnInvariantThisGuardCarries` red
 on the call it covered, and declaring a sixth for a call no file makes turns
 `NoDeclaredDepartureHasOutlivedWhatItWasWrittenFor` red instead. Both directions were run.
+
+THE COMMAND COUNTED EVERY LINE OF THAT FILE UNTIL THIS EDIT, AND THE FILE IS NO LONGER ONE
+INVARIANT'S. `no-second-chance-match` declares one of its own, so a count of the whole file
+would answer six and the sentence above it would be about five of them. The count is scoped
+to this invariant's three rules instead, which keeps the claim true and keeps it from moving
+the next time another invariant declares a departure. What the sentence claims is unchanged:
+these five are the whole of what this plugin touches of the server's user data.
 
 **It does not refuse the record.** `UserItemData` is the thing the manager reads and
 writes, and a type outside the adapter holding one has reached past the boundary just as
@@ -387,4 +435,12 @@ the reason. It is a debt with the thing that retires it written next to it rathe
 dispensation: an entry whose file no longer carries the call it was written for is
 refused as dangling, so it leaves with the line it covered.
 
-The plugin declares none today.
+THE PLUGIN DECLARED NONE WHEN THIS PAGE WAS WRITTEN, AND THIS SENTENCE WENT ON SAYING SO
+AFTER THAT STOPPED BEING TRUE. It declares six. The number is not written here, because a
+count in a document is the thing this page has already been wrong about once:
+
+    git grep -c '^Jellyfin' -- Jellyfin.Plugin.WatchSync.Tests/Invariants/exceptions.txt
+
+Five are the adapter #20 asks for and are argued above; the other is the type that declares
+the three match answers. Each entry carries its reason on its own line, and that file is the
+list to read rather than a number in this one.
