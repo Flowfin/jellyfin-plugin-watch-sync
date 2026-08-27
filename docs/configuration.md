@@ -66,6 +66,10 @@ numbers that are not settings as well as the ones that will be.
 | `ConflictRecords.MaximumEntries` | `int` | 200 | none | plugin configuration | a day of real disagreement is whole in it and the document stays a file somebody can read |
 | `ConflictRecords.DefaultRetention` | `TimeSpan` | 14 days | up to `MaximumRetention` | plugin configuration | the span in which the question is actually asked |
 | `ConflictRecords.MaximumRetention` | `TimeSpan` | 90 days | none | bound on a setting | past it what is kept is a history of what a household watched |
+| `RunCap.DefaultMaximumChanges` | `int` | 100 | up to `MaximumConfigurableChanges` | pairing state | a busy evening and a day of catching up fit under it, and a mass-mark is nowhere near it |
+| `RunCap.DefaultMaximumShare` | `double` | 0.1 | up to `MaximumConfigurableShare` | pairing state | a tenth of a small library is a change nobody makes by watching things |
+| `RunCap.MaximumConfigurableChanges` | `int` | 10000 | none | bound on a setting | above it the count reads as a cap while letting a mass-mark through |
+| `RunCap.MaximumConfigurableShare` | `double` | 0.5 | none | bound on a setting | past half of one person's matched items the cap has already allowed what it exists against |
 | `PeerText.DefaultLimit` | `int` | 200 | none | plugin configuration | a server name, a user name and a refusal reason arrive whole, and a page of a hundred is still a page |
 | `EnvelopeBounds.MaximumChanges` | `int` | 1000 | none | deliberately absent | what the answering side may put in one reply |
 | `EnvelopeBounds.MaximumBytes` | `int` | 262144 | none | deliberately absent | well below the transport ceiling, so a refusal here is always a peer doing something wrong |
@@ -134,7 +138,14 @@ part of #58 that fixes defaults for settings that exist is not met here and is n
 to be. What is met is the rule about where a setting lives, the closure that stops the
 table and the sources drifting, and the list of what is deliberately absent.
 
-Three settings this plan names have no number in the sources yet and therefore no row: the
-cap on what one run may change, which is #38, the queue depth and age, which is #48, and
-the sweep schedule, which is #55. Each arrives with a row, because the closure refuses the
-number without one.
+Two settings this plan names have no number in the sources yet and therefore no row: the
+queue depth and age, which is #48, and the sweep schedule, which is #55. Each arrives with
+a row, because the closure refuses the number without one. #48's own premise was overtaken
+by the decision that the transfer pulls rather than pushes, so whether it contributes a
+setting at all is a scope question taken there.
+
+The cap on what one run may change was the third of those and has its numbers now, in
+`RunCap`. Both of its settings are per pairing rather than server-wide, and that is the
+storage rule applied rather than a convenience: a cap is a judgement about how much one
+particular peer may be allowed to change, and the same number carried to another server
+would be that judgement applied to a peer nobody made it about.
