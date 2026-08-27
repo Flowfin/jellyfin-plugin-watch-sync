@@ -1,0 +1,25 @@
+# What a case written with the two-server harness may cost, as data.
+#
+# Two fields per entry, separated by " :: ":
+#   name :: value
+#
+# Blank lines and lines beginning with # are ignored.
+#
+# This file is data rather than source for the reason the vocabularies beside the
+# other guards in this project are. A scanner carrying the subject literal in a .cs
+# file inside the scanned set would find itself, and the exclusion that repaired that
+# would be a hole in the middle of the guard.
+#
+# subject is the call that says a case was written with the harness. A case that does
+# not make it is not this guard's business: it is a case about something else, and a
+# bound on it would be this guard deciding how the rest of the suite is written.
+#
+# bound is how many lines a case body may hold, blank lines and closing braces
+# included, which is #77's first condition made decidable. Twenty four is a screen on
+# the smallest terminal anybody here reads a failure in, and the number is the point
+# rather than a formatting preference: the harness exists so that a two-server property
+# is an ordinary case, and a case that does not fit is the harness missing something
+# the case had to do for itself. Raising this number is the repair that hides that.
+
+subject :: TwoServers.Create(
+bound :: 24

@@ -1,0 +1,44 @@
+// A case written with the two-server harness that is one line over the bound.
+//
+// Everything else about it is right, which is what makes it the near-miss rather than an
+// obviously broken file: it drives both directions, it asserts the order rather than only the
+// arrival, and every line it holds is a line somebody meant to write. What is wrong is that it
+// has grown a second subject, and the last assertion is the one that does not belong to a case
+// about a delay.
+//
+// It is a .txt rather than a .cs because a fixture inside the scanned set would be judged by
+// the guard it exists to prove, which is the shape the vocabularies beside the other guards in
+// this project are data for.
+
+    /// <summary>
+    /// A delayed body arrives on the delivery after next, in both directions.
+    /// </summary>
+    [Fact]
+    public void ADelayedBodyArrivesLateAndInTheOrderItWasSentIn()
+    {
+        using var servers = TwoServers.Create();
+
+        servers.Link.Send(servers.Here, "one", LinkFault.Delay);
+        servers.Link.Send(servers.Here, "two");
+
+        servers.Link.Deliver();
+
+        Assert.Equal(new[] { "two" }, servers.There.Inbox);
+
+        servers.Link.Deliver();
+
+        Assert.Equal(new[] { "two", "one" }, servers.There.Inbox);
+
+        servers.Link.Send(servers.There, "three", LinkFault.Delay);
+        servers.Link.Send(servers.There, "four");
+
+        servers.Link.Deliver();
+
+        Assert.Equal(new[] { "four" }, servers.Here.Inbox);
+
+        servers.Link.Deliver();
+
+        Assert.Equal(new[] { "four", "three" }, servers.Here.Inbox);
+
+        Assert.Equal(0, servers.Link.Dropped);
+    }
