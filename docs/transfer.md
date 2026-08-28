@@ -149,12 +149,22 @@ fact. It is not an exchange reversing itself while it runs, which is what this
 rule refuses.
 
 Something in the tree holds this now. The walk that writes a decided set of items
-is `Jellyfin.Plugin.WatchSync/Apply/ItemByItemApply.cs`, and the property is
-structural rather than remembered: the walk keeps no record of what an item held
-before it wrote, so it has nothing to put back. The rule is asserted by a fact
-that reads the order of the writes rather than the state they left, because a
-walk that put an item back leaves the same state as one that never touched it,
-and the order is the only place the difference shows.
+is `Jellyfin.Plugin.WatchSync/Apply/ItemByItemApply.cs`, and the rule is asserted
+by a fact that reads the order of the writes rather than the state they left,
+because a walk that put an item back leaves the same state as one that never
+touched it, and the order is the only place the difference shows.
+
+The reason this paragraph gave for the rule was that the walk keeps no record of
+what an item held before it wrote, so it has nothing to put back. That reason has
+gone: the walk reads what this server held immediately before each write and puts
+it in the record of provenance, because #44 asks for exactly that value. What is
+left is the rule itself and it is stronger for being stated on its own terms. An
+unwind is a second pass of writes made at the moment the server has already
+refused one, and it can fail halfway itself; what it leaves then is a third state
+nobody planned. Provenance is read by an operator acting on a revoked pairing,
+days or months later, against a server that is answering. The two are different
+operations and the record being available to one of them is not a reason to give
+it to the other.
 
 What is not held is the rest of the exchange around it. The walk is handed items
 something else decided about and answers a record something else writes, so the

@@ -7,6 +7,7 @@ using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.WatchSync.Agreement;
 using Jellyfin.Plugin.WatchSync.Apply;
 using Jellyfin.Plugin.WatchSync.Model;
+using Jellyfin.Plugin.WatchSync.Records;
 using Jellyfin.Plugin.WatchSync.Tests.Apply;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Model.Entities;
@@ -31,6 +32,7 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 public class ItemByItemApplyTests
 {
     private static readonly Guid _pairing = new("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid _peerUser = new("55555555-5555-5555-5555-555555555555");
     private static readonly Guid _firstFilm = new("22222222-2222-2222-2222-222222222222");
     private static readonly Guid _secondFilm = new("33333333-3333-3333-3333-333333333333");
     private static readonly Guid _thirdFilm = new("44444444-4444-4444-4444-444444444444");
@@ -51,6 +53,8 @@ public class ItemByItemApplyTests
             Items(user, _firstFilm, _secondFilm, _thirdFilm),
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening,
             CancellationToken.None);
@@ -78,6 +82,8 @@ public class ItemByItemApplyTests
             Items(user, _firstFilm, _secondFilm, _thirdFilm),
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening,
             CancellationToken.None);
@@ -110,6 +116,8 @@ public class ItemByItemApplyTests
             Items(user, _firstFilm, _secondFilm, _thirdFilm),
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening,
             CancellationToken.None);
@@ -141,6 +149,8 @@ public class ItemByItemApplyTests
             Items(user, _secondFilm),
             server,
             standing,
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening.AddHours(1),
             CancellationToken.None);
@@ -169,6 +179,8 @@ public class ItemByItemApplyTests
             Items(user, _firstFilm, _secondFilm, _thirdFilm),
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening,
             CancellationToken.None);
@@ -199,6 +211,8 @@ public class ItemByItemApplyTests
             items,
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening,
             CancellationToken.None);
@@ -210,6 +224,8 @@ public class ItemByItemApplyTests
             items,
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening.AddHours(1),
             CancellationToken.None);
@@ -239,6 +255,8 @@ public class ItemByItemApplyTests
             Items(user, _firstFilm),
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening,
             CancellationToken.None);
@@ -266,6 +284,8 @@ public class ItemByItemApplyTests
             Items(user, _firstFilm, _secondFilm),
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening,
             CancellationToken.None);
@@ -290,6 +310,8 @@ public class ItemByItemApplyTests
             Items(user, _firstFilm, _secondFilm),
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening,
             CancellationToken.None);
@@ -326,6 +348,8 @@ public class ItemByItemApplyTests
             crossed,
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening,
             CancellationToken.None));
@@ -354,6 +378,8 @@ public class ItemByItemApplyTests
             Items(user, _firstFilm),
             server,
             AgreedRecords.NoneYet(_pairing, somebodyElse.Id),
+            ProvenanceRecords.NoneYet(_pairing, somebodyElse.Id),
+            _peerUser,
             1,
             _evening,
             CancellationToken.None));
@@ -391,6 +417,8 @@ public class ItemByItemApplyTests
             Items(user, _firstFilm),
             new RecordedWrites(),
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             0,
             _evening,
             CancellationToken.None));
@@ -414,6 +442,8 @@ public class ItemByItemApplyTests
             Items(user, _firstFilm, _secondFilm, _thirdFilm),
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening,
             stopping.Token);
@@ -444,6 +474,8 @@ public class ItemByItemApplyTests
             Items(user, _firstFilm, _secondFilm),
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening,
             CancellationToken.None));
@@ -465,6 +497,8 @@ public class ItemByItemApplyTests
             Array.Empty<ItemToApply>(),
             new RecordedWrites(),
             standing,
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
             1,
             _evening,
             CancellationToken.None);

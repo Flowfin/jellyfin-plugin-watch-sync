@@ -57,13 +57,20 @@ namespace Jellyfin.Plugin.WatchSync.Records;
 /// </para>
 ///
 /// <para>
-/// What this does not decide: nothing writes one yet. #44's first condition asks that every write
-/// path record provenance over the whole apply surface, and nothing calls
-/// <c>IUserDataGateway.Write</c>. The retention is a setting in that issue's fourth condition and
-/// there is no setting here either; what is on the type is the rule a sweep will call and the two
-/// numbers it will be handed, in the shape <see cref="ConflictRecords"/> took, and the sweep is
-/// #55 and the setting is #58. The default that condition asks to be stated in the privacy note
-/// is #107.
+/// What fills one is <c>ItemByItemApply</c>, the one caller of
+/// <c>IUserDataGateway.Write</c>, which stamps an entry per field a write changed and answers
+/// this record rather than writing it. Where it reaches the store, and in which order against the
+/// watermark, is the exchange's decision in <c>docs/transfer.md</c>.
+/// </para>
+///
+/// <para>
+/// What is still nobody's caller here is the retention. <see cref="Retaining"/> is the rule a
+/// sweep will call and <see cref="MaximumEntries"/> is the bound that holds meanwhile, and the
+/// difference between the two matters for what an undo can reach: the cap drops the oldest entries
+/// and nothing yet drops entries for being old, so a record kept under this type today is bounded
+/// by how much was written and never by how long ago. The sweep is #55, the retention as a setting
+/// is #58, and the default that #44's fourth condition asks to be stated in the privacy note is
+/// #107.
 /// </para>
 /// </summary>
 public sealed class ProvenanceRecords

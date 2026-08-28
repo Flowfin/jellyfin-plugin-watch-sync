@@ -28,6 +28,8 @@ internal sealed class RecordedWrites : IUserDataGateway
 
     private readonly Dictionary<Guid, Exception> _refused = new Dictionary<Guid, Exception>();
 
+    private readonly Dictionary<Guid, Exception> _refusedReads = new Dictionary<Guid, Exception>();
+
     private readonly List<RecordedWrite> _writes = new List<RecordedWrite>();
 
     private Action? _afterEachWrite;
@@ -36,6 +38,31 @@ internal sealed class RecordedWrites : IUserDataGateway
     /// Gets every write this side was asked for, in the order it arrived, refused ones included.
     /// </summary>
     internal IReadOnlyList<RecordedWrite> Writes => _writes;
+
+    /// <summary>
+    /// Puts a state on this side without going through the write path, so a case can say what the
+    /// person already held before the walk reached the item.
+    ///
+    /// It is not a write and is deliberately not recorded as one. What the facts about provenance
+    /// compare is the value a walk replaced against the value that was there, and a set-up that
+    /// arrived through <see cref="Write"/> would put a row in the list the walk's own writes are
+    /// counted in.
+    /// </summary>
+    /// <param name="itemId">The item.</param>
+    /// <param name="state">What this side holds for it.</param>
+    internal void Hold(Guid itemId, SyncedState state) => _held[itemId] = state;
+
+    /// <summary>
+    /// Refuses the next read of one item, with the failure the server would raise.
+    ///
+    /// A read is refused separately from a write because the walk makes both against one item and
+    /// the two fail differently: a refused read is an item nothing was attempted on, and a refused
+    /// write is one that was attempted and did not land. Neither may leave a record of provenance
+    /// behind, and only a case that can produce each on its own says so.
+    /// </summary>
+    /// <param name="itemId">The item to refuse a read of.</param>
+    /// <param name="failure">What the read is refused with.</param>
+    internal void RefuseRead(Guid itemId, Exception failure) => _refusedReads[itemId] = failure;
 
     /// <summary>
     /// Refuses the next write against one item, with the failure the server would raise.
@@ -62,6 +89,11 @@ internal sealed class RecordedWrites : IUserDataGateway
     public UserDataReading Read(User user, BaseItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
+
+        if (_refusedReads.TryGetValue(item.Id, out var failure))
+        {
+            throw failure;
+        }
 
         return new UserDataReading(HeldFor(item.Id), item.RunTimeTicks);
     }
