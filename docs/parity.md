@@ -47,10 +47,23 @@ This board's:
     call / build
     call / test
     Reject Trojan Source Unicode
+    Audit workflows (zizmor)
 
-Three against thirteen. The gap is the subject of this file and of the milestone
+Four against thirteen. The gap is the subject of this file and of the milestone
 it belongs to, and most of it is work that has not been done rather than work that
 was refused.
+
+THIS PASSAGE QUOTED THREE AND SAID `Three against thirteen`, AND THE COMMAND
+BESIDE IT RETURNS FOUR. That is rule one's own defect standing in the document
+that tracks this board's gate. Neither quotation above is anchored to a commit,
+because neither is about the tree: both are live readings of a repository
+setting, so a stale one here is a reader told the gate is looser than it is.
+`Audit workflows (zizmor)` had joined the required set and nothing in this tree
+noticed, because nothing in this tree reads a ruleset. It was found by running
+the command rather than by reading what was pasted under it, and the row for that
+check further down carried the same claim and is corrected in the same change.
+Both sets above were re-taken for this edit, the other board's with this board's
+rather than carried across from the paragraph.
 
 What actually reports on this board's mainline today, which is a different set
 again, because a check can run without being required. Read at
@@ -150,7 +163,7 @@ it and the reason is in the row.
 | `Deterministic PR-hygiene checks` | here | `.github/workflows/pull-request-check.yml`, from #100. It judges the pull request itself on rules that need no judgement and says which rule refused. Not required by the ruleset; #105. |
 | `Enforce greppable invariants` | owed, #148 | Adopted in #99. The shape is already in the suite twice; #148 is where the remaining invariants become rules. |
 | `Reject Trojan Source Unicode` | here | Required today. This is the one row where the two gates already agree completely. |
-| `Audit workflows (zizmor)` | here | Runs on every pull request. Not required; #105. #98 is the permissions and pinning work it reads. |
+| `Audit workflows (zizmor)` | here | Runs on every pull request. Required by the ruleset, read with the command at the top of this file. This row said `Not required; #105` while the ruleset already named it, which is the drift that passage records and the reason both were repaired together. #98 is the permissions and pinning work it reads. |
 | `dependency-review` | here | Runs on a pull request and fails closed on any severity. It only sees what a pull request changes, so an advisory published against an unchanged dependency is invisible to it. The scheduled half is now here too, in the row below; what is left of #97 is making this one required, which is #105, and picking up a scheduled failure out of band, which is #121. |
 
 ### Refused, with the reason
