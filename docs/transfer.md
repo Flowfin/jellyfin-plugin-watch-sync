@@ -110,6 +110,7 @@ special handling, so no row's next step is a repair.
 | The envelope was refused for a member carried twice | The watermark unmoved, the refusal recorded with the peer and the member that arrived twice, #253. | Nothing until the peer's serializer is repaired. Retrying changes nothing, because the same peer builds the same body, and the status page is where an operator sees which member it was. |
 | The envelope was refused for a bound | The watermark unmoved, the refusal recorded with the peer, the bound and the count, #19. | The next exchange asks from the same watermark. A peer that keeps exceeding a bound is a peer to look at rather than a state to recover from. |
 | Some items applied, then the run cap was reached | The agreed record written for the items decided, the watermark advanced to the last point both sides agreed, and the stop recorded with what was examined, #38. | The next exchange asks from that watermark and continues. |
+| Some items applied, then the failures stopped being about the items | The agreed record written for the items that were written, the ones that failed named with their reasons and still outstanding, and the stop carried on the answer rather than left to be inferred from the counts, #54. | The next exchange asks from the same watermark and meets the same side. Nothing here is a repair, and repeating the exchange is not one either: what stopped the run is this server, and an operator is the thing that has to look at it. |
 | Some items applied, then the process stopped | The agreed record written for the items decided. The watermark is wherever it was last written, which is at or behind those items. | The next exchange asks from that watermark. Items decided but behind the watermark are offered again and change nothing, because applying a change twice is #50. |
 | An item could not be matched or was ambiguous | Nothing written for that item, the reason recorded against it, #26 and #27. The rest of the exchange continued. | Nothing automatic. The operator fixes the library metadata and the next exchange matches it. |
 | The pairing was revoked mid-exchange | Whatever was applied before the revocation was learned, its provenance stamped with the pairing, #44. The queue for that peer is dropped and nothing further is sent or applied, #45. | Nothing on that pairing, ever. Undoing what was written is the provenance route in #44 and it is an operator action. |
@@ -172,6 +173,39 @@ order this document fixes for the whole exchange, the agreed record and then the
 watermark, is still a sentence a reading enforces. Which of the end states above
 a run reaches is decided by nothing here yet, because there is no exchange, and
 #47 is where one is defined.
+
+### A walk that is failing stops, and a walk with failures in it does not
+
+The row above is the one route out of an exchange where this side rather than an item is
+what went wrong, and the two are worth separating because the same walk produces both.
+Items disappearing from a library between an exchange deciding and a walk writing is
+ordinary, and stopping for it would be the all-or-nothing outcome the per-item rule exists
+to refuse. A database that is down, an account that may not write, or a mapping naming
+somebody else's record fails nearly every item it is handed, and working through the rest
+of the envelope records hundreds of refusals about a fault none of them is about, then does
+it again on the next exchange.
+
+The rule is a share of what the walk has attempted, with a floor beneath which it declines
+to judge, and it is
+`Jellyfin.Plugin.WatchSync/Apply/FailureShare.cs`. The floor is what keeps the rule off the
+smallest envelope there is: one attempted item that was refused is a share of one, which is
+above every share the rule accepts, so without it a walk over a single deleted film would
+stop and report a systematic failure. The share is taken over everything attempted rather
+than over a run of consecutive failures, because what it is looking for is a side that has
+stopped accepting writes and not a stretch of bad luck.
+
+A stop is the walk declining to attempt what is left. It is not an unwind and the section
+above is not weakened by it: what was written stays written, the items that failed keep the
+agreement they had, and the ones never reached keep theirs, so the next exchange offers
+exactly what is still outstanding. The answer says the walk stopped, because a walk of ten
+that stopped after the eighth and a walk of eight that finished leave the same two lists,
+and this document's rule that a run covering less than everything is never reported as one
+that covered it all has nowhere else to live.
+
+Nothing calls this yet, for the reason the rest of the walk is not called: there is no
+exchange, and #47 is where one is defined. The share in force is a parameter of the walk
+rather than a number it reads, so where the value comes from is the caller's question and
+`docs/configuration.md` is where it is given a home.
 
 ## How this document is held true
 

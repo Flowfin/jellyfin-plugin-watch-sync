@@ -280,6 +280,7 @@ public class ApplyProvenanceTests
             ProvenanceRecords.NoneYet(_pairing, somebodyElse.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None));
 
@@ -312,6 +313,7 @@ public class ApplyProvenanceTests
             ProvenanceRecords.NoneYet(anotherPairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None));
 
@@ -339,6 +341,7 @@ public class ApplyProvenanceTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             Guid.Empty,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None));
 
@@ -366,6 +369,7 @@ public class ApplyProvenanceTests
             null!,
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None));
     }
@@ -388,6 +392,7 @@ public class ApplyProvenanceTests
             standing,
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None);
 
@@ -420,6 +425,7 @@ public class ApplyProvenanceTests
             earlier,
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None);
 
@@ -439,6 +445,7 @@ public class ApplyProvenanceTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None);
 

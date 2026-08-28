@@ -56,6 +56,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None);
 
@@ -85,6 +86,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None);
 
@@ -119,6 +121,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None);
 
@@ -152,6 +155,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening.AddHours(1),
             CancellationToken.None);
 
@@ -182,6 +186,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None);
 
@@ -214,6 +219,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None);
 
@@ -227,6 +233,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening.AddHours(1),
             CancellationToken.None);
 
@@ -258,6 +265,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None);
 
@@ -287,6 +295,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None);
 
@@ -313,6 +322,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None);
 
@@ -351,6 +361,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None));
 
@@ -381,6 +392,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, somebodyElse.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None));
 
@@ -420,6 +432,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             0,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None));
     }
@@ -445,6 +458,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             stopping.Token);
 
@@ -477,6 +491,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None));
     }
@@ -500,6 +515,7 @@ public class ItemByItemApplyTests
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
             1,
+            FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None);
 
@@ -518,6 +534,189 @@ public class ItemByItemApplyTests
 
         Assert.Throws<ArgumentException>(() => new ApplyFailure(Subject(user, _firstFilm), "  "));
     }
+
+    /// <summary>
+    /// The third condition of #54. Where the failures have stopped being about the items, the walk
+    /// stops rather than working through the rest of the envelope, and the answer says it stopped.
+    ///
+    /// Five of this person's items are refused and three are written, which is what a mapping
+    /// pointing at somebody else's record or a side that has stopped accepting writes looks like
+    /// from in here. The stop lands on the eighth attempt rather than on the fifth refusal, because
+    /// a share under the floor is arithmetic on too few points, and the ninth item is never tried.
+    /// </summary>
+    [Fact]
+    public void AWalkWhoseFailuresHaveStoppedBeingAboutTheItemsStops()
+    {
+        var user = UserDataFixtures.Someone();
+        var server = new RecordedWrites();
+        var films = Films(9);
+
+        foreach (var refused in films.Take(5))
+        {
+            server.Refuse(refused, new InvalidOperationException("the record is not writable"));
+        }
+
+        var answer = ItemByItemApply.Apply(
+            user,
+            Items(user, films),
+            server,
+            AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
+            1,
+            FailureShare.DefaultMaximumShare,
+            _evening,
+            CancellationToken.None);
+
+        Assert.True(answer.StoppedOnFailureShare);
+        Assert.Equal(8, answer.Examined);
+        Assert.Equal(5, answer.Failed.Count);
+        Assert.Equal(3, answer.Applied.Count);
+        Assert.DoesNotContain(films[8], server.Writes.Select(write => write.ItemId));
+        Assert.Null(answer.Agreed.For(films[8]));
+    }
+
+    /// <summary>
+    /// The other side of the same walk, and the one that costs more to get wrong. Failures at the
+    /// share are the ordinary outcome of an exchange, so the walk reaches every item it was handed
+    /// and reports that it was not stopped.
+    ///
+    /// Without this fact a rule that stopped every walk with a refusal in it would pass the one
+    /// above, and what it would produce is the all-or-nothing exchange this issue exists against.
+    /// </summary>
+    [Fact]
+    public void AWalkWhoseFailuresAreOrdinaryReachesEveryItem()
+    {
+        var user = UserDataFixtures.Someone();
+        var server = new RecordedWrites();
+        var films = Films(9);
+
+        foreach (var refused in films.Take(4))
+        {
+            server.Refuse(refused, new InvalidOperationException("the library no longer holds it"));
+        }
+
+        var answer = ItemByItemApply.Apply(
+            user,
+            Items(user, films),
+            server,
+            AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
+            1,
+            FailureShare.DefaultMaximumShare,
+            _evening,
+            CancellationToken.None);
+
+        Assert.False(answer.StoppedOnFailureShare);
+        Assert.Equal(9, answer.Examined);
+        Assert.NotNull(answer.Agreed.For(films[8]));
+    }
+
+    /// <summary>
+    /// One refused item out of three does not stop a walk, which is the floor reaching the walk
+    /// rather than only the rule.
+    ///
+    /// It is the smallest envelope somebody actually sends and it is the case a share alone gets
+    /// wrong: one of three failing is a third, and a third of nothing much is not evidence of
+    /// anything.
+    /// </summary>
+    [Fact]
+    public void AWalkTooShortToJudgeIsNotStopped()
+    {
+        var user = UserDataFixtures.Someone();
+        var server = new RecordedWrites();
+        server.Refuse(_firstFilm, new InvalidOperationException("the library no longer holds it"));
+
+        var answer = ItemByItemApply.Apply(
+            user,
+            Items(user, _firstFilm, _secondFilm, _thirdFilm),
+            server,
+            AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
+            1,
+            FailureShare.DefaultMaximumShare,
+            _evening,
+            CancellationToken.None);
+
+        Assert.False(answer.StoppedOnFailureShare);
+        Assert.Equal(3, answer.Examined);
+    }
+
+    /// <summary>
+    /// A stop is the walk declining to attempt what is left and never a second pass over what it
+    /// wrote, which is the unwind rule in <c>docs/transfer.md</c> read at the one route out of this
+    /// walk that was added after that rule was written.
+    ///
+    /// The assertion is on the order of the writes rather than on the state they left, for the
+    /// reason the fact about a failure is: a walk that put an item back leaves the same state as
+    /// one that never touched it.
+    /// </summary>
+    [Fact]
+    public void NothingWrittenBeforeAStopIsWrittenAgainOnTheWayOut()
+    {
+        var user = UserDataFixtures.Someone();
+        var server = new RecordedWrites();
+        var films = Films(9);
+
+        foreach (var refused in films.Take(5))
+        {
+            server.Refuse(refused, new InvalidOperationException("the record is not writable"));
+        }
+
+        var answer = ItemByItemApply.Apply(
+            user,
+            Items(user, films),
+            server,
+            AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
+            1,
+            FailureShare.DefaultMaximumShare,
+            _evening,
+            CancellationToken.None);
+
+        Assert.True(answer.StoppedOnFailureShare);
+        Assert.Equal(8, server.Writes.Count);
+        Assert.Equal(
+            films.Take(8).ToList(),
+            server.Writes.Select(write => write.ItemId).ToList());
+    }
+
+    /// <summary>
+    /// A share outside what the rule accepts is refused before the first item is written.
+    ///
+    /// A walk that wrote three items and then threw for a value it was handed at the start has
+    /// already changed somebody's record for a run that was never going to be legal, and the
+    /// assertion is that the server saw nothing rather than that something was thrown.
+    /// </summary>
+    [Fact]
+    public void AFailureShareOutsideTheBoundIsRefusedBeforeAnythingIsWritten()
+    {
+        var user = UserDataFixtures.Someone();
+        var server = new RecordedWrites();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => ItemByItemApply.Apply(
+            user,
+            Items(user, _firstFilm, _secondFilm, _thirdFilm),
+            server,
+            AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
+            1,
+            FailureShare.SmallestConfigurableShare - 0.01,
+            _evening,
+            CancellationToken.None));
+
+        Assert.Empty(server.Writes);
+    }
+
+    private static Guid[] Films(int count) =>
+        Enumerable
+            .Range(1, count)
+            .Select(index => new Guid($"66666666-0000-0000-0000-{index:D12}"))
+            .ToArray();
 
     private static TransferSubject Subject(User user, Guid itemId)
     {

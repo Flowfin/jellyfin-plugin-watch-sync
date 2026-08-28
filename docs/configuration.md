@@ -76,6 +76,10 @@ numbers that are not settings as well as the ones that will be.
 | `RunCap.DefaultMaximumShare` | `double` | 0.1 | up to `MaximumConfigurableShare` | pairing state | a tenth of a small library is a change nobody makes by watching things |
 | `RunCap.MaximumConfigurableChanges` | `int` | 10000 | none | bound on a setting | above it the count reads as a cap while letting a mass-mark through |
 | `RunCap.MaximumConfigurableShare` | `double` | 0.5 | none | bound on a setting | past half of one person's matched items the cap has already allowed what it exists against |
+| `FailureShare.DefaultMaximumShare` | `double` | 0.5 | from `SmallestConfigurableShare` to `LargestConfigurableShare` | pairing state | every second write refused is a side that has stopped accepting them, and no library reaches it by having items missing |
+| `FailureShare.SmallestConfigurableShare` | `double` | 0.25 | none | bound on a setting | below it one deleted film stops an exchange, which is the all-or-nothing outcome the rule sits inside the refusal of |
+| `FailureShare.LargestConfigurableShare` | `double` | 0.9 | none | bound on a setting | above it the rule fires only once essentially everything has failed, which is the rule switched off from the page |
+| `FailureShare.SmallestJudgeableAttempts` | `int` | 8 | none | deliberately absent | below it a share is arithmetic on too few points, and one refused item is a share of one |
 | `PeerText.DefaultLimit` | `int` | 200 | none | plugin configuration | a server name, a user name and a refusal reason arrive whole, and a page of a hundred is still a page |
 | `EnvelopeBounds.MaximumChanges` | `int` | 1000 | none | deliberately absent | what the answering side may put in one reply |
 | `EnvelopeBounds.MaximumBytes` | `int` | 262144 | none | deliberately absent | well below the transport ceiling, so a refusal here is always a peer doing something wrong |
@@ -126,6 +130,16 @@ side, because the argument there is the specific one and #56's is the general on
 because the number bounds a rebuild's memory rather than anything a run produces. Which of
 the two governs is #56's to settle, and a reader who finds it settled the other way should
 expect this row to move rather than the rule above it.
+
+**A number that stops a guard becoming the failure it bounds is not a setting.**
+`FailureShare.SmallestJudgeableAttempts` is how many items a walk has to have attempted
+before a share of them is read as anything. It is not a preference about how strict that
+rule is: the share beside it is that, and the share is a setting. This one is what keeps
+the rule from answering confidently about one item, because a walk over a single deleted
+film is a share of one and that is above every share the rule accepts. A setting for it
+would let an operator set it to one and get an exchange that stops at the first missing
+item, which is the all-or-nothing outcome the rule was added to bound, arrived at through
+the rule.
 
 **A number read from another tree is not this plugin's to set.**
 `TransportBodyCeilingBytes` and `FreshnessBudgetPerPairing` are readings of the pairing
