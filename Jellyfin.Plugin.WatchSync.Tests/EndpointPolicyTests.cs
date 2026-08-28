@@ -2,10 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Routing;
+using Jellyfin.Plugin.WatchSync.Tests.Endpoints;
 using Xunit;
 
 namespace Jellyfin.Plugin.WatchSync.Tests;
@@ -30,13 +27,11 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// </para>
 ///
 /// <para>
-/// WHAT AN ENDPOINT IS is decided here, because #112 wants a reflection over the same controllers
-/// to hold a document against the routes and two reflections written separately disagree about
-/// the population. It is a public method of a public type deriving from
-/// <see cref="ControllerBase"/> that carries an attribute implementing
-/// <see cref="IActionHttpMethodProvider"/>, which is what every <c>HttpGet</c>, <c>HttpPost</c>,
-/// <c>HttpPut</c> and <c>HttpDelete</c> is. Naming the interface rather than the four attributes
-/// is what keeps a verb nobody has used yet inside the population.
+/// WHAT AN ENDPOINT IS is neither decided nor copied here. #112 holds a document against the same
+/// controllers, and two reflections written separately disagree about the population while there
+/// is nothing yet to disagree over, so the one that is holding less than it claims is invisible
+/// until the day both are believed. <see cref="EndpointReflection"/> is where the definition lives
+/// and is what both guards call.
 /// </para>
 ///
 /// <para>
@@ -51,18 +46,6 @@ public class EndpointPolicyTests
     /// Where the table lives, relative to the repository root.
     /// </summary>
     private const string Table = "Jellyfin.Plugin.WatchSync.Tests/Endpoints/policies.txt";
-
-    /// <summary>
-    /// One endpoint, as the reflection finds it.
-    /// </summary>
-    /// <param name="Name">The declaring type and method, as <c>Type.Method</c>.</param>
-    /// <param name="Verb">The HTTP method.</param>
-    /// <param name="Route">The route the attribute declares.</param>
-    /// <param name="Policy">
-    /// The policy the attribute names, <c>default</c> where it names none, or null where nothing
-    /// authorises the endpoint at all.
-    /// </param>
-    private sealed record Endpoint(string Name, string Verb, string Route, string? Policy);
 
     /// <summary>
     /// One row of the table.
@@ -84,7 +67,9 @@ public class EndpointPolicyTests
     [Fact]
     public void ThePluginsEndpointsAndTheTableNameTheSameSet()
     {
-        Assert.Empty(Findings(Discovered(typeof(Plugin).Assembly.GetTypes()), Rows(TableText())));
+        Assert.Empty(Findings(
+            EndpointReflection.Discovered(EndpointReflection.ThePlugin()),
+            Rows(TableText())));
     }
 
     /// <summary>
@@ -99,7 +84,7 @@ public class EndpointPolicyTests
     [Fact]
     public void TheReflectionFindsAnEndpointWhereThereIsOne()
     {
-        var found = Discovered(Fixtures());
+        var found = EndpointReflection.Discovered(EndpointReflection.Fixtures());
 
         Assert.Equal(
             new[]
@@ -126,7 +111,9 @@ public class EndpointPolicyTests
     [Fact]
     public void AnEndpointNothingAuthorisesIsRefused()
     {
-        var findings = Findings(Discovered(Fixtures()), RowsForEveryFixture());
+        var findings = Findings(
+            EndpointReflection.Discovered(EndpointReflection.Fixtures()),
+            RowsForEveryFixture());
 
         Assert.Equal(
             new[]
@@ -150,7 +137,9 @@ public class EndpointPolicyTests
     [Fact]
     public void AnEndpointWithNoRowAndARowWithNoEndpointAreBothRefused()
     {
-        var missing = Findings(Discovered(Fixtures()), Array.Empty<Row>());
+        var missing = Findings(
+            EndpointReflection.Discovered(EndpointReflection.Fixtures()),
+            Array.Empty<Row>());
 
         Assert.Contains(
             "endpoint-with-no-row: ElevatedFixtureController.Elevated",
@@ -177,7 +166,7 @@ public class EndpointPolicyTests
     public void AnEndpointAuthorisedOtherwiseThanItsRowSaysIsRefused()
     {
         var findings = Findings(
-            Discovered(Fixtures()),
+            EndpointReflection.Discovered(EndpointReflection.Fixtures()),
             RowsForEveryFixture()
                 .Select(row => row.Name == "ElevatedFixtureController.Elevated"
                     ? row with { Policy = "default" }
@@ -248,112 +237,12 @@ public class EndpointPolicyTests
     }
 
     /// <summary>
-    /// The endpoints among a set of types.
-    ///
-    /// An endpoint is a public method of a public type deriving from <see cref="ControllerBase"/>
-    /// that carries an attribute implementing <see cref="IActionHttpMethodProvider"/>. The
-    /// interface is named rather than the four attributes so that a verb nobody has used here yet
-    /// is inside the population rather than outside it, which is the direction a definition of
-    /// this kind has to fail in.
-    /// </summary>
-    /// <param name="types">The types to look in.</param>
-    /// <returns>The endpoints.</returns>
-    private static IReadOnlyList<Endpoint> Discovered(IEnumerable<Type> types) =>
-        types
-            .Where(type => type.IsPublic && typeof(ControllerBase).IsAssignableFrom(type))
-            .SelectMany(type => type
-                .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-                .Select(method => new { Type = type, Method = method, Verb = Verb(method) })
-                .Where(each => each.Verb is not null)
-                .Select(each => new Endpoint(
-                    $"{each.Type.Name}.{each.Method.Name}",
-                    each.Verb!,
-                    Route(each.Method),
-                    Policy(each.Type, each.Method))))
-            .ToList();
-
-    /// <summary>
-    /// The HTTP method the attribute declares, or null where the method declares none and is
-    /// therefore not an endpoint.
-    /// </summary>
-    /// <param name="method">The method.</param>
-    /// <returns>The verb.</returns>
-    private static string? Verb(MethodInfo method) =>
-        method
-            .GetCustomAttributes(inherit: true)
-            .OfType<IActionHttpMethodProvider>()
-            .SelectMany(attribute => attribute.HttpMethods)
-            .FirstOrDefault();
-
-    /// <summary>
-    /// The route the attribute declares, or the empty string where it declares none.
-    /// </summary>
-    /// <param name="method">The method.</param>
-    /// <returns>The route.</returns>
-    private static string Route(MethodInfo method) =>
-        method
-            .GetCustomAttributes(inherit: true)
-            .OfType<IRouteTemplateProvider>()
-            .Select(attribute => attribute.Template)
-            .FirstOrDefault(template => template is not null)
-        ?? string.Empty;
-
-    /// <summary>
-    /// What authorises the endpoint: the policy an <c>Authorize</c> attribute names, <c>default</c>
-    /// where it names none, or null where nothing authorises it.
-    ///
-    /// An <c>AllowAnonymous</c> anywhere on the pair answers null however many attributes sit
-    /// beside it, because that is what the server does with it. The method is read before the
-    /// type, so an authorised controller carrying one open action is the open action rather than
-    /// the controller.
-    /// </summary>
-    /// <param name="type">The declaring type.</param>
-    /// <param name="method">The method.</param>
-    /// <returns>The policy, or null.</returns>
-    private static string? Policy(Type type, MethodInfo method)
-    {
-        var attributes = method.GetCustomAttributes(inherit: true)
-            .Concat(type.GetCustomAttributes(inherit: true))
-            .ToList();
-
-        if (attributes.OfType<IAllowAnonymous>().Any())
-        {
-            return null;
-        }
-
-        var authorised = attributes.OfType<AuthorizeAttribute>().ToList();
-
-        if (authorised.Count == 0)
-        {
-            return null;
-        }
-
-        return authorised
-            .Select(attribute => attribute.Policy)
-            .FirstOrDefault(policy => !string.IsNullOrEmpty(policy))
-            ?? "default";
-    }
-
-    /// <summary>
-    /// The fixture controllers, which are the endpoints this suite proves the reflection on.
-    /// </summary>
-    /// <returns>The types.</returns>
-    private static IReadOnlyList<Type> Fixtures() =>
-        typeof(EndpointPolicyTests).Assembly
-            .GetTypes()
-            .Where(type => string.Equals(
-                type.Namespace,
-                "Jellyfin.Plugin.WatchSync.Tests.Endpoints",
-                StringComparison.Ordinal))
-            .ToList();
-
-    /// <summary>
     /// A row for every fixture endpoint, so that a fact about one direction is not answered by
     /// findings from the other.
     /// </summary>
     /// <returns>The rows.</returns>
     private static IReadOnlyList<Row> RowsForEveryFixture() =>
-        Discovered(Fixtures())
+        EndpointReflection.Discovered(EndpointReflection.Fixtures())
             .Select(endpoint => new Row(
                 endpoint.Name,
                 endpoint.Verb,
