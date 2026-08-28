@@ -139,6 +139,17 @@ public static class HeldAboutOnePerson
     /// specific, and a removal that swallowed a refusal would be telling them that about a file
     /// still on the disk.
     /// </para>
+    ///
+    /// <para>
+    /// WHAT SEPARATES REMOVED FROM FOUND IS NOT PROVEN AND THIS SAYS SO. The two counts differ
+    /// only for a document that goes between the walk and the removal, and both are inside one
+    /// call here, so nothing in a headless suite can force that interleaving without a seam this
+    /// type would carry for no caller. Taking the condition off the increment, so that the count
+    /// is the count of documents found, reddens nothing. What the facts do prove is that a
+    /// removal over a store holding nothing about the person answers zero, and that the documents
+    /// counted are gone from the store afterwards; the arm that discriminates is carried on the
+    /// argument above rather than on a run, and a later editor moving it will not be caught.
+    /// </para>
     /// </summary>
     /// <param name="store">The store to remove from.</param>
     /// <param name="mappedUserId">The person, as this server names them.</param>
