@@ -1,0 +1,27 @@
+# Every endpoint this plugin serves and the policy the server authorises it with,
+# one per row. This is the table #66's first condition asks for.
+#
+# Fields are separated by " :: ": the declaring type and method as Type.Method, the
+# HTTP method, the route the attribute declares, and the policy.
+#
+# The policy is the name the server declares, written as the attribute carries it,
+# and never a policy of this plugin's own. Which policy the server offers for
+# elevation is quoted in #66's body, and that decision is not reopened by whoever
+# writes the first controller and finds it easier to compare a role by hand. An
+# endpoint carrying [Authorize] with no policy named is written here as "default",
+# which is the server's own default authorisation and is what a user-scoped
+# endpoint takes.
+#
+# EndpointPolicyTests holds this file and the plugin assembly to each other in both
+# directions: an endpoint with no row fails, and a row naming no endpoint fails. It
+# also refuses an endpoint that is open and one whose attribute does not say what
+# its row says.
+#
+# THIS FILE HAS NO ROWS AND THE PLUGIN HAS NO ENDPOINT. The comparison is therefore
+# empty against empty today, which decides nothing on its own, and that is why the
+# guard is a function over a set of types rather than a search over one assembly:
+# the fixtures beside it carry an endpoint of each shape, so the reflection is
+# proven to find one and to refuse one before the plugin has any. What an endpoint
+# is, for this file and for the document #112 holds against the same routes, is a
+# public method of a public type deriving from ControllerBase that carries an HTTP
+# method attribute.
