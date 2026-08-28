@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -155,6 +156,89 @@ public sealed class DocumentStore
     /// and the exchange after that would be a first one.
     /// </exception>
     public DocumentReading? Read(string name) => ReadWhereItIsThere(PathFor(name));
+
+    /// <summary>
+    /// The names of the documents this store holds, without their suffix.
+    ///
+    /// A walk over the folder rather than a list this type keeps. What is in the store is what
+    /// somebody asking what is held about them is owed, and a list held in memory would answer
+    /// for the writes this process made rather than for the documents on the disk, which are two
+    /// different sets after a restart and after a killed write.
+    ///
+    /// <para>
+    /// A file a write left in flight is not a document and is not named here. It carries the
+    /// bytes of a write that never replaced anything, so a reader that took it for a document
+    /// would be reading a document nobody ever wrote; the suffix exists to tell the two apart
+    /// and this is the reading that uses it.
+    /// </para>
+    ///
+    /// <para>
+    /// The answer is what the folder held at the moment it was read, and nothing holds it still.
+    /// A document written after this returns is not in it, and one removed after this returns
+    /// still is. A caller acting on the list therefore meets a name for a document that is no
+    /// longer there, which <see cref="Read"/> answers with nothing and <see cref="Remove"/>
+    /// answers as removing nothing, so the race is an answer rather than a failure.
+    /// </para>
+    /// </summary>
+    /// <returns>The document names, in no promised order.</returns>
+    /// <exception cref="IOException">
+    /// The filesystem refused the walk. It leaves here as it arrived, because a caller that read
+    /// a refusal as an empty store would tell somebody nothing is held about them.
+    /// </exception>
+    public IReadOnlyList<string> Names()
+    {
+        var names = new List<string>();
+
+        foreach (var path in Directory.EnumerateFiles(
+            _folder.CreateIfAbsent(),
+            "*" + DocumentSuffix))
+        {
+            names.Add(Path.GetFileNameWithoutExtension(path));
+        }
+
+        return names;
+    }
+
+    /// <summary>
+    /// Removes one document from the store.
+    ///
+    /// It is taken under that document's own gate and it moves the generation, so a write that
+    /// read the document before this removal finds its attempt stale and is made again against a
+    /// store the document has gone from. That is what stops a removal and a write in flight
+    /// leaving a document holding what a caller computed from bytes that are no longer there.
+    ///
+    /// <para>
+    /// WHAT IT IS NOT IS A LOCK AGAINST A LATER WRITE, and a reader of #74 has to have that
+    /// sentence. The write made again writes the document back, with whatever it computed from
+    /// nothing, so a removal racing an exchange that is still running removes a document and gets
+    /// a new one. What stops that is stopping the exchange first, which is #45's reaction to a
+    /// revocation, and no ordering inside this type could stand in for it.
+    /// </para>
+    /// </summary>
+    /// <param name="name">The document's name, without a suffix.</param>
+    /// <returns>Whether a document of that name was there to remove.</returns>
+    /// <exception cref="ArgumentException">The name is not one this store composes a path for.</exception>
+    /// <exception cref="IOException">
+    /// The filesystem refused the removal. It leaves here as it arrived, because a removal that
+    /// answered false for a document it failed to delete would be counted as one that was never
+    /// there, and somebody would be told their record is gone while it is on the disk.
+    /// </exception>
+    public bool Remove(string name)
+    {
+        var path = PathFor(name);
+
+        return _gates.GetOrAdd(name, _ => new Gate()).Removing(() =>
+        {
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            File.Delete(path);
+
+            return true;
+        });
+    }
 
     /// <summary>
     /// Replaces one document with what a change makes of the document that is there.
@@ -473,6 +557,34 @@ public sealed class DocumentStore
 
                 Interlocked.Increment(ref _generation);
                 return ReplaceOutcome.Replaced;
+            }
+        }
+
+        /// <summary>
+        /// Removes the document, under the same gate a replace is taken under.
+        ///
+        /// The generation moves only where a document was removed. Moving it for a removal that
+        /// found nothing would make an attempt that read the document at the same moment retry
+        /// against a store nothing changed in, which is a repeat of the whole write for no
+        /// reason, and the change it re-runs is the caller's.
+        ///
+        /// There is no generation to compare against here, because a removal is not conditional
+        /// on the document being the one somebody read. It removes what is there.
+        /// </summary>
+        /// <param name="remove">The removal itself, which answers whether anything was there.</param>
+        /// <returns>Whether a document was removed.</returns>
+        internal bool Removing(Func<bool> remove)
+        {
+            lock (_replace)
+            {
+                if (!remove())
+                {
+                    return false;
+                }
+
+                Interlocked.Increment(ref _generation);
+
+                return true;
             }
         }
     }
