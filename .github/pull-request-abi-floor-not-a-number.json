@@ -1,0 +1,19 @@
+{
+  "_what_this_is": "The 12.0 line's floor moves to the pre-release spelling of the package this repository actually references, which is the mistake somebody makes rather than an invented one: 12.0.0-rc4 is not a dotted number and nothing here can say whether it sits above or below 12.0.0.0. It has to pass, and it has to say that the pair could not be ordered. Answering an unordered pair as one that did not rise would pass a raised floor for the reading having failed, which is the direction that costs something, and the exit code alone cannot tell that apart from a floor that held.",
+  "title": "Declare the 12.0 line against the release candidate (#91)",
+  "body": "The floor follows the package spelling. For #91.",
+  "commits": [
+    {
+      "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "message": "Declare the 12.0 line against the release candidate\n\nFor #91."
+    }
+  ],
+  "files": [
+    "build.yaml"
+  ],
+  "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"0.4.0.0\"\ntargetAbi: \"10.11.11.0\"\nframework: \"net9.0\"\ntargets:\n- framework: \"net9.0\"\n  targetAbi: \"10.11.11.0\"\n- framework: \"net10.0\"\n  targetAbi: \"12.0.0.0\"\n",
+  "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.4.0.0\"\ntargetAbi: \"10.11.11.0\"\nframework: \"net9.0\"\ntargets:\n- framework: \"net9.0\"\n  targetAbi: \"10.11.11.0\"\n- framework: \"net10.0\"\n  targetAbi: \"12.0.0-rc4\"\n",
+  "envelope_versions_before": "public static class EnvelopeVersions\n{\n    public static IReadOnlyList<int> Supported { get; } = new[] { 1, 2 };\n}\n",
+  "envelope_versions_after": "public static class EnvelopeVersions\n{\n    public static IReadOnlyList<int> Supported { get; } = new[] { 1, 2 };\n}\n",
+  "releases": 1
+}

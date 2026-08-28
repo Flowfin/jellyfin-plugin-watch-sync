@@ -3,8 +3,9 @@
 
 Every other check here reasons about the code. This one reasons about the pull
 request: whether it names an issue, whether its commits do, whether a version
-bump carries the changelog entry that goes with it, and whether a change that
-drops support for something carries one. Nothing the compiler, the analyzers,
+bump carries the changelog entry that goes with it, whether a change that drops
+support for something carries one, and whether one that raises the floor of a
+line it keeps carries one. Nothing the compiler, the analyzers,
 the sign-off gate or the workflow audit reads can answer any of those, because
 none of them sees the pull request at all.
 
@@ -74,9 +75,27 @@ VERSION = re.compile(r'(?m)^version:[ \t]*"([^"]*)"')
 # answer, which BuildTargetsTests refuses. An entry is found by its `framework`,
 # because that is what a target is here, and an ABI moving under a framework
 # that stays is a package bump rather than a line dropped. This reading does not
-# reach that case and does not pretend to.
+# reach that case; the reading below it does, and the two are separate because
+# what they strand is not the same thing.
 TARGETS = re.compile(r"(?m)^targets:[ \t]*$")
 TARGET_ENTRY = re.compile(r'(?m)^-[ \t]+framework:[ \t]*"([^"]*)"')
+
+# Where a server line's floor is declared, read as the pair rather than as the
+# framework alone. `targetAbi` is not a description of the build: it is the
+# oldest server this plugin claims on that line, and a server compares itself
+# against it before it will install. A number that rises under a framework that
+# stays therefore leaves every install below the new one holding the version it
+# has and never offered another. That is the same harm as a line disappearing,
+# and it arrives without the list losing a member and without the version
+# moving, so neither of the two rules beside this one sees it.
+#
+# The pair is required in the order the manifest writes it, and a reordered
+# entry is unread rather than empty. That is the safe direction and it is
+# reported by the advisory over an unreadable declaration rather than passing in
+# silence.
+TARGET_FLOOR = re.compile(
+    r'(?m)^-[ \t]+framework:[ \t]*"([^"]*)"[ \t]*\r?\n[ \t]+targetAbi:[ \t]*"([^"]*)"'
+)
 
 # Where the envelope versions are declared. EnvelopeVersions.Supported is the
 # one place that set exists, which is the fifth rule in #18, so the set a peer
@@ -146,6 +165,89 @@ def server_lines(manifest):
     return found or None
 
 
+def target_floors(manifest):
+    """The ABI floor each server line declares, or None where none is readable.
+
+    The same None-or-a-reading rule as the two beside it, for a sharper reason.
+    A manifest whose entries this cannot parse would answer the empty mapping,
+    the comparison would find no framework at both ends, and a change that
+    raised a floor would pass because the reading failed rather than because the
+    floor held.
+
+    It does not repeat the `targets:` guard `server_lines` carries above it. The
+    pair regex already requires an entry, so the guard changed no answer on any
+    document here and could be deleted without a single one going red, which
+    makes it a line claiming a check nothing proves.
+    """
+    if manifest is None:
+        return None
+    found = TARGET_FLOOR.findall(manifest)
+    if not found:
+        return None
+    floors = {framework: abi for framework, abi in found}
+    if len(floors) != len(found):
+        return None
+    return floors
+
+
+def is_a_version_number(value):
+    """Whether a value is a dotted number this can order against another."""
+    parts = (value or "").split(".")
+    return bool(value) and all(part.isdigit() for part in parts)
+
+
+def as_version_number(value):
+    """A dotted number as a tuple, padded so two of unequal length compare."""
+    return tuple(int(part) for part in value.split("."))
+
+
+def rose(was, now):
+    """Whether a floor moved upward, or None where the two cannot be ordered."""
+    if not (is_a_version_number(was) and is_a_version_number(now)):
+        return None
+    first, second = as_version_number(was), as_version_number(now)
+    width = max(len(first), len(second))
+    first += (0,) * (width - len(first))
+    second += (0,) * (width - len(second))
+    return second > first
+
+
+def raised_floors(document):
+    """Yield the framework and the two floors, per line whose floor rose.
+
+    Only upward. A floor that falls widens what the plugin installs on and
+    strands nobody, and a rule refusing it would ask for an entry about a
+    server that just gained the plugin rather than lost it.
+    """
+    before = target_floors(document.get("manifest_before"))
+    after = target_floors(document.get("manifest_after"))
+    if before is None or after is None:
+        return
+    for framework in sorted(set(before) & set(after)):
+        was, now = before[framework], after[framework]
+        if was == now:
+            continue
+        if rose(was, now):
+            yield framework, was, now
+
+
+def unorderable_floors(document):
+    """Yield the framework and its two floors, per line this cannot order.
+
+    A floor that moved to or from something that is not a dotted number is a
+    change nothing here may conclude about, and it is a different state from a
+    floor that held. Saying so is what keeps the rule's silence readable.
+    """
+    before = target_floors(document.get("manifest_before"))
+    after = target_floors(document.get("manifest_after"))
+    if before is None or after is None:
+        return
+    for framework in sorted(set(before) & set(after)):
+        was, now = before[framework], after[framework]
+        if was != now and rose(was, now) is None:
+            yield framework, was, now
+
+
 def envelope_versions(source):
     """The envelope versions a source declares, or None where none is readable.
 
@@ -181,6 +283,15 @@ SUPPORT = (
     ("server line", "manifest_before", "manifest_after", server_lines),
 )
 
+# Every declaration a rule here reads out of one end and compares against the
+# other. The drop rule walks SUPPORT alone, because a floor is not a member that
+# can go missing; the advisory over an unreadable end walks all of them, because
+# an end nothing could parse is worth saying whichever rule was going to read
+# it.
+DECLARATIONS = SUPPORT + (
+    ("ABI floor", "manifest_before", "manifest_after", target_floors),
+)
+
 
 def dropped_support(document):
     """Yield the declaration and what it lost, per declaration this change cuts."""
@@ -203,7 +314,7 @@ def unreadable_support(document):
     that never carried the declaration at all, and there is nothing to say about
     a change that did not touch one.
     """
-    for what, before_key, after_key, read in SUPPORT:
+    for what, before_key, after_key, read in DECLARATIONS:
         ends = [(key, read(document.get(key))) for key in (before_key, after_key)]
         if len([end for key, end in ends if end is not None]) != 1:
             continue
@@ -287,6 +398,18 @@ def blocking(document):
                 )
             )
 
+    if has_published(document) and not changelog_fragments(files):
+        for framework, was, now in raised_floors(document):
+            yield (
+                "raising-an-abi-floor-carries-a-changelog-entry: the {} line "
+                "declares {} where it declared {}, and no changed path is under "
+                "{}. A server below the new number is not offered this version "
+                "at all, so the install that was working yesterday stops being "
+                "updated and is told nothing. The line is still declared and the "
+                "manifest version need not move, so neither rule above sees "
+                "it.".format(framework, now, was, CHANGELOG_DIRECTORY)
+            )
+
 
 def notes(document):
     """Yield one line per blocking rule that was considered and did not apply.
@@ -317,6 +440,15 @@ def notes(document):
                 "such build.".format(what, ", ".join(gone))
             )
 
+        for framework, was, now in raised_floors(document):
+            yield (
+                "raising-an-abi-floor-carries-a-changelog-entry: not applied, "
+                "although the {} line moves its floor from {} to {}, because "
+                "the repository has published no release. What a raised floor "
+                "strands is an install somebody made, and there is "
+                "none.".format(framework, was, now)
+            )
+
 
 def advisory(document):
     """Yield one warning line per advisory rule the document breaks."""
@@ -341,9 +473,21 @@ def advisory(document):
             "a-support-declaration-is-read-or-nothing-is-concluded: the {} "
             "declaration parses at one end of this change and not in `{}`, so "
             "what that end declares is unknown and the rule over it is not run "
-            "here. An unread declaration answering the empty set would refuse a "
-            "change that dropped nothing, so this warns and never fails, and "
-            "somebody reads the two ends.".format(what, key)
+            "here. An end nothing could read is not an end that declares "
+            "nothing, and answering it as one would refuse a change that took "
+            "nothing away or pass one the rule exists for, so this warns and "
+            "never fails, and somebody reads the two ends.".format(what, key)
+        )
+
+    for framework, was, now in unorderable_floors(document):
+        yield (
+            "an-abi-floor-is-ordered-or-nothing-is-concluded: the {} line moves "
+            "its floor from {} to {}, and at least one of those is not a dotted "
+            "number, so whether the floor rose is unknown and the rule over it "
+            "is not run here. Answering that an unordered pair did not rise "
+            "would pass a raised floor for the reading having failed, so this "
+            "warns and never fails, and somebody reads the two "
+            "numbers.".format(framework, was, now)
         )
 
 

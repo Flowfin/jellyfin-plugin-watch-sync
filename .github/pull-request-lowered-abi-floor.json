@@ -1,0 +1,19 @@
+{
+  "_what_this_is": "The 12.0 line's floor moves down, from 12.0.0.0 to 11.0.0.0, and no entry is written. It has to pass. A floor that falls widens what this plugin installs on and strands nobody, so asking for an entry would ask an operator to be told about a server that just gained the plugin. This is the direction proof: a rule written over `the ABI moved` rather than over `the ABI rose` refuses this document, and nothing else here would catch that.",
+  "title": "Claim the 12.0 line from 11.0 upward (#91)",
+  "body": "The floor falls and the line is unchanged otherwise. For #91.",
+  "commits": [
+    {
+      "sha": "9999999999999999999999999999999999999999",
+      "message": "Claim the 12.0 line from 11.0 upward\n\nFor #91."
+    }
+  ],
+  "files": [
+    "build.yaml"
+  ],
+  "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"0.4.0.0\"\ntargetAbi: \"10.11.11.0\"\nframework: \"net9.0\"\ntargets:\n- framework: \"net9.0\"\n  targetAbi: \"10.11.11.0\"\n- framework: \"net10.0\"\n  targetAbi: \"12.0.0.0\"\n",
+  "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.4.0.0\"\ntargetAbi: \"10.11.11.0\"\nframework: \"net9.0\"\ntargets:\n- framework: \"net9.0\"\n  targetAbi: \"10.11.11.0\"\n- framework: \"net10.0\"\n  targetAbi: \"11.0.0.0\"\n",
+  "envelope_versions_before": "public static class EnvelopeVersions\n{\n    public static IReadOnlyList<int> Supported { get; } = new[] { 1, 2 };\n}\n",
+  "envelope_versions_after": "public static class EnvelopeVersions\n{\n    public static IReadOnlyList<int> Supported { get; } = new[] { 1, 2 };\n}\n",
+  "releases": 1
+}

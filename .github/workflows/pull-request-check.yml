@@ -141,6 +141,59 @@ jobs:
             esac
           done
 
+      - name: The floor rule refuses a raised floor, passes a lowered one, and says what it could not order
+        # A line that stays declared while the number under it rises strands
+        # every install below that number, and neither rule above sees it: the
+        # list loses no member and the manifest version need not move. This step
+        # is what keeps that rule from being deleted into a pass.
+        #
+        # Four documents rather than one, because three of them prove things an
+        # exit code cannot. The lowered floor is the direction proof: a rule
+        # written over `the ABI moved` refuses it, and nothing else here would
+        # notice. The declined one and the unordered one both pass, so what has
+        # to be asserted is the line each prints, not the status; deleting
+        # either disclosure leaves both exiting zero and this step is where that
+        # goes red.
+        run: |
+          set -euo pipefail
+          raised=.github/pull-request-raised-abi-floor-near-miss.json
+          if verdict="$(python3 .github/check-pull-request.py < "${raised}")"; then
+            echo "${verdict}"
+            echo "${raised} passed, so the floor rule is not biting" >&2
+            exit 1
+          fi
+          case "${verdict}" in
+            *"FAIL raising-an-abi-floor-carries-a-changelog-entry"*) ;;
+            *)
+              echo "${verdict}"
+              echo "${raised} was refused by another rule, so this one proves nothing" >&2
+              exit 1
+              ;;
+          esac
+          python3 .github/check-pull-request.py < .github/pull-request-raised-abi-floor-repaired.json
+          for quiet in .github/pull-request-lowered-abi-floor.json:"" \
+                       .github/pull-request-raised-abi-floor-before-any-release.json:"NOTE raising-an-abi-floor-carries-a-changelog-entry" \
+                       .github/pull-request-abi-floor-not-a-number.json:"WARN an-abi-floor-is-ordered-or-nothing-is-concluded" \
+                       .github/pull-request-support-declaration-unread.json:"the ABI floor declaration parses at one end"; do
+            document="${quiet%%:*}"
+            expected="${quiet#*:}"
+            if ! verdict="$(python3 .github/check-pull-request.py < "${document}")"; then
+              echo "${verdict}"
+              echo "${document} was refused, so the rule refuses where it may not" >&2
+              exit 1
+            fi
+            echo "${verdict}"
+            if [ -n "${expected}" ]; then
+              case "${verdict}" in
+                *"${expected}"*) ;;
+                *)
+                  echo "${document} passed without saying why, which is the silence this replaced" >&2
+                  exit 1
+                  ;;
+              esac
+            fi
+          done
+
       - name: Assemble the document this pull request is
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
