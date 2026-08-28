@@ -1,0 +1,21 @@
+{
+  "_what_this_is": "The document beside this one repaired and nothing else changed: one changed path under changelog.d/. It has to pass. What it proves is that the rule stops refusing once the entry exists, rather than refusing every package bump for ever.",
+  "title": "Build the 10.11 line against 10.12.0 (#91)",
+  "body": "The referenced package moves up a minor, and the entry says who it strands. For #91.",
+  "commits": [
+    {
+      "sha": "8888888888888888888888888888888888888888",
+      "message": "Build the 10.11 line against 10.12.0\n\nFor #91."
+    }
+  ],
+  "files": [
+    "build.yaml",
+    "Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj",
+    "changelog.d/0004-raise-the-10-11-floor-to-10-12-0.md"
+  ],
+  "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"0.4.0.0\"\ntargetAbi: \"10.11.11.0\"\nframework: \"net9.0\"\ntargets:\n- framework: \"net9.0\"\n  targetAbi: \"10.11.11.0\"\n- framework: \"net10.0\"\n  targetAbi: \"12.0.0.0\"\n",
+  "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.4.0.0\"\ntargetAbi: \"10.12.0.0\"\nframework: \"net9.0\"\ntargets:\n- framework: \"net9.0\"\n  targetAbi: \"10.12.0.0\"\n- framework: \"net10.0\"\n  targetAbi: \"12.0.0.0\"\n",
+  "envelope_versions_before": "public static class EnvelopeVersions\n{\n    public static IReadOnlyList<int> Supported { get; } = new[] { 1, 2 };\n}\n",
+  "envelope_versions_after": "public static class EnvelopeVersions\n{\n    public static IReadOnlyList<int> Supported { get; } = new[] { 1, 2 };\n}\n",
+  "releases": 1
+}
