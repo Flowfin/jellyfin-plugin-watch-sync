@@ -34,6 +34,15 @@ namespace Jellyfin.Plugin.WatchSync.Apply;
 /// </para>
 ///
 /// <para>
+/// A failure on one item does not stop the walk and a walk of failures does, which is #54's third
+/// condition and is <see cref="FailureShare"/>. The two rules are one rule seen at two sizes: what
+/// stepping over a refusal is worth depends on the refusal being about the item, and past a share
+/// of the attempts it is not about the items at all. The walk asks after every item rather than
+/// only after a failure, because a success moves the count the share is taken over and is what
+/// carries a walk past the floor beneath which the rule declines to judge.
+/// </para>
+///
+/// <para>
 /// Every value is assigned rather than added to, which is what makes a second delivery of one
 /// envelope indistinguishable from the first, #50. That is a property of
 /// <see cref="IUserDataGateway.Write"/> and of the state this walk is handed, and the
@@ -101,6 +110,11 @@ public static class ItemByItemApply
     /// <param name="provenance">What this plugin has written under this pairing so far.</param>
     /// <param name="peerUserId">The peer user the decided values came from, as the peer names them.</param>
     /// <param name="envelopeVersion">The version of the envelope the changes arrived under.</param>
+    /// <param name="maximumFailureShare">
+    /// The share of the attempted items this walk may fail before it stops, which is the bound in
+    /// force for this pairing. It is a parameter rather than a number read here, for the reason the
+    /// reason of a write is: the value in force is the caller's and this walk decides none of it.
+    /// </param>
     /// <param name="appliedAt">The moment this walk is running, by this server's clock.</param>
     /// <param name="cancellationToken">Stops the walk between two items.</param>
     /// <returns>What was written, what was not, and the record advanced for the written.</returns>
@@ -119,8 +133,9 @@ public static class ItemByItemApply
     /// decide whether such an entry is in scope.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// The envelope version is not a whole number above zero. An agreement records which version
-    /// carried it, so a version below one would be written into every entry this walk agrees.
+    /// The envelope version is not a whole number above zero, or the failure share is outside what
+    /// <see cref="FailureShare"/> accepts. An agreement records which version carried it, so a
+    /// version below one would be written into every entry this walk agrees.
     /// </exception>
     public static ApplyAnswer Apply(
         User user,
@@ -130,6 +145,7 @@ public static class ItemByItemApply
         ProvenanceRecords provenance,
         Guid peerUserId,
         int envelopeVersion,
+        double maximumFailureShare,
         DateTimeOffset appliedAt,
         CancellationToken cancellationToken)
     {
@@ -168,8 +184,16 @@ public static class ItemByItemApply
                 nameof(peerUserId));
         }
 
+        // Refuses a share outside the bound before the first write rather than at the first
+        // failure. A walk that wrote three items and then threw for a setting it was handed at the
+        // start has already changed somebody's record for a run that was never going to be legal,
+        // and the rule is not restated here to say so: the empty judgement is the same call the
+        // loop makes and answers TooFewToJudge, so what it is used for is its refusal.
+        FailureShare.Judge(0, 0, maximumFailureShare);
+
         var applied = new List<TransferSubject>();
         var failed = new List<ApplyFailure>();
+        var stopped = false;
 
         foreach (var item in items)
         {
@@ -190,18 +214,27 @@ public static class ItemByItemApply
             if (!Written(user, item, gateway, cancellationToken, out var held, out var refusal))
             {
                 failed.Add(new ApplyFailure(item.Subject, refusal!));
-                continue;
+            }
+            else
+            {
+                provenance = Stamped(provenance, item, held, peerUserId, appliedAt);
+
+                agreed = agreed.With(
+                    new AgreedRecord(item.Subject, item.Decided, appliedAt, envelopeVersion));
+
+                applied.Add(item.Subject);
             }
 
-            provenance = Stamped(provenance, item, held, peerUserId, appliedAt);
+            if (FailureShare.Judge(failed.Count, applied.Count + failed.Count, maximumFailureShare)
+                .Answer == FailureShareAnswer.Systematic)
+            {
+                stopped = true;
 
-            agreed = agreed.With(
-                new AgreedRecord(item.Subject, item.Decided, appliedAt, envelopeVersion));
-
-            applied.Add(item.Subject);
+                break;
+            }
         }
 
-        return new ApplyAnswer(applied, failed, agreed, provenance);
+        return new ApplyAnswer(applied, failed, agreed, provenance, stopped);
     }
 
     /// <summary>
