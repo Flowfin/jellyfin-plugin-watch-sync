@@ -4,6 +4,7 @@ using System.Threading;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.WatchSync.Agreement;
 using Jellyfin.Plugin.WatchSync.Model;
+using Jellyfin.Plugin.WatchSync.Records;
 using Jellyfin.Plugin.WatchSync.UserData;
 using MediaBrowser.Model.Entities;
 
@@ -25,9 +26,11 @@ namespace Jellyfin.Plugin.WatchSync.Apply;
 /// is already going wrong, against a server that has just refused one, and it can fail halfway
 /// itself. What it would leave then is a third state nobody planned, with some items at the
 /// peer's value, some at the value they held before, and an agreed record matching neither. So
-/// there is no path out of this walk that writes an item twice, and the property is structural
-/// rather than remembered: the walk holds no record of what an item held before it, so it has
-/// nothing to put back.
+/// there is no path out of this walk that writes an item twice. This paragraph gave the reason as
+/// the walk holding no record of what an item held before it, and that reason has gone: it reads
+/// exactly that value now and puts it in the record of provenance. The rule stands on its own
+/// terms instead, which is where it always belonged, and the paragraph below says why the record
+/// being available does not make the unwind available with it.
 /// </para>
 ///
 /// <para>
@@ -44,15 +47,30 @@ namespace Jellyfin.Plugin.WatchSync.Apply;
 /// </para>
 ///
 /// <para>
-/// WHAT THIS DOES NOT DO, AND IT IS ANOTHER ISSUE'S CONDITION RATHER THAN AN OVERSIGHT. Nothing
-/// here stamps provenance, and #44's first condition asks that every write path record it. The
-/// reason is a defect in the record rather than a choice made here: the value written is held as
-/// a whole number and not as a nullable one, and a write that clears the last played date writes
-/// no number at all, so such a write has no representation and the entry for it would either be
-/// missing or be a sentinel this walk invented. The finding is written on #44 with the reading
-/// that produced it, and it is what has to move before this walk can stamp anything. Until it
-/// does, an undo driven by provenance would not see what this walk wrote, and that is a live gap
-/// rather than a deferred one.
+/// Every value it writes is stamped, which is #44's first condition. The stamp is one entry per
+/// field the write changed, holding what this server held immediately before it and what was put
+/// there, so a revocation can put back what came from a peer. The paragraph above said this walk
+/// could not stamp anything, because the record held the value written as a whole number and a
+/// write that clears a last played date writes no number at all; the record takes an absence on
+/// both members now, so the write that clears has a representation and the reason to wait is
+/// gone.
+/// </para>
+///
+/// <para>
+/// The stamp does not make the unwind above possible and is not a step towards it. What it holds
+/// is written to the store for a revocation that arrives days or months later, and it is read by
+/// an operator action rather than by anything inside a walk. A walk that read it back to put
+/// items right would be the second pass of writes the paragraph above refuses, made at the moment
+/// the server is already refusing one.
+/// </para>
+///
+/// <para>
+/// A write that changed nothing is stamped with nothing, and that is the record's rule rather
+/// than this walk's shortcut: <see cref="ProvenanceRecord"/> refuses an entry whose written value
+/// is the value that was already there, because there is nothing for an undo to put back. So the
+/// count of entries is the count of fields that moved and never the count of writes, and a walk
+/// that wrote a decided state identical to what this server already held advances the agreed
+/// record and stamps no provenance.
 /// </para>
 /// </summary>
 public static class ItemByItemApply
@@ -80,6 +98,8 @@ public static class ItemByItemApply
     /// <param name="items">The items an exchange decided about, in the order to write them.</param>
     /// <param name="gateway">The one interface this plugin writes a record through.</param>
     /// <param name="agreed">The agreed record as it stands before this walk.</param>
+    /// <param name="provenance">What this plugin has written under this pairing so far.</param>
+    /// <param name="peerUserId">The peer user the decided values came from, as the peer names them.</param>
     /// <param name="envelopeVersion">The version of the envelope the changes arrived under.</param>
     /// <param name="appliedAt">The moment this walk is running, by this server's clock.</param>
     /// <param name="cancellationToken">Stops the walk between two items.</param>
@@ -91,7 +111,12 @@ public static class ItemByItemApply
     /// The record is about another mapped user than the one being written to, or an item is. Both
     /// are the same failure seen from two ends, and neither is visible in an answer: the writes
     /// would land, the record would be written, and one person's history would be in another
-    /// person's account.
+    /// person's account. The provenance is a third end of the same failure and is refused the same
+    /// way, on the pairing as well as on the user, because an undo is bounded by the pairing that
+    /// was revoked and an entry filed under the wrong one is either reverted on a revocation that
+    /// has nothing to do with it or left standing on the one that does. A peer user that names
+    /// nobody is refused for the reason the record gives: an undo bounded by a mapping cannot
+    /// decide whether such an entry is in scope.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">
     /// The envelope version is not a whole number above zero. An agreement records which version
@@ -102,6 +127,8 @@ public static class ItemByItemApply
         IReadOnlyList<ItemToApply> items,
         IUserDataGateway gateway,
         AgreedRecords agreed,
+        ProvenanceRecords provenance,
+        Guid peerUserId,
         int envelopeVersion,
         DateTimeOffset appliedAt,
         CancellationToken cancellationToken)
@@ -110,6 +137,7 @@ public static class ItemByItemApply
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(gateway);
         ArgumentNullException.ThrowIfNull(agreed);
+        ArgumentNullException.ThrowIfNull(provenance);
         ArgumentOutOfRangeException.ThrowIfLessThan(envelopeVersion, 1);
 
         if (agreed.MappedUserId != user.Id)
@@ -117,6 +145,27 @@ public static class ItemByItemApply
             throw new ArgumentException(
                 "The agreed record is about another mapped user than the one being written to, so this walk would agree one person's state under another person's record.",
                 nameof(agreed));
+        }
+
+        if (provenance.MappedUserId != user.Id)
+        {
+            throw new ArgumentException(
+                "The record of provenance is about another mapped user than the one being written to, so what this walk wrote into one person's record would be filed under another person's.",
+                nameof(provenance));
+        }
+
+        if (provenance.PairingId != agreed.PairingId)
+        {
+            throw new ArgumentException(
+                "The record of provenance is about another pairing than the one being agreed, and an undo is bounded by the pairing that was revoked, so these writes would be reverted on a revocation they have nothing to do with or left standing on the one that revoked them.",
+                nameof(provenance));
+        }
+
+        if (peerUserId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "A stamp of provenance says which peer user a value came from, and this walk was given nobody, so an undo bounded by a mapping could not decide whether what it wrote is in scope.",
+                nameof(peerUserId));
         }
 
         var applied = new List<TransferSubject>();
@@ -138,11 +187,13 @@ public static class ItemByItemApply
                 break;
             }
 
-            if (!Written(user, item, gateway, cancellationToken, out var refusal))
+            if (!Written(user, item, gateway, cancellationToken, out var held, out var refusal))
             {
                 failed.Add(new ApplyFailure(item.Subject, refusal!));
                 continue;
             }
+
+            provenance = Stamped(provenance, item, held, peerUserId, appliedAt);
 
             agreed = agreed.With(
                 new AgreedRecord(item.Subject, item.Decided, appliedAt, envelopeVersion));
@@ -150,7 +201,7 @@ public static class ItemByItemApply
             applied.Add(item.Subject);
         }
 
-        return new ApplyAnswer(applied, failed, agreed);
+        return new ApplyAnswer(applied, failed, agreed, provenance);
     }
 
     /// <summary>
@@ -170,6 +221,7 @@ public static class ItemByItemApply
     /// <param name="item">The decided item.</param>
     /// <param name="gateway">The one interface this plugin writes a record through.</param>
     /// <param name="cancellationToken">Cancels the write.</param>
+    /// <param name="held">What this server held immediately before the write, where it was made.</param>
     /// <param name="refusal">The name of the type the write was refused with, where it was.</param>
     /// <returns>Whether the item was written.</returns>
     private static bool Written(
@@ -177,12 +229,21 @@ public static class ItemByItemApply
         ItemToApply item,
         IUserDataGateway gateway,
         CancellationToken cancellationToken,
+        out SyncedState? held,
         out string? refusal)
     {
+        held = null;
         refusal = null;
 
         try
         {
+            // Read inside the same attempt as the write, so a read this server refuses is a
+            // failure of the item rather than something thrown out of the walk. It is also the
+            // last moment the value being replaced can be read: a read taken earlier in the run
+            // would be what the person held before the exchange started rather than before this
+            // write, and an undo would put back a value somebody had already moved on from.
+            held = gateway.Read(user, item.Item).State;
+
             gateway.Write(
                 user,
                 item.Item,
@@ -202,5 +263,55 @@ public static class ItemByItemApply
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// The record of provenance with one entry for each field this write changed.
+    ///
+    /// Per field rather than per write, because an undo puts one value back and has to know which
+    /// value it is. A write moves the fields the conflict table decided about and leaves the rest
+    /// where they were, and an entry for a field that did not move would tell a revocation to
+    /// restore a value this plugin never touched.
+    ///
+    /// A reading this server holds nothing for answers nothing for every field rather than the
+    /// values an unwatched item would carry. Nothing and a never-watched record are different
+    /// states, and restoring the second where the first was true leaves a row on an item the
+    /// person has never opened.
+    /// </summary>
+    /// <param name="provenance">The record as it stands before this write.</param>
+    /// <param name="item">The item that was written, with the state that was decided for it.</param>
+    /// <param name="held">What this server held immediately before the write.</param>
+    /// <param name="peerUserId">The peer user the values came from.</param>
+    /// <param name="writtenAt">The moment of the write, by this server's clock.</param>
+    /// <returns>The record carrying what this write replaced.</returns>
+    private static ProvenanceRecords Stamped(
+        ProvenanceRecords provenance,
+        ItemToApply item,
+        SyncedState? held,
+        Guid peerUserId,
+        DateTimeOffset writtenAt)
+    {
+        foreach (var field in Enum.GetValues<SyncedField>())
+        {
+            var before = RecordedValue.Of(held, field);
+            var written = RecordedValue.Of(item.Decided, field);
+
+            if (before == written)
+            {
+                continue;
+            }
+
+            provenance = provenance.With(new ProvenanceRecord(
+                provenance.PairingId,
+                item.Subject.MappedUserId,
+                peerUserId,
+                item.Subject.ItemId,
+                field,
+                before,
+                written,
+                writtenAt));
+        }
+
+        return provenance;
     }
 }

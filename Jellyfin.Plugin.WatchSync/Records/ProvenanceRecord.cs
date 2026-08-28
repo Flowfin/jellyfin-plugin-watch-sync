@@ -56,10 +56,11 @@ namespace Jellyfin.Plugin.WatchSync.Records;
 /// </para>
 ///
 /// <para>
-/// What this does not decide: nothing writes one yet. #44's first condition asks that every write
-/// path record provenance, asserted over the whole apply surface, and there is no apply surface.
-/// <c>IUserDataGateway.Write</c> is the one place anything this plugin decides reaches a person's
-/// record and nothing calls it, so there is no caller for that condition to be true of.
+/// What writes one is <c>ItemByItemApply</c>, which stamps an entry for every field a write
+/// changed. That is #44's first condition and the paragraph here said there was no caller for it
+/// to be true of. <c>IUserDataGateway.Write</c> is still the one place anything this plugin
+/// decides reaches a person's record, and the walk is the one caller of it, so the whole apply
+/// surface is one walk and the condition is a fact over it rather than a rule somebody follows.
 /// </para>
 /// </summary>
 public sealed class ProvenanceRecord
