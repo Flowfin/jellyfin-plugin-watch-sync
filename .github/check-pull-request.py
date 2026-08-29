@@ -21,7 +21,9 @@ file runs in a workflow and against a checkout by hand. Its keys:
     title            the pull request title
     body             the pull request body, or null
     commits          [{"sha": ..., "message": ...}], non-merge commits only
-    files            the paths the pull request changes
+    files            [{"path": ..., "status": ...}], one per changed file, with
+                     the status GitHub gives it, so that a file a change REMOVES
+                     can be told from one it writes
     manifest_before  the text of build.yaml at the base, or null
     manifest_after   the text of build.yaml at the head, or null
     envelope_versions_before  the text of EnvelopeVersions.cs at the base, or null
@@ -55,10 +57,24 @@ import sys
 # until the directory exists a bump on a repository that has published finds
 # nothing there and is refused, which is what that issue asks for.
 #
-# Any changed path under it counts. The document carries paths and not statuses,
-# and a fragment touched by a change is an entry belonging to that change either
-# way, so the distinction would cost a schema and buy nothing here.
+# A path under it that the change WRITES counts, and one it REMOVES does not.
+# THIS PARAGRAPH SAID ANY CHANGED PATH COUNTED, on the reasoning that a fragment
+# touched by a change is an entry belonging to that change either way, and that
+# the distinction would cost a schema and buy nothing. The second half of that
+# is what failed: a fragment a change DELETES is touched by it and is the
+# opposite of an entry it wrote, so a version bump that tidied one stale
+# fragment out of the directory and wrote none satisfied this rule, and so did a
+# change dropping a server line or raising a floor beside such a deletion. #296
+# is where that was found and what carries the demonstration. The schema it
+# costs is one field on a list the caller already had the answer for.
 CHANGELOG_DIRECTORY = "changelog.d/"
+
+# The status of a file the change took away. Named as the one exclusion rather
+# than the permitted statuses being listed, because the list of statuses is the
+# API's and a member added to it would silently stop counting as an entry if this
+# were written the other way round. A rename arrives as one entry carrying the
+# NEW path, so it is an entry the change wrote and is not this.
+REMOVED = "removed"
 
 # An issue reference as this project writes one.
 ISSUE = re.compile(r"#(\d+)")
@@ -144,9 +160,48 @@ def has_published(document):
     return count > 0
 
 
+def changed_files(document):
+    """The files the pull request changes, as (path, status) pairs.
+
+    A file the document states without a path or without a status stops the run
+    rather than being read as one of either. The whole point of the field is the
+    distinction between a fragment written and a fragment taken away, and a
+    default for a missing status would be the permissive one every time, which is
+    the answer #296 was about.
+    """
+    pairs = []
+
+    for entry in document.get("files") or []:
+        if not isinstance(entry, dict):
+            sys.exit(
+                "check-pull-request: a changed file is {} rather than an object "
+                "carrying a path and a status.".format(type(entry).__name__)
+            )
+        path, status = entry.get("path"), entry.get("status")
+        if not path or not status:
+            sys.exit(
+                "check-pull-request: the changed file {!r} carries no {}, and a "
+                "rule that counts what a change WROTE cannot read it.".format(
+                    entry, "path" if not path else "status"
+                )
+            )
+        pairs.append((path, status))
+
+    return pairs
+
+
 def changelog_fragments(files):
-    """The changed paths that are changelog fragments."""
-    return [path for path in files if path.startswith(CHANGELOG_DIRECTORY)]
+    """The changelog fragments the change WROTE.
+
+    A path the change removed is not one of them. It is touched by the change and
+    is the opposite of an entry belonging to it, and counting it is what let a
+    version bump satisfy this rule by deleting a stale fragment.
+    """
+    return [
+        path
+        for path, status in files
+        if path.startswith(CHANGELOG_DIRECTORY) and status != REMOVED
+    ]
 
 
 def server_lines(manifest):
@@ -349,7 +404,7 @@ def blocking(document):
     title = document.get("title") or ""
     body = document.get("body") or ""
     commits = document.get("commits") or []
-    files = document.get("files") or []
+    files = changed_files(document)
 
     if not issues_in(title + "\n" + body):
         yield (
@@ -377,7 +432,8 @@ def blocking(document):
     ):
         yield (
             "a-version-bump-carries-a-changelog-entry: the manifest version "
-            "moves from {} to {} and no changed path is under {}. An operator "
+            "moves from {} to {} and this change writes no path under {}. An "
+            "operator "
             "deciding whether to upgrade a plugin that writes into their "
             "users' data reads those entries and nothing else.".format(
                 before, after, CHANGELOG_DIRECTORY
@@ -388,7 +444,8 @@ def blocking(document):
         for what, gone in dropped_support(document):
             yield (
                 "dropping-support-carries-a-changelog-entry: the {} declaration "
-                "loses {} and no changed path is under {}. Dropping one strands "
+                "loses {} and this change writes no path under {}. Dropping one "
+                "strands "
                 "a peer or a server that was working yesterday, and the number "
                 "in the manifest does not have to move for that to happen, so "
                 "the rule above sees none of it.".format(
@@ -402,8 +459,8 @@ def blocking(document):
         for framework, was, now in raised_floors(document):
             yield (
                 "raising-an-abi-floor-carries-a-changelog-entry: the {} line "
-                "declares {} where it declared {}, and no changed path is under "
-                "{}. A server below the new number is not offered this version "
+                "declares {} where it declared {}, and this change writes no path "
+                "under {}. A server below the new number is not offered this version "
                 "at all, so the install that was working yesterday stops being "
                 "updated and is told nothing. The line is still declared and the "
                 "manifest version need not move, so neither rule above sees "
@@ -516,7 +573,7 @@ def main():
         "{} published release(s): {} blocking failure(s), {} advisory "
         "warning(s), {} rule(s) not applied".format(
             len(document["commits"]),
-            len(document.get("files") or []),
+            len(changed_files(document)),
             "an unstated number of" if document.get("releases") is None
             else document["releases"],
             len(failures),

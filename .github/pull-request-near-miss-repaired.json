@@ -12,7 +12,16 @@
       "message": "Say in the changelog what the check refuses\n\nFor #116."
     }
   ],
-  "files": ["build.yaml", "changelog.d/0002-refuse-a-silent-version-bump.md"],
+  "files": [
+    {
+      "path": "build.yaml",
+      "status": "modified"
+    },
+    {
+      "path": "changelog.d/0002-refuse-a-silent-version-bump.md",
+      "status": "added"
+    }
+  ],
   "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"0.1.0.0\"\n",
   "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.2.0.0\"\n",
   "releases": 1

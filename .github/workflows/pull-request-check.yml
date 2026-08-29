@@ -194,6 +194,66 @@ jobs:
             fi
           done
 
+      - name: A changelog rule counts the entry a change wrote and not the one it deleted
+        # The three rules above are each satisfied by a path under `changelog.d/`.
+        # Until #296 they asked for the NAME of a changed file and never for what
+        # happened to it, so a change that tidied one stale fragment out of the
+        # directory bought the entry it never wrote, for the bump, for a dropped
+        # server line and for a raised floor alike.
+        #
+        # Three documents, and two of them are direction proofs that a single
+        # document cannot give. The first deletes a fragment while bumping the
+        # version and has to be refused for the bump rule's own name. The second
+        # deletes one AND writes one, which has to pass: a rule written over "no
+        # path under the directory was removed" rather than over "a path under it
+        # is there at the head" refuses that honest change, and nothing else here
+        # would notice. The third RENAMES a fragment, which GitHub reports as one
+        # entry carrying the new path, and has to pass too: a rule counting only
+        # `added` refuses somebody renumbering an entry, which is the other
+        # one-word mistake.
+        #
+        # The last leg is the shape rather than a rule, and what it asserts is the
+        # line rather than the status. A changed file arriving without a status
+        # stops the run instead of being read as one, and a run that gave it a
+        # default would still exit non-zero here for the bump rule while having
+        # reinstated exactly the permissive answer #296 is about, so the refusal
+        # has to be read on the error and not on the exit code.
+        run: |
+          set -euo pipefail
+          deleted=.github/pull-request-bump-deletes-a-fragment.json
+          if verdict="$(python3 .github/check-pull-request.py < "${deleted}")"; then
+            echo "${verdict}"
+            echo "${deleted} passed, so a version bump still buys its entry by deleting one" >&2
+            exit 1
+          fi
+          echo "${verdict}"
+          case "${verdict}" in
+            *"FAIL a-version-bump-carries-a-changelog-entry"*) ;;
+            *)
+              echo "${deleted} was refused by another rule, so this proves nothing" >&2
+              exit 1
+              ;;
+          esac
+
+          python3 .github/check-pull-request.py < .github/pull-request-bump-deletes-and-writes-a-fragment.json
+          python3 .github/check-pull-request.py < .github/pull-request-bump-renames-a-fragment.json
+
+          for bad in '"build.yaml"' '{"path": "build.yaml"}'; do
+            document="$(python3 -c "import json,sys; d=json.load(open('.github/pull-request-near-miss-repaired.json')); d['files']=[${bad}]; json.dump(d, sys.stdout)")"
+            if reason="$(printf '%s' "${document}" | python3 .github/check-pull-request.py 2>&1 >/dev/null)"; then
+              echo "a changed file written as ${bad} was read anyway, so the status has a default after all" >&2
+              exit 1
+            fi
+            echo "${reason}"
+            case "${reason}" in
+              "check-pull-request: "*) ;;
+              *)
+                echo "a changed file written as ${bad} was refused by a rule rather than by the shape, so the status has a default after all" >&2
+                exit 1
+                ;;
+            esac
+          done
+
       - name: The release notes assembler refuses what it cannot lead with, and leads with what changes existing data
         # The rules above refuse a change that writes no changelog entry. This is the
         # other end of the same format: what the entry is FOR is the notes a release

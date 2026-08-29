@@ -8,7 +8,16 @@
       "message": "Add the deterministic check over the pull request itself\n\nFor issue 100."
     }
   ],
-  "files": ["build.yaml", "docs/changelog.d/0002-refuse-a-silent-version-bump.md"],
+  "files": [
+    {
+      "path": "build.yaml",
+      "status": "modified"
+    },
+    {
+      "path": "docs/changelog.d/0002-refuse-a-silent-version-bump.md",
+      "status": "added"
+    }
+  ],
   "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"0.1.0.0\"\n",
   "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.2.0.0\"\n",
   "releases": 1

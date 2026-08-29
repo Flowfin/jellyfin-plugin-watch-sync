@@ -8,7 +8,16 @@
       "message": "Start the version below 1.0\n\nFor #180."
     }
   ],
-  "files": ["build.yaml", "docs/compatibility.md"],
+  "files": [
+    {
+      "path": "build.yaml",
+      "status": "modified"
+    },
+    {
+      "path": "docs/compatibility.md",
+      "status": "modified"
+    }
+  ],
   "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"1.0.0.0\"\n",
   "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.1.0.0\"\n",
   "releases": 0
