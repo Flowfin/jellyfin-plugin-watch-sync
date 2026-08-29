@@ -59,6 +59,16 @@ for the tag, and attaches five files:
 - one `.md5` file, the checksum of the archive
 - one `.sha256` file for the same archive
 
+The body of the release is assembled from the changelog fragments under
+`changelog.d/`, by `.github/assemble-release-notes.py`, in the gate job. The entries
+marked as reaching watch state that has already been synced come first, under their
+own heading, and a release carrying none of them says so rather than leaving the
+heading out. GitHub's generated list of merged pull requests follows underneath.
+Which fragments a release carries is worked out from the previous release tag
+contained in the tagged commit, so nothing has to be deleted after a release and no
+entry goes out twice. `docs/changelog.md` is where the format and the assembler are
+argued.
+
 The `.md5` is the value a Jellyfin catalog serves as the plugin checksum. There is
 exactly one per release so that no generator can pair a checksum with the wrong
 file. The archive is the only file with a checksum beside it; the metadata and the
@@ -102,6 +112,10 @@ is gone and no catalog is fed until a manifest generator is added.
   `dotnet restore <project> -p:RestorePackagesWithLockFile=true` and commit it.
 - The version stamped into the assembly is not the version in `build.yaml`.
 - The build produced no archive, or more than one, or no packaging metadata.
+- No changelog fragment belongs to the release, or one of them cannot be assembled
+  into a note: it carries no `Existing-Data` marking, or it is marked as reaching
+  already-synced watch state and says nothing about what it does to it, or there is
+  nothing under its header. This fails in the gate job, before anything is built.
 - A release already exists for the tag, or the same version was already published on
   the other channel.
 

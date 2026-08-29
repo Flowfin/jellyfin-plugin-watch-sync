@@ -245,6 +245,53 @@ jobs:
           echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
           echo "Publishing version ${version} from tag ${tag}, prerelease=${prerelease}."
 
+      - name: Assemble the release notes from the changelog fragments
+        env:
+          TAG: ${{ github.ref_name }}
+        # The changelog here is a directory of fragments rather than a prose file
+        # somebody edits at the end, and this is where a release reads it. The notes
+        # are assembled in this job because it is the one with the checkout: the
+        # release job checks nothing out and handles only the bytes the build
+        # produced. Failing here costs nothing published, because no release exists
+        # until three jobs later.
+        #
+        # Which fragments belong to this release is derived rather than remembered.
+        # An earlier release tag contained in this commit bounds the set, so an entry
+        # that already went out in an earlier release is not repeated; with no such
+        # tag every fragment is taken, which is the first release. Neither case asks
+        # anybody to delete a file after a release, because a step nothing enforces
+        # is one that gets skipped and then the notes repeat every entry ever
+        # written.
+        run: |
+          set -euo pipefail
+          previous="$(git tag --list '*-stable' '*-prerelease' --merged HEAD --sort=-creatordate \
+            | grep -v -x -F -- "${TAG}" | head -n 1 || true)"
+          if [ -n "${previous}" ]; then
+            echo "::notice::These notes carry the changelog fragments written since ${previous}."
+            mapfile -t fragments < <(git diff --name-only --diff-filter=AMR "${previous}" HEAD -- changelog.d/)
+          else
+            echo "::notice::No earlier release tag is contained in this commit, so these notes carry every fragment under changelog.d/."
+            mapfile -t fragments < <(git ls-files -- changelog.d/)
+          fi
+          if [ "${#fragments[@]}" -eq 0 ]; then
+            echo "::error::No changelog fragment belongs to this release, so it would be published with nothing written for the operator deciding whether to take it. Write one under changelog.d/ and tag again."
+            exit 1
+          fi
+          printf 'Assembling from:\n'
+          printf '  %s\n' "${fragments[@]}"
+          mkdir -p "${RUNNER_TEMP}/notes"
+          python3 .github/assemble-release-notes.py "${fragments[@]}" > "${RUNNER_TEMP}/notes/release-notes.md"
+          echo '--- the notes this release will carry ---'
+          cat "${RUNNER_TEMP}/notes/release-notes.md"
+
+      - name: Hand the release notes to the release job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-notes
+          retention-days: 30
+          if-no-files-found: error
+          path: ${{ runner.temp }}/notes/release-notes.md
+
   build:
     name: Build package
     needs: gate
@@ -455,6 +502,31 @@ jobs:
         with:
           name: build-artifact
 
+      - name: Download the release notes
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        # Into the runner's temporary directory and deliberately not into the working
+        # directory: the upload below attaches every file it finds there, and the
+        # notes are the body of the release rather than one more asset beside the
+        # archive.
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/notes
+
+      - name: Check the release notes arrived
+        env:
+          NOTES: ${{ runner.temp }}/notes/release-notes.md
+        # Asked for by name rather than left to the release step. An absent body_path
+        # is a release published with GitHub's generated list alone, which is the
+        # state this route was in before the fragments were read at all, and it would
+        # pass in silence.
+        run: |
+          set -euo pipefail
+          if [ ! -s "${NOTES}" ]; then
+            echo "::error::The gate job's release notes are not here, so this release would carry no entry written for an operator."
+            exit 1
+          fi
+          cat "${NOTES}"
+
       - name: Refuse a version that either channel has already published
         env:
           GH_TOKEN: ${{ github.token }}
@@ -552,6 +624,14 @@ jobs:
           name: ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
           prerelease: ${{ needs.gate.outputs.prerelease }}
+          # The changelog fragments this release carries, assembled by the gate job,
+          # with the entries that change what happens to already-synced watch state
+          # first. `generate_release_notes` stays on beside it and does not replace
+          # it: the API documents that a supplied body is pre-pended to the notes it
+          # generates, so the operator's entries lead and the merged pull requests
+          # follow. The two are written for different readers and the one deciding
+          # whether to upgrade reads first.
+          body_path: ${{ runner.temp }}/notes/release-notes.md
           generate_release_notes: true
           fail_on_unmatched_files: true
           overwrite_files: false
