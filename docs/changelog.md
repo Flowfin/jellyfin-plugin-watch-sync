@@ -139,6 +139,33 @@ The first two bullets are refused by nobody. Whether a rule change alters what
 happens to history that already exists is a judgement about meaning, and the
 review is where a missing entry for one is caught.
 
+## What the three rules count
+
+All three ask whether the change WROTE a path under `changelog.d/`, and a path it
+REMOVED is not one. THIS DOCUMENT AND THE CHECKER BOTH SAID ANY CHANGED PATH
+COUNTED, on the reasoning that a fragment touched by a change is an entry
+belonging to it either way. The second half of that is what failed. A fragment a
+change deletes is touched by it and is the opposite of an entry it wrote, so a
+version bump that tidied one stale fragment out of the directory bought the entry
+it never wrote, and a change dropping a server line or raising a floor beside such
+a deletion was excused the same way. #296 is where that was found and what carries
+the demonstration.
+
+The distinction is made where the answer exists. `.github/assemble-pull-request.py`
+takes the status GitHub gives each changed file and puts it beside the path, and
+`.github/check-pull-request.py` stops on a changed file that carries no status
+rather than reading one into it. A default there would be the permissive one every
+time, which is the answer this was about.
+
+A rename is an entry the change wrote. GitHub reports one as a single file
+carrying the NEW path, so the fragment is there at the head and somebody
+renumbering an entry is not refused. The two mistakes on either side of that are
+one word each, and each has its own document under `.github/`: a rule counting only
+`added` refuses the rename, and a rule refusing any removal under the directory
+refuses the change that deletes a shipped fragment and writes the new one in the
+same commit. Neither is caught by the document that only deletes, which is why
+there are three and not one.
+
 ## What holds this
 
 `ChangelogFragmentTests` reads every fragment `changelog.d/` holds and refuses

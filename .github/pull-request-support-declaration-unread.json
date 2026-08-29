@@ -9,7 +9,10 @@
     }
   ],
   "files": [
-    "build.yaml"
+    {
+      "path": "build.yaml",
+      "status": "modified"
+    }
   ],
   "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"0.4.0.0\"\ntargetAbi: \"10.11.11.0\"\nframework: \"net9.0\"\ntargets:\n- framework: \"net9.0\"\n  targetAbi: \"10.11.11.0\"\n- framework: \"net10.0\"\n  targetAbi: \"12.0.0.0\"\n",
   "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.4.0.0\"\ntargetAbi: \"10.11.11.0\"\nframework: \"net9.0\"\ntargets:\n  - framework: \"net9.0\"\n    targetAbi: \"10.11.11.0\"\n  - framework: \"net10.0\"\n    targetAbi: \"12.0.0.0\"\n",

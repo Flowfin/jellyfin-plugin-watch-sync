@@ -1,0 +1,24 @@
+{
+  "_what_this_is": "A version bump whose only changed path under changelog.d/ is a fragment it DELETES. It writes no entry, and it has to be refused for a-version-bump-carries-a-changelog-entry. Until #296 this document passed with zero blocking failures: the rule read the names of the changed files and not what happened to them, so a change that tidied one stale fragment out of the directory satisfied the rule the tidying had nothing to do with. Nothing else about this document is wrong, so a run over it that refuses for another rule proves nothing.",
+  "title": "Bump the manifest and tidy the changelog directory (#116)",
+  "body": "Closes #116.\n\nThe fragment removed here went out with an earlier release, and the version moves in the same change.",
+  "commits": [
+    {
+      "sha": "1111111111111111111111111111111111111111",
+      "message": "Bump the manifest and tidy the changelog directory\n\nFor #116."
+    }
+  ],
+  "files": [
+    {
+      "path": "build.yaml",
+      "status": "modified"
+    },
+    {
+      "path": "changelog.d/0001-an-entry-that-already-shipped.md",
+      "status": "removed"
+    }
+  ],
+  "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"0.1.0.0\"\n",
+  "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.2.0.0\"\n",
+  "releases": 1
+}

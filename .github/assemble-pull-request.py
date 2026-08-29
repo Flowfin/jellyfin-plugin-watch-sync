@@ -116,17 +116,22 @@ def main(argv):
         if commit["parents"] < 2
     ]
 
-    files = [
-        line
-        for line in gh_or_die(
+    # The status travels with the path. A rule that counts what a change WROTE
+    # cannot be written over names alone: a fragment a change deletes is a
+    # changed path under `changelog.d/` and is the opposite of an entry the
+    # change wrote, which is how a version bump satisfied that rule by tidying
+    # the directory. #296 is where that was found. Taking the field here is what
+    # makes the distinction available, because this is the one place the answer
+    # exists.
+    files = objects(
+        gh_or_die(
             "api",
             "repos/{}/pulls/{}/files".format(repository, number),
             "--paginate",
             "--jq",
-            ".[].filename",
-        ).splitlines()
-        if line.strip()
-    ]
+            ".[] | {path: .filename, status: .status}",
+        )
+    )
 
     base, head = request["base"]["sha"], request["head"]["sha"]
 

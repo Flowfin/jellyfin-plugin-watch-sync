@@ -1,0 +1,28 @@
+{
+  "_what_this_is": "A version bump that deletes a stale fragment AND writes a new one, which has to pass. This is the direction proof for the rule beside it: a rule written over \"no path under changelog.d/ was removed\" rather than over \"a path under changelog.d/ is there at the head\" refuses this document, and refusing it would block the honest change the rule is supposed to let through. The document that only deletes and the document that deletes and writes differ in one entry, and no single document proves both directions.",
+  "title": "Write the entry for the bump and take out the one that shipped (#116)",
+  "body": "Closes #116.\n\nThe entry for this version is written and the one that went out with the last release is removed in the same change.",
+  "commits": [
+    {
+      "sha": "1111111111111111111111111111111111111111",
+      "message": "Write the entry for the bump and take out the one that shipped\n\nFor #116."
+    }
+  ],
+  "files": [
+    {
+      "path": "build.yaml",
+      "status": "modified"
+    },
+    {
+      "path": "changelog.d/0001-an-entry-that-already-shipped.md",
+      "status": "removed"
+    },
+    {
+      "path": "changelog.d/0005-what-this-version-changes.md",
+      "status": "added"
+    }
+  ],
+  "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"0.1.0.0\"\n",
+  "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.2.0.0\"\n",
+  "releases": 1
+}

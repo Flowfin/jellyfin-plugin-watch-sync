@@ -8,7 +8,12 @@
       "message": "Give the manifest the first number it will ship under\n\nFor #189."
     }
   ],
-  "files": ["build.yaml"],
+  "files": [
+    {
+      "path": "build.yaml",
+      "status": "modified"
+    }
+  ],
   "manifest_before": "---\nname: \"Watch Sync\"\nversion: \"0.0.0.0\"\n",
   "manifest_after": "---\nname: \"Watch Sync\"\nversion: \"0.1.0.0\"\n",
   "releases": 4
