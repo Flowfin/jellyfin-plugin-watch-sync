@@ -6,6 +6,7 @@ using Jellyfin.Data.Enums;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Plugin.WatchSync.Agreement;
 using Jellyfin.Plugin.WatchSync.Apply;
+using Jellyfin.Plugin.WatchSync.Configuration;
 using Jellyfin.Plugin.WatchSync.Model;
 using Jellyfin.Plugin.WatchSync.Records;
 using Jellyfin.Plugin.WatchSync.Tests.Apply;
@@ -710,6 +711,101 @@ public class ItemByItemApplyTests
             CancellationToken.None));
 
         Assert.Empty(server.Writes);
+    }
+
+    /// <summary>
+    /// The share an operator configured is the share the walk stops at, which is the last clause
+    /// of #54's third condition.
+    ///
+    /// The same nine items and the same five refusals as the two facts above, run twice. Under the
+    /// default the walk stops on the eighth attempt; with the share raised on the configuration
+    /// document the walk finishes all nine, and the ninth item is written rather than skipped. So
+    /// the setting decides the outcome rather than sitting on a page, which is the difference
+    /// between a configured share and a declared one.
+    ///
+    /// The value comes through <see cref="ServerWideSettings"/> rather than as a number typed here,
+    /// because what the condition asks about is the path from the stored document to the rule, and
+    /// a fact handing the walk a literal would pass with nothing in between them.
+    /// </summary>
+    [Fact]
+    public void TheShareAnOperatorConfiguredIsTheShareTheWalkStopsAt()
+    {
+        var user = UserDataFixtures.Someone();
+        var films = Films(9);
+
+        var reading = ServerWideSettings.Read(new PluginConfiguration
+        {
+            MaximumFailureSharePercent =
+                (int)Math.Round(FailureShare.LargestConfigurableShare * 100),
+        });
+
+        Assert.True(reading.IsRead);
+
+        var server = new RecordedWrites();
+
+        foreach (var refused in films.Take(5))
+        {
+            server.Refuse(refused, new InvalidOperationException("the record is not writable"));
+        }
+
+        var answer = ItemByItemApply.Apply(
+            user,
+            Items(user, films),
+            server,
+            AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
+            1,
+            reading.MaximumFailureShare!.Value,
+            _evening,
+            CancellationToken.None);
+
+        Assert.False(answer.StoppedOnFailureShare);
+        Assert.Equal(9, answer.Examined);
+        Assert.Equal(4, answer.Applied.Count);
+        Assert.Contains(films[8], server.Writes.Select(write => write.ItemId));
+    }
+
+    /// <summary>
+    /// The default that the same document carries where nobody has chosen anything stops the same
+    /// walk.
+    ///
+    /// It is the other half of the fact above and it is what says the difference is the setting
+    /// rather than anything else about the run. Both readings come out of a configuration
+    /// document; only one of them has been changed.
+    /// </summary>
+    [Fact]
+    public void TheShareOnAnUntouchedDocumentStopsTheSameWalk()
+    {
+        var user = UserDataFixtures.Someone();
+        var films = Films(9);
+
+        var reading = ServerWideSettings.Read(new PluginConfiguration());
+
+        Assert.True(reading.IsRead);
+
+        var server = new RecordedWrites();
+
+        foreach (var refused in films.Take(5))
+        {
+            server.Refuse(refused, new InvalidOperationException("the record is not writable"));
+        }
+
+        var answer = ItemByItemApply.Apply(
+            user,
+            Items(user, films),
+            server,
+            AgreedRecords.NoneYet(_pairing, user.Id),
+            ProvenanceRecords.NoneYet(_pairing, user.Id),
+            _peerUser,
+            1,
+            reading.MaximumFailureShare!.Value,
+            _evening,
+            CancellationToken.None);
+
+        Assert.True(answer.StoppedOnFailureShare);
+        Assert.Equal(8, answer.Examined);
+        Assert.DoesNotContain(films[8], server.Writes.Select(write => write.ItemId));
     }
 
     private static Guid[] Films(int count) =>

@@ -1,4 +1,5 @@
 using System;
+using Jellyfin.Plugin.WatchSync.Apply;
 using Jellyfin.Plugin.WatchSync.Model;
 using Jellyfin.Plugin.WatchSync.Records;
 using MediaBrowser.Model.Plugins;
@@ -97,4 +98,22 @@ public class PluginConfiguration : BasePluginConfiguration
     /// </summary>
     public int ProvenanceRetentionDays { get; set; } =
         (int)ProvenanceRecords.DefaultRetention.TotalDays;
+
+    /// <summary>
+    /// Gets or sets the greatest share, in per cent, of the items one walk attempted that may
+    /// fail before the walk stops.
+    ///
+    /// Defaults to <see cref="FailureShare.DefaultMaximumShare"/> and is bounded at both ends, by
+    /// <see cref="FailureShare.SmallestConfigurableShare"/> and
+    /// <see cref="FailureShare.LargestConfigurableShare"/>. It is the one setting here whose
+    /// danger is at the low end: a share near zero stops a walk at the first refused item and
+    /// every exchange after it, which is the all-or-nothing outcome #54 exists to refuse arrived
+    /// at through the rule that bounds it.
+    ///
+    /// It is per cent rather than a fraction because what an operator meets is a number box, and
+    /// a box in which 0.5 and 5 differ by a keystroke and by a factor of ten is one where the
+    /// keystroke costs an exchange.
+    /// </summary>
+    public int MaximumFailureSharePercent { get; set; } =
+        (int)Math.Round(FailureShare.DefaultMaximumShare * 100);
 }

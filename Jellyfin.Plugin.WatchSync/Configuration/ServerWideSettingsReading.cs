@@ -26,12 +26,14 @@ public sealed class ServerWideSettingsReading
         TimeSpan? echoWindow,
         TimeSpan? conflictRetention,
         TimeSpan? provenanceRetention,
+        double? maximumFailureShare,
         IReadOnlyList<SettingRefusal> refusals)
     {
         Positions = positions;
         EchoWindow = echoWindow;
         ConflictRetention = conflictRetention;
         ProvenanceRetention = provenanceRetention;
+        MaximumFailureShare = maximumFailureShare;
         Refusals = refusals;
     }
 
@@ -64,6 +66,12 @@ public sealed class ServerWideSettingsReading
     public TimeSpan? ProvenanceRetention { get; }
 
     /// <summary>
+    /// Gets the greatest share of one walk's attempted items that may fail before it stops, or
+    /// null where anything was refused.
+    /// </summary>
+    public double? MaximumFailureShare { get; }
+
+    /// <summary>
     /// Gets every setting that was refused, in the order the members are declared, or an empty
     /// list where none was.
     /// </summary>
@@ -76,12 +84,14 @@ public sealed class ServerWideSettingsReading
     /// <param name="echoWindow">The echo suppression window.</param>
     /// <param name="conflictRetention">How long a conflict is kept.</param>
     /// <param name="provenanceRetention">How long a provenance entry is kept.</param>
+    /// <param name="maximumFailureShare">The share of a walk that may fail before it stops.</param>
     /// <returns>The reading.</returns>
     public static ServerWideSettingsReading Accepted(
         PositionThresholds positions,
         TimeSpan echoWindow,
         TimeSpan conflictRetention,
-        TimeSpan provenanceRetention)
+        TimeSpan provenanceRetention,
+        double maximumFailureShare)
     {
         ArgumentNullException.ThrowIfNull(positions);
 
@@ -90,6 +100,7 @@ public sealed class ServerWideSettingsReading
             echoWindow,
             conflictRetention,
             provenanceRetention,
+            maximumFailureShare,
             Array.Empty<SettingRefusal>());
     }
 
@@ -109,6 +120,6 @@ public sealed class ServerWideSettingsReading
                 nameof(refusals));
         }
 
-        return new ServerWideSettingsReading(null, null, null, null, refusals);
+        return new ServerWideSettingsReading(null, null, null, null, null, refusals);
     }
 }

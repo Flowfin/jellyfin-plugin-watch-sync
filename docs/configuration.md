@@ -45,7 +45,7 @@ there, or means the wrong thing, does not belong in a file that travels.
 
 ## The settings the configuration document carries
 
-Six, and every one of them is server-wide by the rule above. Each is stored as a whole
+Seven, and every one of them is server-wide by the rule above. Each is stored as a whole
 number of the unit its name ends in, and the reason is the control rather than the format.
 What an operator meets on the page is a number box, so a duration held as a `TimeSpan` would
 be formatted into one and parsed back out of it, and those two conversions are where a value
@@ -63,14 +63,15 @@ into the configuration type: each member reads it from the rule that consumes it
 and the rule cannot come to disagree about what this plugin does out of the box. `Bound` is
 the widest value the rule accepts, declared on the same type.
 
-| Setting | Unit | Default | Carries | Bound |
-| --- | --- | --- | --- | --- |
-| `PositionMoveSeconds` | seconds | 300 | `PositionThresholds.DefaultMove` | `PositionThresholds.MaximumMove` |
-| `PositionFinishSeconds` | seconds | 120 | `PositionThresholds.DefaultFinish` | `PositionThresholds.MaximumFinish` |
-| `PositionShortestItemSeconds` | seconds | 300 | `PositionThresholds.DefaultShortestItem` | `PositionThresholds.MaximumShortestItem` |
-| `EchoWindowSeconds` | seconds | 30 | `EchoWindow.DefaultWindow` | `EchoWindow.MaximumWindow` |
-| `ConflictRetentionDays` | days | 14 | `ConflictRecords.DefaultRetention` | `ConflictRecords.MaximumRetention` |
-| `ProvenanceRetentionDays` | days | 90 | `ProvenanceRecords.DefaultRetention` | `ProvenanceRecords.MaximumRetention` |
+| Setting | Unit | Default | Carries | Smallest | Largest |
+| --- | --- | --- | --- | --- | --- |
+| `PositionMoveSeconds` | seconds | 300 | `PositionThresholds.DefaultMove` | 1 | `PositionThresholds.MaximumMove` |
+| `PositionFinishSeconds` | seconds | 120 | `PositionThresholds.DefaultFinish` | 1 | `PositionThresholds.MaximumFinish` |
+| `PositionShortestItemSeconds` | seconds | 300 | `PositionThresholds.DefaultShortestItem` | 1 | `PositionThresholds.MaximumShortestItem` |
+| `EchoWindowSeconds` | seconds | 30 | `EchoWindow.DefaultWindow` | 1 | `EchoWindow.MaximumWindow` |
+| `ConflictRetentionDays` | days | 14 | `ConflictRecords.DefaultRetention` | 1 | `ConflictRecords.MaximumRetention` |
+| `ProvenanceRetentionDays` | days | 90 | `ProvenanceRecords.DefaultRetention` | 1 | `ProvenanceRecords.MaximumRetention` |
+| `MaximumFailureSharePercent` | per cent | 50 | `FailureShare.DefaultMaximumShare` | `FailureShare.SmallestConfigurableShare` | `FailureShare.LargestConfigurableShare` |
 
 `ServerWideSettings` is the one place this document becomes the values the rules take, and it
 refuses rather than repairs. A value outside its bound is not clamped and not replaced by the
@@ -78,14 +79,41 @@ default, because both of those leave a server running a rule the operator did no
 the page goes on showing the number they typed. Every refused setting is named at once rather
 than the first one, because the other end of this is a person with a form open.
 
-Zero is refused along with everything below it. Each of these six is a distance or a window,
-and zero switches its rule off through the setting: no move threshold, no echo suppression, no
+Zero is refused along with everything below it. Six of these are a distance or a window, and
+zero switches the rule off through the setting: no move threshold, no echo suppression, no
 retention. Switching a rule off is a decision of its own rather than a boundary value of a
 number that means something else.
+
+The seventh is floored higher than its own unit and it is the only one whose dangerous end is
+the low one. A failure share near zero stops a walk at the first item a library no longer
+holds, and at every exchange after it, which is the all-or-nothing outcome #54 exists to refuse
+arrived at through the rule that bounds it. `FailureShare.SmallestConfigurableShare` is where
+that floor is declared and the `Smallest` column is closed against it, the same way the
+`Largest` column is closed against the bound.
 
 One relation is refused that no single setting can be judged against: the finish distance has
 to stay below the shortest item length. Above it, every position on the shortest item this
 plugin carries is a finish, and the rule silently stops being two rules.
+
+## One row that moved, and the argument that moved it
+
+`FailureShare.DefaultMaximumShare` said `pairing state` and says `plugin configuration`. The
+row was written with the run caps beside it, which are per pairing because a cap is a judgement
+about how much one particular peer may be allowed to change, and the share was given the same
+home for the same-looking reason.
+
+It is not the same reason, and the rule at the top of this document decides it rather than the
+resemblance. The test is what a setting means on a server it was not written for. Every cause
+this rule exists to catch is on the side doing the writing, and `FailureShare` says so in its
+own body: this side's database unavailable, a mapping pointing at the wrong person's record, a
+record this account may not write. None of them is a statement about a peer, none of them
+changes because the envelope came from a different one, and the same number copied to another
+server means there exactly what it means here. A per-pairing share would also ask an operator
+to answer the same question once per peer with no information that differs between the answers.
+
+What the move buys is that the share is a setting today rather than one waiting for a home that
+does not exist. Per-pairing state is not written by anything in this tree, so a row homed there
+is a row nothing can act on, and #54's third condition asks for a share an operator configured.
 
 ## What is not a setting yet, and is not refused as one either
 
@@ -133,7 +161,7 @@ numbers that are not settings as well as the ones that will be.
 | `RunCap.DefaultMaximumShare` | `double` | 0.1 | up to `MaximumConfigurableShare` | pairing state | a tenth of a small library is a change nobody makes by watching things |
 | `RunCap.MaximumConfigurableChanges` | `int` | 10000 | none | bound on a setting | above it the count reads as a cap while letting a mass-mark through |
 | `RunCap.MaximumConfigurableShare` | `double` | 0.5 | none | bound on a setting | past half of one person's matched items the cap has already allowed what it exists against |
-| `FailureShare.DefaultMaximumShare` | `double` | 0.5 | from `SmallestConfigurableShare` to `LargestConfigurableShare` | pairing state | every second write refused is a side that has stopped accepting them, and no library reaches it by having items missing |
+| `FailureShare.DefaultMaximumShare` | `double` | 0.5 | from `SmallestConfigurableShare` to `LargestConfigurableShare` | plugin configuration | every second write refused is a side that has stopped accepting them, and no library reaches it by having items missing |
 | `FailureShare.SmallestConfigurableShare` | `double` | 0.25 | none | bound on a setting | below it one deleted film stops an exchange, which is the all-or-nothing outcome the rule sits inside the refusal of |
 | `FailureShare.LargestConfigurableShare` | `double` | 0.9 | none | bound on a setting | above it the rule fires only once essentially everything has failed, which is the rule switched off from the page |
 | `FailureShare.SmallestJudgeableAttempts` | `int` | 8 | none | deliberately absent | below it a share is arithmetic on too few points, and one refused item is a share of one |

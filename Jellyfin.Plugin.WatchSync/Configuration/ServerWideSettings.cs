@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Jellyfin.Plugin.WatchSync.Apply;
 using Jellyfin.Plugin.WatchSync.Model;
 using Jellyfin.Plugin.WatchSync.Records;
 
@@ -69,6 +70,12 @@ public static class ServerWideSettings
             nameof(configuration.ProvenanceRetentionDays),
             configuration.ProvenanceRetentionDays,
             ProvenanceRecords.MaximumRetention);
+        var maximumFailureShare = Share(
+            refusals,
+            nameof(configuration.MaximumFailureSharePercent),
+            configuration.MaximumFailureSharePercent,
+            FailureShare.SmallestConfigurableShare,
+            FailureShare.LargestConfigurableShare);
 
         // The relation between two of the three thresholds, which neither of them can be judged
         // against on its own. A finish distance at or above the shortest item length makes every
@@ -96,7 +103,8 @@ public static class ServerWideSettings
             new PositionThresholds(move!.Value, finish!.Value, shortestItem!.Value),
             echoWindow!.Value,
             conflictRetention!.Value,
-            provenanceRetention!.Value);
+            provenanceRetention!.Value,
+            maximumFailureShare!.Value);
     }
 
     /// <summary>
@@ -120,7 +128,7 @@ public static class ServerWideSettings
         string setting,
         int found,
         TimeSpan maximum) =>
-        Bounded(refusals, setting, found, (int)maximum.TotalSeconds, "seconds")
+        Bounded(refusals, setting, found, 1, (int)maximum.TotalSeconds, "seconds")
             is { } seconds
             ? TimeSpan.FromSeconds(seconds)
             : null;
@@ -138,29 +146,62 @@ public static class ServerWideSettings
         string setting,
         int found,
         TimeSpan maximum) =>
-        Bounded(refusals, setting, found, (int)maximum.TotalDays, "days")
+        Bounded(refusals, setting, found, 1, (int)maximum.TotalDays, "days")
             is { } days
             ? TimeSpan.FromDays(days)
             : null;
 
     /// <summary>
-    /// The bound both units share, in one place so that the two cannot come to disagree about
-    /// which end of the range is refused.
+    /// A setting stored as whole per cent, judged against the two bounds the rule declares.
+    ///
+    /// It is the only setting here with a floor of its own, and the floor is the dangerous end
+    /// rather than the safe one. Every other setting on this document switches its rule off as it
+    /// approaches zero; this one turns its rule into the failure the rule exists to bound, because
+    /// a walk allowed no failures stops at the first item a library no longer holds.
     /// </summary>
     /// <param name="refusals">Where a refusal is collected.</param>
     /// <param name="setting">The member being read.</param>
     /// <param name="found">The value the document carried.</param>
-    /// <param name="maximum">The largest accepted value, in the same unit.</param>
+    /// <param name="smallest">The smallest share the rule accepts.</param>
+    /// <param name="largest">The largest share the rule accepts.</param>
+    /// <returns>The share, or null where it was refused.</returns>
+    private static double? Share(
+        List<SettingRefusal> refusals,
+        string setting,
+        int found,
+        double smallest,
+        double largest) =>
+        Bounded(
+            refusals,
+            setting,
+            found,
+            (int)Math.Round(smallest * 100),
+            (int)Math.Round(largest * 100),
+            "per cent")
+            is { } percent
+            ? percent / 100.0
+            : null;
+
+    /// <summary>
+    /// The bound the three units share, in one place so that they cannot come to disagree about
+    /// which ends of the range are refused.
+    /// </summary>
+    /// <param name="refusals">Where a refusal is collected.</param>
+    /// <param name="setting">The member being read.</param>
+    /// <param name="found">The value the document carried.</param>
+    /// <param name="smallest">The smallest accepted value, in the same unit.</param>
+    /// <param name="largest">The largest accepted value, in the same unit.</param>
     /// <param name="unit">The unit, for the sentence an operator reads.</param>
     /// <returns>The value, or null where it was refused.</returns>
     private static int? Bounded(
         List<SettingRefusal> refusals,
         string setting,
         int found,
-        int maximum,
+        int smallest,
+        int largest,
         string unit)
     {
-        if (found > 0 && found <= maximum)
+        if (found >= smallest && found <= largest)
         {
             return found;
         }
@@ -168,7 +209,7 @@ public static class ServerWideSettings
         refusals.Add(new SettingRefusal(
             setting,
             found,
-            string.Create(CultureInfo.InvariantCulture, $"1 to {maximum} {unit}")));
+            string.Create(CultureInfo.InvariantCulture, $"{smallest} to {largest} {unit}")));
 
         return null;
     }
