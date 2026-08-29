@@ -194,6 +194,66 @@ jobs:
             fi
           done
 
+      - name: The release notes assembler refuses what it cannot lead with, and leads with what changes existing data
+        # The rules above refuse a change that writes no changelog entry. This is the
+        # other end of the same format: what the entry is FOR is the notes a release
+        # carries, and the assembler that writes them runs once per release, in the
+        # publish route, where nothing on a pull request would notice it had been
+        # gutted. So it is proven here instead, on fragments written by hand.
+        #
+        # Four things, and the middle two are the ones an exit code cannot say. The
+        # near miss is a change marked as reaching already-synced watch state with the
+        # sentence for the operator missing, which is the mistake somebody makes,
+        # and it has to be refused for the assembler's own rule. Its repair has to
+        # assemble. The ordering pair is the direction proof: the entry that changes
+        # existing data carries the HIGHER ordinal, so an assembler that emitted the
+        # fragments in file order would pass every other assertion here and put it
+        # second, which is the reader's problem this whole marking exists for. And a
+        # release with no such entry has to say so rather than leave the section out,
+        # because an absent section reads as an oversight and a stated one does not.
+        run: |
+          set -euo pipefail
+          near=.github/release-notes-near-miss/0001-a-conflict-rule-that-moves.md
+          if reason="$(python3 .github/assemble-release-notes.py "${near}" 2>&1 >/dev/null)"; then
+            echo "${near} assembled, so a marked change can still reach an operator with nothing said about their data" >&2
+            exit 1
+          fi
+          echo "${reason}"
+          case "${reason}" in
+            *"FAIL change-without-an-effect"*) ;;
+            *)
+              echo "${near} was refused by something else, so this proves nothing" >&2
+              exit 1
+              ;;
+          esac
+
+          python3 .github/assemble-release-notes.py .github/release-notes-near-miss-repaired/*.md > /dev/null
+
+          notes="$(python3 .github/assemble-release-notes.py .github/release-notes-ordering/*.md)"
+          echo "${notes}"
+          changed="$(printf '%s\n' "${notes}" | grep -n -x -F '### A conflict rule that moves' | cut -d: -f1)"
+          ordinary="$(printf '%s\n' "${notes}" | grep -n -x -F '### An ordinary change' | cut -d: -f1)"
+          if [ -z "${changed}" ] || [ -z "${ordinary}" ]; then
+            echo "one of the two ordering fixtures did not reach the notes at all" >&2
+            exit 1
+          fi
+          if [ "${changed}" -ge "${ordinary}" ]; then
+            echo "the entry that changes already-synced watch state is at line ${changed} and the ordinary one at line ${ordinary}, so the notes do not lead with it" >&2
+            exit 1
+          fi
+
+          quiet="$(python3 .github/assemble-release-notes.py .github/release-notes-ordering/0001-an-ordinary-change.md)"
+          echo "${quiet}"
+          case "${quiet}" in
+            *"Nothing in this release changes what happens to watch state"*) ;;
+            *)
+              echo "a release with no entry reaching existing data said nothing about it, which reads as an oversight rather than as an answer" >&2
+              exit 1
+              ;;
+          esac
+
+          python3 .github/assemble-release-notes.py > /dev/null
+
       - name: Assemble the document this pull request is
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

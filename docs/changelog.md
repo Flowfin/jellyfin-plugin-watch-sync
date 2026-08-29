@@ -175,8 +175,74 @@ saying it could not order the pair. Those last three all exit zero, so what the
 step asserts is the line each prints and not its status, and a deleted disclosure
 is caught there rather than passing as a green run.
 
-Nothing assembles these fragments into release notes yet. The publish route asks
-GitHub to generate notes from the merged pull requests and reads no fragment at
-all, so an entry written today reaches this directory and stops there. #116 is
-where that half is owed, and it is written here rather than left for a reader to
-discover from an empty release.
+## What a release does with them
+
+THIS SECTION SAID NOTHING ASSEMBLED THESE FRAGMENTS. Something does.
+`.github/assemble-release-notes.py` turns the fragments a release carries into
+its notes, and the publish route runs it in the gate job, which is the job with
+the checkout. The release job checks nothing out and handles only the bytes the
+build produced, so the notes are written before it and handed to it as an
+artifact.
+
+The entries marked `changed` come **first**, under a heading of their own, and
+every other entry follows under a second one. That order is the whole reason the
+marking exists. The reader this changelog is written for is deciding whether to
+upgrade a plugin that writes into their users' data, and the entry they need is
+the one saying their existing history will be treated differently; an assembler
+emitting the fragments in file order would put that entry wherever its ordinal
+happened to fall. Where a release carries no such entry the section is still
+written, saying so in one sentence, because an absent section reads as an
+oversight and a stated absence does not.
+
+The heading of an entry is derived from the slug in its own file name, so a
+fragment carries no title field and the heading cannot come apart from the file.
+
+Which fragments a release carries is derived rather than remembered. An earlier
+release tag contained in the tagged commit bounds the set, so an entry that
+already went out is not repeated; with no such tag every fragment is taken,
+which is the first release. Neither case asks anybody to delete a fragment after
+a release, because a step nothing enforces is one that gets skipped, and then
+every release repeats every entry ever written.
+
+The assembled notes are the body of the release. `generate_release_notes` stays
+on beside them rather than being replaced: the API documents that a supplied
+body is pre-pended to the notes it generates, so the entries written for an
+operator lead and the merged pull requests follow. The two are written for
+different readers and the one deciding whether to upgrade reads first.
+
+## What the assembler refuses, and what it leaves to the guard
+
+Three things, and they are the ones that would make the notes wrong rather than
+the whole format:
+
+- `no-marking`, where `Existing-Data` is absent or is not one of the two words,
+  so which section the entry leads in is undecided;
+- `change-without-an-effect`, where the entry says it reaches existing data and
+  does not say what it does to it, which is the sentence the leading section
+  exists to carry;
+- `no-entry-text`, where there is nothing under the header, so the note would be
+  a heading with nothing beneath it.
+
+Everything else about a fragment's shape is `ChangelogFragmentTests` above. A
+second full copy of those rules in the assembler would be a format with two
+definitions, and the definition a writer reads is the one that is not enforced.
+The field names are read out of the table in this document by both readers, so
+neither carries a copy of that.
+
+The assembler is proven on every pull request rather than at a release, because
+it runs once per release on a route no pull request takes, and a version of it
+gutted into a pass would be discovered by the first release that needed it and
+not before. Four fixtures under `.github/`: the near miss is a change marked as
+reaching already-synced watch state with the operator's sentence missing and has
+to be refused for the assembler's own rule; its repair has to assemble; the
+ordering pair gives the entry that changes existing data the HIGHER ordinal, so
+an assembler emitting in file order passes every other assertion and puts it
+second; and the last asserts the stated absence, which exits zero and so cannot
+be proven by a status.
+
+One thing this does not reach, written down so a green run is not read as more
+than it is. The publish route has never run in this repository, because nothing
+has been released, so what the assembled notes look like on a real release is
+unobserved here. What is observed is the text the assembler produces and the
+route that carries it, and the interaction with GitHub's generated notes is the
+API's documented behaviour rather than a measurement taken here.
