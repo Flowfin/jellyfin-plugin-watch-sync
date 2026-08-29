@@ -204,8 +204,15 @@ that covered it all has nowhere else to live.
 
 Nothing calls this yet, for the reason the rest of the walk is not called: there is no
 exchange, and #47 is where one is defined. The share in force is a parameter of the walk
-rather than a number it reads, so where the value comes from is the caller's question and
-`docs/configuration.md` is where it is given a home.
+rather than a number it reads, so where the value comes from is the caller's question.
+
+The answer to that question is a setting an operator chooses, on the configuration page and
+in the plugin configuration document. It was going to be per pairing and it is server-wide,
+and the argument for the move is in `docs/configuration.md` rather than restated here: every
+cause this rule exists to catch is on the side doing the writing, so the same number means
+the same thing on a server it was not written for. `ServerWideSettings` reads it and refuses
+a value outside what the rule accepts rather than repairing one, which is the only place
+between the document and this rule.
 
 ## How this document is held true
 

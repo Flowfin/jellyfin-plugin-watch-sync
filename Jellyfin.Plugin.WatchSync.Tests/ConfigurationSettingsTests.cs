@@ -37,7 +37,16 @@ public class ConfigurationSettingsTests
     private const string Document = "docs/configuration.md";
 
     private static readonly Regex _row = new Regex(
-        @"^\|\s*`(?<setting>[A-Za-z]+)`\s*\|\s*(?<unit>[a-z]+)\s*\|\s*(?<default>-?[0-9]+)\s*\|\s*`(?<carries>[A-Za-z]+\.[A-Za-z]+)`\s*\|\s*`(?<bound>[A-Za-z]+\.[A-Za-z]+)`\s*\|\s*$",
+        @"^\|\s*`(?<setting>[A-Za-z]+)`\s*\|\s*(?<unit>[a-z ]+?)\s*\|\s*(?<default>-?[0-9]+)\s*\|\s*`(?<carries>[A-Za-z]+\.[A-Za-z]+)`\s*\|\s*(?<smallest>1|`[A-Za-z]+\.[A-Za-z]+`)\s*\|\s*`(?<largest>[A-Za-z]+\.[A-Za-z]+)`\s*\|\s*$",
+        RegexOptions.Multiline | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(5));
+
+    /// <summary>
+    /// A row of the wider table, read for the two cells this file is about: the number it names
+    /// and the home it gives it.
+    /// </summary>
+    private static readonly Regex _homeRow = new Regex(
+        @"^\|\s*`(?<number>[A-Za-z]+\.[A-Za-z]+)`\s*\|[^|]*\|[^|]*\|[^|]*\|\s*(?<home>[^|]*?)\s*\|[^|]*\|\s*$",
         RegexOptions.Multiline | RegexOptions.CultureInvariant,
         TimeSpan.FromSeconds(5));
 
@@ -158,14 +167,44 @@ public class ConfigurationSettingsTests
                 continue;
             }
 
-            if (found.Minimum != 1 || found.Maximum != setting.Maximum)
+            if (found.Minimum != setting.Minimum || found.Maximum != setting.Maximum)
             {
                 findings.Add(
-                    $"the page bounds {setting.Name} at {found.Minimum} to {found.Maximum} and its rule accepts 1 to {setting.Maximum}");
+                    $"the page bounds {setting.Name} at {found.Minimum} to {found.Maximum} and its rule accepts {setting.Minimum} to {setting.Maximum}");
             }
         }
 
         Assert.Empty(findings);
+    }
+
+    /// <summary>
+    /// The number a setting carries is homed in the plugin configuration by the wider table.
+    ///
+    /// The two tables in this document are about the same numbers from two directions, and until
+    /// this fact nothing held them together. Moving a setting's row in the settings table while
+    /// its number went on saying `pairing state` in the wider one reddened nothing, which was
+    /// found by making that edit rather than by reading the file: the document would then say in
+    /// one place that an operator sets a number on this page and in another that it belongs beside
+    /// a pairing, and both halves would be closed against the sources.
+    ///
+    /// It is the home rather than the whole row, because everything else about the number is
+    /// already held by the fact above and by the closure in
+    /// <c>ConfigurationDocumentTests</c>.
+    /// </summary>
+    [Fact]
+    public void EverySettingsNumberIsHomedInThePluginConfiguration()
+    {
+        var homes = Homes();
+
+        Assert.NotEmpty(homes);
+
+        Assert.Empty(Rows()
+            .Where(row => !string.Equals(
+                homes.GetValueOrDefault(row.Carries),
+                "plugin configuration",
+                StringComparison.Ordinal))
+            .Select(row =>
+                $"{Document} says {row.Setting} carries {row.Carries}, and the table of every number gives {row.Carries} the home '{homes.GetValueOrDefault(row.Carries) ?? "none"}' rather than the plugin configuration"));
     }
 
     /// <summary>
@@ -197,7 +236,9 @@ public class ConfigurationSettingsTests
     /// <returns>The disagreement, or null.</returns>
     private static string? Disagreement(Row row, Settings.Setting setting)
     {
-        var unit = setting.InUnit.ToString().ToLowerInvariant();
+        var unit = setting.InUnit == Settings.Unit.PerCent
+            ? "per cent"
+            : setting.InUnit.ToString().ToLowerInvariant();
 
         if (!string.Equals(row.Unit, unit, StringComparison.Ordinal))
         {
@@ -214,12 +255,21 @@ public class ConfigurationSettingsTests
             return $"{row.Setting} says it carries {row.Carries}, which is not a number declaring {setting.DeclaredDefault}";
         }
 
-        if (!Declares(row.Bound, setting.DeclaredBound))
+        if (!Declares(row.Largest, setting.DeclaredBound))
         {
-            return $"{row.Setting} says it is bounded by {row.Bound}, which is not a number declaring {setting.DeclaredBound}";
+            return $"{row.Setting} says it is bounded by {row.Largest}, which is not a number declaring {setting.DeclaredBound}";
         }
 
-        return null;
+        if (setting.DeclaredFloor is null)
+        {
+            return string.Equals(row.Smallest, "1", StringComparison.Ordinal)
+                ? null
+                : $"{row.Setting} says it is floored by {row.Smallest} and no rule declares a floor for it";
+        }
+
+        return Declares(row.Smallest, setting.DeclaredFloor)
+            ? null
+            : $"{row.Setting} says it is floored by {row.Smallest}, which is not a number declaring {setting.DeclaredFloor}";
     }
 
     /// <summary>
@@ -231,9 +281,14 @@ public class ConfigurationSettingsTests
     /// <param name="number">The number, as <c>Type.Member</c>.</param>
     /// <param name="value">The value it has to declare.</param>
     /// <returns>Whether it does.</returns>
-    private static bool Declares(string number, TimeSpan value)
+    private static bool Declares(string number, object value)
     {
         var parts = number.Split('.');
+
+        if (parts.Length != 2)
+        {
+            return false;
+        }
 
         var property = typeof(PluginConfiguration).Assembly
             .GetTypes()
@@ -243,8 +298,7 @@ public class ConfigurationSettingsTests
                 BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly))
             .FirstOrDefault(found => found is not null);
 
-        return property?.PropertyType == typeof(TimeSpan)
-               && Equals(property.GetValue(null), value);
+        return property is not null && Equals(property.GetValue(null), value);
     }
 
     /// <summary>
@@ -268,6 +322,18 @@ public class ConfigurationSettingsTests
         (int)Declared()[name].GetValue(document)!;
 
     /// <summary>
+    /// The home the wider table gives each number it names.
+    /// </summary>
+    /// <returns>The homes, by number.</returns>
+    private static IReadOnlyDictionary<string, string> Homes() =>
+        _homeRow
+            .Matches(Text())
+            .ToDictionary(
+                match => match.Groups["number"].Value,
+                match => match.Groups["home"].Value,
+                StringComparer.Ordinal);
+
+    /// <summary>
     /// The rows of the settings table.
     /// </summary>
     /// <returns>The rows.</returns>
@@ -279,7 +345,8 @@ public class ConfigurationSettingsTests
                 match.Groups["unit"].Value,
                 int.Parse(match.Groups["default"].Value, CultureInfo.InvariantCulture),
                 match.Groups["carries"].Value,
-                match.Groups["bound"].Value))
+                match.Groups["smallest"].Value.Trim('`'),
+                match.Groups["largest"].Value))
             .ToList();
 
     /// <summary>
@@ -361,6 +428,16 @@ public class ConfigurationSettingsTests
     /// <param name="Unit">The unit the row says it is stored in.</param>
     /// <param name="Default">The default the row quotes.</param>
     /// <param name="Carries">The number the row says the default comes from.</param>
-    /// <param name="Bound">The number the row says bounds it.</param>
-    private sealed record Row(string Setting, string Unit, int Default, string Carries, string Bound);
+    /// <param name="Smallest">
+    /// The number the row says floors it, or the literal 1 where the floor is one of the setting's
+    /// own unit rather than a number a rule declares.
+    /// </param>
+    /// <param name="Largest">The number the row says bounds it from above.</param>
+    private sealed record Row(
+        string Setting,
+        string Unit,
+        int Default,
+        string Carries,
+        string Smallest,
+        string Largest);
 }

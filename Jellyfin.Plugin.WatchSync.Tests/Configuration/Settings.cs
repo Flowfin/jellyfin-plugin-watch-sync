@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Jellyfin.Plugin.WatchSync.Configuration;
+using Jellyfin.Plugin.WatchSync.Apply;
 using Jellyfin.Plugin.WatchSync.Model;
 using Jellyfin.Plugin.WatchSync.Records;
 
@@ -63,6 +64,13 @@ internal static class Settings
             ProvenanceRecords.DefaultRetention,
             ProvenanceRecords.MaximumRetention,
             (document, value) => document.ProvenanceRetentionDays = value),
+        new Setting(
+            nameof(PluginConfiguration.MaximumFailureSharePercent),
+            Unit.PerCent,
+            FailureShare.DefaultMaximumShare,
+            FailureShare.LargestConfigurableShare,
+            (document, value) => document.MaximumFailureSharePercent = value,
+            FailureShare.SmallestConfigurableShare),
     };
 
     /// <summary>
@@ -79,6 +87,11 @@ internal static class Settings
         /// Whole days.
         /// </summary>
         Days,
+
+        /// <summary>
+        /// Whole per cent of a fraction the source declares between zero and one.
+        /// </summary>
+        PerCent,
     }
 
     /// <summary>
@@ -115,17 +128,24 @@ internal static class Settings
         /// <param name="declaredDefault">The default the consuming rule declares.</param>
         /// <param name="declaredBound">The widest value the consuming rule accepts.</param>
         /// <param name="set">Writes a value into a document.</param>
+        /// <param name="declaredFloor">
+        /// The smallest value the consuming rule accepts, where the rule declares one, and null
+        /// where the floor is one of the setting's own unit. Only the failure share has one, and
+        /// it has one because its dangerous end is the low one.
+        /// </param>
         internal Setting(
             string name,
             Unit unit,
-            TimeSpan declaredDefault,
-            TimeSpan declaredBound,
-            Action<PluginConfiguration, int> set)
+            object declaredDefault,
+            object declaredBound,
+            Action<PluginConfiguration, int> set,
+            object? declaredFloor = null)
         {
             Name = name;
             InUnit = unit;
             DeclaredDefault = declaredDefault;
             DeclaredBound = declaredBound;
+            DeclaredFloor = declaredFloor;
             _set = set;
         }
 
@@ -140,14 +160,20 @@ internal static class Settings
         internal Unit InUnit { get; }
 
         /// <summary>
-        /// Gets the default the consuming rule declares, as a span.
+        /// Gets the default the consuming rule declares, in whatever the rule declares it as.
         /// </summary>
-        internal TimeSpan DeclaredDefault { get; }
+        internal object DeclaredDefault { get; }
 
         /// <summary>
-        /// Gets the widest value the consuming rule accepts, as a span.
+        /// Gets the widest value the consuming rule accepts, as the rule declares it.
         /// </summary>
-        internal TimeSpan DeclaredBound { get; }
+        internal object DeclaredBound { get; }
+
+        /// <summary>
+        /// Gets the smallest value the consuming rule declares, or null where the floor is one of
+        /// the setting's own unit rather than a number a rule declares.
+        /// </summary>
+        internal object? DeclaredFloor { get; }
 
         /// <summary>
         /// Gets the default in the unit the document stores it in.
@@ -160,17 +186,24 @@ internal static class Settings
         internal int Maximum => Count(DeclaredBound);
 
         /// <summary>
+        /// Gets the floor in the unit the document stores it in.
+        /// </summary>
+        internal int Minimum => DeclaredFloor is null ? 1 : Count(DeclaredFloor);
+
+        /// <summary>
         /// Writes a value into a document.
         /// </summary>
         /// <param name="document">The document.</param>
         /// <param name="value">The value, in this setting's unit.</param>
         internal void Set(PluginConfiguration document, int value) => _set(document, value);
 
-        private int Count(TimeSpan span) => InUnit switch
+        private int Count(object declared) => (InUnit, declared) switch
         {
-            Unit.Seconds => (int)span.TotalSeconds,
-            Unit.Days => (int)span.TotalDays,
-            _ => throw new InvalidOperationException($"{InUnit} is not a unit this document stores."),
+            (Unit.Seconds, TimeSpan span) => (int)span.TotalSeconds,
+            (Unit.Days, TimeSpan span) => (int)span.TotalDays,
+            (Unit.PerCent, double fraction) => (int)Math.Round(fraction * 100),
+            _ => throw new InvalidOperationException(
+                $"{declared.GetType().Name} is not how a rule declares a value this document stores in {InUnit}."),
         };
     }
 }

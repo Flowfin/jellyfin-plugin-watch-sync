@@ -86,6 +86,19 @@
                             shortens how far back an undo can reach.
                         </div>
                     </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MaximumFailureSharePercent">
+                            How much of one exchange may fail before it stops, in per cent
+                        </label>
+                        <input is="emby-input" type="number" id="MaximumFailureSharePercent" min="25" max="90" required />
+                        <div class="fieldDescription">
+                            Past this share of the items it attempted, an exchange stops rather
+                            than carrying on, because that many refusals is this server rather
+                            than the items. What it has already written stands. Lowering it is
+                            the dangerous direction: near the floor, one deleted film stops every
+                            exchange.
+                        </div>
+                    </div>
                     <button is="emby-button" type="submit" class="raised button-submit block">
                         <span>Save</span>
                     </button>
@@ -105,7 +118,8 @@
                     'PositionShortestItemSeconds',
                     'EchoWindowSeconds',
                     'ConflictRetentionDays',
-                    'ProvenanceRetentionDays'
+                    'ProvenanceRetentionDays',
+                    'MaximumFailureSharePercent'
                 ]
             };
 

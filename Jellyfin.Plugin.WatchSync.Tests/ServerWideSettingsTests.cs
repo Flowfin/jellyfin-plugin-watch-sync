@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Jellyfin.Plugin.WatchSync.Apply;
 using Jellyfin.Plugin.WatchSync.Configuration;
 using Jellyfin.Plugin.WatchSync.Model;
 using Jellyfin.Plugin.WatchSync.Records;
@@ -38,6 +39,7 @@ public class ServerWideSettingsTests
         Assert.Equal(EchoWindow.DefaultWindow, reading.EchoWindow);
         Assert.Equal(ConflictRecords.DefaultRetention, reading.ConflictRetention);
         Assert.Equal(ProvenanceRecords.DefaultRetention, reading.ProvenanceRetention);
+        Assert.Equal(FailureShare.DefaultMaximumShare, reading.MaximumFailureShare);
     }
 
     /// <summary>
@@ -58,6 +60,7 @@ public class ServerWideSettingsTests
             EchoWindowSeconds = 12,
             ConflictRetentionDays = 3,
             ProvenanceRetentionDays = 200,
+            MaximumFailureSharePercent = 37,
         });
 
         Assert.True(reading.IsRead);
@@ -67,6 +70,7 @@ public class ServerWideSettingsTests
         Assert.Equal(TimeSpan.FromSeconds(12), reading.EchoWindow);
         Assert.Equal(TimeSpan.FromDays(3), reading.ConflictRetention);
         Assert.Equal(TimeSpan.FromDays(200), reading.ProvenanceRetention);
+        Assert.Equal(0.37, reading.MaximumFailureShare);
     }
 
     /// <summary>
@@ -96,6 +100,44 @@ public class ServerWideSettingsTests
 
             Assert.Equal(setting.Name, refusal.Setting);
             Assert.Equal(setting.Maximum + 1, refusal.Found);
+        }
+    }
+
+    /// <summary>
+    /// A setting whose rule declares a floor of its own is refused one below it and accepted at
+    /// it.
+    ///
+    /// The other six are floored at one of their own unit and the fact below covers them from the
+    /// other side. What this one is about is the setting whose dangerous end is the low one: the
+    /// failure share, whose floor is a number its own rule declares. A reader that floored
+    /// everything at one would accept a share of one per cent, which stops every exchange at the
+    /// first item a library no longer holds, and no fact about zero would notice.
+    ///
+    /// One below rather than something far under, because the mistake is at the boundary.
+    /// </summary>
+    [Fact]
+    public void ASettingWithARuleDeclaredFloorIsRefusedOneBelowItAndAcceptedAtIt()
+    {
+        var floored = Settings.All.Where(setting => setting.DeclaredFloor is not null).ToList();
+
+        Assert.NotEmpty(floored);
+
+        foreach (var setting in floored)
+        {
+            var atTheFloor = Settings.Document();
+            setting.Set(atTheFloor, setting.Minimum);
+
+            Assert.True(
+                ServerWideSettings.Read(atTheFloor).IsRead,
+                $"{setting.Name} was refused at {setting.Minimum}, which is the floor its own rule declares");
+
+            var below = Settings.Document();
+            setting.Set(below, setting.Minimum - 1);
+
+            var refusal = Assert.Single(ServerWideSettings.Read(below).Refusals);
+
+            Assert.Equal(setting.Name, refusal.Setting);
+            Assert.Equal(setting.Minimum - 1, refusal.Found);
         }
     }
 
@@ -144,6 +186,7 @@ public class ServerWideSettingsTests
         Assert.Null(reading.EchoWindow);
         Assert.Null(reading.ConflictRetention);
         Assert.Null(reading.ProvenanceRetention);
+        Assert.Null(reading.MaximumFailureShare);
     }
 
     /// <summary>
