@@ -41,6 +41,15 @@ public class ConfigurationSettingsTests
         RegexOptions.Multiline | RegexOptions.CultureInvariant,
         TimeSpan.FromSeconds(5));
 
+    /// <summary>
+    /// A row of the wider table, read for the two cells this file is about: the number it names
+    /// and the home it gives it.
+    /// </summary>
+    private static readonly Regex _homeRow = new Regex(
+        @"^\|\s*`(?<number>[A-Za-z]+\.[A-Za-z]+)`\s*\|[^|]*\|[^|]*\|[^|]*\|\s*(?<home>[^|]*?)\s*\|[^|]*\|\s*$",
+        RegexOptions.Multiline | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(5));
+
     private static readonly Regex _control = new Regex(
         "<input\\b[^>]*>",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -169,6 +178,36 @@ public class ConfigurationSettingsTests
     }
 
     /// <summary>
+    /// The number a setting carries is homed in the plugin configuration by the wider table.
+    ///
+    /// The two tables in this document are about the same numbers from two directions, and until
+    /// this fact nothing held them together. Moving a setting's row in the settings table while
+    /// its number went on saying `pairing state` in the wider one reddened nothing, which was
+    /// found by making that edit rather than by reading the file: the document would then say in
+    /// one place that an operator sets a number on this page and in another that it belongs beside
+    /// a pairing, and both halves would be closed against the sources.
+    ///
+    /// It is the home rather than the whole row, because everything else about the number is
+    /// already held by the fact above and by the closure in
+    /// <c>ConfigurationDocumentTests</c>.
+    /// </summary>
+    [Fact]
+    public void EverySettingsNumberIsHomedInThePluginConfiguration()
+    {
+        var homes = Homes();
+
+        Assert.NotEmpty(homes);
+
+        Assert.Empty(Rows()
+            .Where(row => !string.Equals(
+                homes.GetValueOrDefault(row.Carries),
+                "plugin configuration",
+                StringComparison.Ordinal))
+            .Select(row =>
+                $"{Document} says {row.Setting} carries {row.Carries}, and the table of every number gives {row.Carries} the home '{homes.GetValueOrDefault(row.Carries) ?? "none"}' rather than the plugin configuration"));
+    }
+
+    /// <summary>
     /// The section that says which numbers are homed in the plugin configuration and are still
     /// not settings is in the document.
     ///
@@ -281,6 +320,18 @@ public class ConfigurationSettingsTests
     /// <returns>The value.</returns>
     private static int Value(PluginConfiguration document, string name) =>
         (int)Declared()[name].GetValue(document)!;
+
+    /// <summary>
+    /// The home the wider table gives each number it names.
+    /// </summary>
+    /// <returns>The homes, by number.</returns>
+    private static IReadOnlyDictionary<string, string> Homes() =>
+        _homeRow
+            .Matches(Text())
+            .ToDictionary(
+                match => match.Groups["number"].Value,
+                match => match.Groups["home"].Value,
+                StringComparer.Ordinal);
 
     /// <summary>
     /// The rows of the settings table.
