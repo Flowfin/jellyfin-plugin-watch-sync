@@ -5,15 +5,14 @@ before the page that carries them is built, and it answers two questions that ev
 those issues would otherwise answer for itself, differently: where a setting lives, and
 which numbers are deliberately not settings at all.
 
-Nothing in this plugin is a setting today. The configuration type is empty, every number
-below is declared on the type that uses it, and no operator can change any of them:
+Six of the numbers below are settings an operator can change, and the rest are not. The
+table under `## The settings the configuration document carries` is the six, and the table
+under `## Every number this plugin declares` is all of them with the reason each of the
+others is not one. Both are closed against the sources in both directions, so neither can
+quietly stop describing this plugin.
 
-    git grep -c 'public' Jellyfin.Plugin.WatchSync/Configuration/PluginConfiguration.cs
-    1
-
-That one declaration is the class. This document is therefore a rule the settings are
-written against rather than a description of settings that exist, and it says so here so
-that a reader does not take the table below for a page they can open.
+Where a number is not a setting, this document says which of five things it is instead
+rather than leaving a reader to infer it from an absence.
 
 ## Where a setting lives
 
@@ -43,6 +42,64 @@ about their own history applied to somebody else's.
 So the test is not "is this a small number an operator might want to change". It is "what
 does this setting mean on a server it was not written for". A setting that means nothing
 there, or means the wrong thing, does not belong in a file that travels.
+
+## The settings the configuration document carries
+
+Six, and every one of them is server-wide by the rule above. Each is stored as a whole
+number of the unit its name ends in, and the reason is the control rather than the format.
+What an operator meets on the page is a number box, so a duration held as a `TimeSpan` would
+be formatted into one and parsed back out of it, and those two conversions are where a value
+stops being the one that was typed. As counts, the number on the page, the number in the
+document and the number the rule is handed are one number.
+
+The serializer is not the reason, and this paragraph said it was: it said the server writes a
+`TimeSpan` as an empty element and reads it back as zero. The fact written to execute that
+failed, because it round-trips one. The claim was made before the run rather than after it,
+`PluginConfigurationTests` keeps the run so the next person to propose spans meets the
+measurement rather than the guess, and the reason above is what the choice actually rests on.
+
+`Default` is what the document carries where nobody has chosen anything, and it is not typed
+into the configuration type: each member reads it from the rule that consumes it, so the page
+and the rule cannot come to disagree about what this plugin does out of the box. `Bound` is
+the widest value the rule accepts, declared on the same type.
+
+| Setting | Unit | Default | Carries | Bound |
+| --- | --- | --- | --- | --- |
+| `PositionMoveSeconds` | seconds | 300 | `PositionThresholds.DefaultMove` | `PositionThresholds.MaximumMove` |
+| `PositionFinishSeconds` | seconds | 120 | `PositionThresholds.DefaultFinish` | `PositionThresholds.MaximumFinish` |
+| `PositionShortestItemSeconds` | seconds | 300 | `PositionThresholds.DefaultShortestItem` | `PositionThresholds.MaximumShortestItem` |
+| `EchoWindowSeconds` | seconds | 30 | `EchoWindow.DefaultWindow` | `EchoWindow.MaximumWindow` |
+| `ConflictRetentionDays` | days | 14 | `ConflictRecords.DefaultRetention` | `ConflictRecords.MaximumRetention` |
+| `ProvenanceRetentionDays` | days | 90 | `ProvenanceRecords.DefaultRetention` | `ProvenanceRecords.MaximumRetention` |
+
+`ServerWideSettings` is the one place this document becomes the values the rules take, and it
+refuses rather than repairs. A value outside its bound is not clamped and not replaced by the
+default, because both of those leave a server running a rule the operator did not choose while
+the page goes on showing the number they typed. Every refused setting is named at once rather
+than the first one, because the other end of this is a person with a form open.
+
+Zero is refused along with everything below it. Each of these six is a distance or a window,
+and zero switches its rule off through the setting: no move threshold, no echo suppression, no
+retention. Switching a rule off is a decision of its own rather than a boundary value of a
+number that means something else.
+
+One relation is refused that no single setting can be judged against: the finish distance has
+to stay below the shortest item length. Above it, every position on the shortest item this
+plugin carries is a finish, and the rule silently stops being two rules.
+
+## What is not a setting yet, and is not refused as one either
+
+Four of the numbers below are homed `plugin configuration` and are not in the table above:
+`ConflictRecords.MaximumEntries`, `ProvenanceRecords.MaximumEntries`,
+`UnmatchedRecords.MaximumEntries` and `PeerText.DefaultLimit`. Their home is where each will
+live once it is a setting, and none of them is one today.
+
+The reason is the same for all four and it is mechanical rather than a judgement about whether
+an operator wants them. Each is read inside the type that declares it, as the cap a trim is
+performed against, rather than taken as a parameter the way the six above are. So making one a
+setting is a change to that type's own surface and to every caller of it, and it needs a bound
+of its own that nothing declares yet. Doing it in passing here would have been four types
+changed for a table's sake.
 
 ## Every number this plugin declares
 
@@ -153,10 +210,18 @@ let an operator claim this plugin writes a version it does not write.
 
 ## What this document does not yet do
 
-The table lists every number this plugin declares and none of them is a setting, so the
-part of #58 that fixes defaults for settings that exist is not met here and is not claimed
-to be. What is met is the rule about where a setting lives, the closure that stops the
-table and the sources drifting, and the list of what is deliberately absent.
+Nothing consumes the settings. `ServerWideSettings` turns the document into the values the
+rules take and no caller asks it to, because the things that would - the event this plugin
+classifies, the walk that decides what to send, the sweep that trims a record - are #15, the
+transfer plane in #47 and #55, and none of them exists. So an operator can change these six
+and save them, and what a changed value alters today is what the next caller is handed rather
+than any behaviour that runs. That is stated here rather than left to be discovered from a
+page that saves.
+
+The per-pairing and per-user settings have no home to be stored in. Both of those homes are a
+record beside a pairing or a person and neither is written by anything yet, so the tolerated
+skew, the run caps, the failure share and the opt-out stay numbers on their own types with a
+row saying where they will live.
 
 Two settings this plan names have no number in the sources yet and therefore no row: the
 queue depth and age, which is #48, and the sweep schedule, which is #55. Each arrives with
