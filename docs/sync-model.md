@@ -572,16 +572,22 @@ arrives several times a minute for as long as something is playing, and all but 
 handful of the positions it carries say something the next one contradicts. These
 are the numbers that decide which handful.
 
-Each is a setting, and none of them is a setting yet. `PluginConfiguration` carries
-none and says so in its own body: which settings exist and where each one is stored
-is #58. What is fixed here is the value each setting defaults to and the reason for
-that value.
+Each is a setting an operator of this server changes, and the table below names the
+one that carries it. Where each lives and what bounds it is `docs/configuration.md`;
+what is fixed here is the value each setting defaults to and the reason for that
+value, which is the half of a setting no page can state.
 
-| the threshold | default | why that default |
-| --- | --- | --- |
-| `move` | 5 minutes | How far a position moves while something is still playing before the move is worth carrying. At five minutes a two hour work produces at most twenty four changes however many reports the player sent, so the count follows the length of the work rather than the chattiness of the client. |
-| `finish` | 2 minutes | How close to the end a position has to be to be a finish rather than a place to resume from. It is the length of what sits after the last thing anybody watches: credits, a distributor card, the black at the end of a container. |
-| `shortestItem` | 5 minutes | The length below which no position is carried at all. Below it a resume point is not a thing anybody uses, and a position on a trailer or a clip fills the record of what two sides last agreed on the part of a library that has the most items in it. |
+A setting stores a whole number of seconds and the rule takes a span, and the number
+in this table is the same number in both. `PluginConfiguration` derives each default
+from the rule rather than repeating it, so a default moved on the rule moves on the
+page too, and neither this table nor the setting can go on stating the number it used
+to be.
+
+| the threshold | default | the setting | why that default |
+| --- | --- | --- | --- |
+| `move` | 5 minutes | `PositionMoveSeconds` | How far a position moves while something is still playing before the move is worth carrying. At five minutes a two hour work produces at most twenty four changes however many reports the player sent, so the count follows the length of the work rather than the chattiness of the client. |
+| `finish` | 2 minutes | `PositionFinishSeconds` | How close to the end a position has to be to be a finish rather than a place to resume from. It is the length of what sits after the last thing anybody watches: credits, a distributor card, the black at the end of a container. |
+| `shortestItem` | 5 minutes | `PositionShortestItemSeconds` | The length below which no position is carried at all. Below it a resume point is not a thing anybody uses, and a position on a trailer or a clip fills the record of what two sides last agreed on the part of a library that has the most items in it. |
 
 Three of the four rules refuse and one converts, which is the shape to read them in.
 The order they are asked in is a decision rather than a convenience. The length of

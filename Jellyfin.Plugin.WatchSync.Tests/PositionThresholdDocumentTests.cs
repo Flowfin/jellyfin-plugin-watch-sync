@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Jellyfin.Plugin.WatchSync.Configuration;
 using Jellyfin.Plugin.WatchSync.Model;
 using Xunit;
 
@@ -23,6 +24,14 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// The declared set is read off the type by reflection rather than listed here, so a fourth
 /// threshold added to the rule arrives with no row and reddens this suite instead of being a
 /// number nothing explains.
+///
+/// The same condition says each threshold is a setting, and that half is held here too. The
+/// document said the opposite of the truth for as long as it took #58 to land the settings and
+/// nobody to come back to this section: it went on saying none of the three was a setting yet
+/// while an operator could change all three on the page. A sentence saying a setting exists is
+/// exactly the sentence a reader has no way to check, so the table names the setting that
+/// carries each threshold and this file resolves the name against
+/// <see cref="PluginConfiguration"/> rather than reading the prose around it.
 /// </summary>
 public class PositionThresholdDocumentTests
 {
@@ -49,6 +58,34 @@ public class PositionThresholdDocumentTests
 
         Assert.Empty(report.Disagreeing.Select(entry =>
             $"{entry.Name} reads as {entry.Stated} in the document and the rule uses {entry.Declared}."));
+    }
+
+    /// <summary>
+    /// Every row names the setting an operator changes that threshold with, and that setting
+    /// defaults to the number the rule declares.
+    ///
+    /// This is the half of #17's condition that is about the page rather than about the rule,
+    /// and it is the half that had already gone stale once: the section went on saying none of
+    /// the three was a setting yet while all three were on the page. A claim that a setting
+    /// exists is worth nothing to a reader who cannot resolve the name, so the name is resolved
+    /// against the configuration type here.
+    ///
+    /// The default is compared as well as the name, because a row naming a real setting that
+    /// carries a different number is the mistake that survives a name check: the operator reads
+    /// five minutes here, changes the setting the row sent them to, and moves something else.
+    /// </summary>
+    [Fact]
+    public void EveryRowNamesTheSettingThatCarriesItAndThatSettingDefaultsToTheRulesNumber()
+    {
+        var report = PositionThresholdDocument.Check(
+            PositionThresholdDocument.Rows(PositionThresholdDocument.Text()),
+            PositionThresholdDocument.Declared());
+
+        Assert.Empty(report.Unsettled.Select(name =>
+            $"the table sends an operator to {name} and the configuration declares no such setting, so the threshold is described as one somebody can change and nobody can."));
+
+        Assert.Empty(report.Undefaulted.Select(entry =>
+            $"{entry.Name} is carried by a setting that defaults to {entry.Stated} and the rule declares {entry.Declared}, so the row names a setting that moves something else."));
     }
 
     /// <summary>
@@ -96,6 +133,8 @@ public class PositionThresholdDocumentTests
         Assert.Empty(repaired.Unknown);
         Assert.Empty(repaired.Repeated);
         Assert.Empty(repaired.Disagreeing);
+        Assert.Empty(repaired.Unsettled);
+        Assert.Empty(repaired.Undefaulted);
     }
 
     /// <summary>
@@ -120,13 +159,51 @@ public class PositionThresholdDocumentTests
 
         Assert.NotEmpty(PositionThresholdDocument
             .Check(
-                rows.Append(new PositionThresholdDocument.Row("pace", "5 minutes", "a reason")).ToList(),
+                rows.Append(new PositionThresholdDocument.Row(
+                    "pace",
+                    "5 minutes",
+                    "PositionMoveSeconds",
+                    "a reason")).ToList(),
                 declared)
             .Unknown);
 
         Assert.NotEmpty(PositionThresholdDocument
             .Check(rows.Append(rows[0]).ToList(), declared)
             .Repeated);
+    }
+
+    /// <summary>
+    /// A row naming a setting nobody can change is refused, and so is one naming a real setting
+    /// that carries a different number.
+    ///
+    /// Both are driven off the repaired fixture rather than off the document, for the reason the
+    /// fact above gives about its own three.
+    ///
+    /// The second mutation is the near miss of this pair and it is the reason the comparison is
+    /// not a name check. `EchoWindowSeconds` is a setting that exists, is declared beside these
+    /// three, is spelled the way they are, and carries thirty seconds where the move threshold
+    /// is five minutes. A row sending an operator there reads correctly and moves the wrong
+    /// number.
+    /// </summary>
+    [Fact]
+    public void ARowNamingNoSettingAndOneNamingASettingThatCarriesAnotherNumberAreEachRefused()
+    {
+        var rows = PositionThresholdDocument.Rows(
+            PositionThresholdDocument.Fixture("position-threshold-near-miss-repaired.txt"));
+
+        var declared = PositionThresholdDocument.Declared();
+
+        Assert.NotEmpty(PositionThresholdDocument
+            .Check(
+                rows.Select(row => row with { Setting = "PositionMoveMinutes" }).ToList(),
+                declared)
+            .Unsettled);
+
+        Assert.NotEmpty(PositionThresholdDocument
+            .Check(
+                rows.Select(row => row.Name == "move" ? row with { Setting = "EchoWindowSeconds" } : row).ToList(),
+                declared)
+            .Undefaulted);
     }
 
     /// <summary>
@@ -139,8 +216,9 @@ public class PositionThresholdDocumentTests
         /// </summary>
         /// <param name="Name">The threshold the row is about.</param>
         /// <param name="Stated">The default as the document states it.</param>
+        /// <param name="Setting">The setting the row says an operator changes it with.</param>
         /// <param name="Why">The reason the row gives for that default.</param>
-        internal sealed record Row(string Name, string Stated, string Why);
+        internal sealed record Row(string Name, string Stated, string Setting, string Why);
 
         /// <summary>
         /// One threshold whose stated default is not the one the rule would use.
@@ -157,18 +235,22 @@ public class PositionThresholdDocumentTests
         /// <param name="Unknown">Rows naming nothing the type declares.</param>
         /// <param name="Repeated">Thresholds with more than one row.</param>
         /// <param name="Disagreeing">Rows whose number is not the one the type holds.</param>
+        /// <param name="Unsettled">Rows naming a setting the configuration does not declare.</param>
+        /// <param name="Undefaulted">Rows whose setting does not default to the row's threshold.</param>
         internal sealed record Report(
             IReadOnlyList<string> Missing,
             IReadOnlyList<string> Unknown,
             IReadOnlyList<string> Repeated,
-            IReadOnlyList<Disagreement> Disagreeing);
+            IReadOnlyList<Disagreement> Disagreeing,
+            IReadOnlyList<string> Unsettled,
+            IReadOnlyList<Disagreement> Undefaulted);
 
         /// <summary>
         /// Reads the rows of the threshold table.
         ///
-        /// The second column has to be a number and a unit, which is what keeps this pattern off
-        /// the other two tables in the same document: one of them carries a disposition there
-        /// and the other a treatment, and neither is a duration.
+        /// The second column has to be a number and a unit and the third a backticked name, which
+        /// is what keeps this pattern off the other two tables in the same document: one of them
+        /// carries a disposition there and the other a treatment, and neither is a duration.
         /// </summary>
         /// <param name="text">The document text.</param>
         /// <returns>The rows.</returns>
@@ -176,10 +258,11 @@ public class PositionThresholdDocumentTests
             Regex
                 .Matches(
                     text,
-                    @"(?m)^\|\s*`(?<name>[A-Za-z]+)`\s*\|\s*(?<stated>\d+\s+[a-z]+)\s*\|(?<why>[^|]*)\|\s*$")
+                    @"(?m)^\|\s*`(?<name>[A-Za-z]+)`\s*\|\s*(?<stated>\d+\s+[a-z]+)\s*\|\s*`(?<setting>[A-Za-z]+)`\s*\|(?<why>[^|]*)\|\s*$")
                 .Select(match => new Row(
                     match.Groups["name"].Value,
                     match.Groups["stated"].Value.Trim(),
+                    match.Groups["setting"].Value,
                     match.Groups["why"].Value.Trim()))
                 .ToList();
 
@@ -203,6 +286,29 @@ public class PositionThresholdDocumentTests
                     property => Lowered(property.Name["Default".Length..]),
                     property => (TimeSpan)property.GetValue(null)!,
                     StringComparer.Ordinal);
+
+        /// <summary>
+        /// Reads the settings off <see cref="PluginConfiguration"/>, with the value each one has
+        /// on a document nobody has touched.
+        ///
+        /// It is the configuration type rather than the page or the settings document, because
+        /// what the table claims is that an operator can change the number, and the type is what
+        /// the server stores. The other two are held to it elsewhere, by
+        /// <c>ConfigurationSettingsTests</c>.
+        /// </summary>
+        /// <returns>The untouched value of every setting, by name.</returns>
+        internal static IReadOnlyDictionary<string, int> Settings()
+        {
+            var untouched = new PluginConfiguration();
+
+            return typeof(PluginConfiguration)
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .Where(property => property.CanRead && property.CanWrite && property.PropertyType == typeof(int))
+                .ToDictionary(
+                    property => property.Name,
+                    property => (int)property.GetValue(untouched)!,
+                    StringComparer.Ordinal);
+        }
 
         /// <summary>
         /// Compares the rows against the declared defaults in both directions.
@@ -237,7 +343,29 @@ public class PositionThresholdDocumentTests
                 .Where(entry => entry.Stated != entry.Declared)
                 .ToList();
 
-            return new Report(missing, unknown, repeated, disagreeing);
+            var settings = Settings();
+
+            var unsettled = rows
+                .Where(row => !settings.ContainsKey(row.Setting))
+                .Select(row => row.Setting)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            // The setting is whole seconds and the threshold is a span, and the comparison is
+            // made in seconds because that is the unit every member of the configuration document
+            // names in its own name. A threshold that arrives stored in some other unit is not
+            // silently accepted here: its number would not be its second count, so it lands in
+            // this list rather than passing as a setting nobody had compared.
+            var undefaulted = rows
+                .Where(row => declared.ContainsKey(row.Name) && settings.ContainsKey(row.Setting))
+                .Select(row => new Disagreement(
+                    row.Name,
+                    TimeSpan.FromSeconds(settings[row.Setting]),
+                    declared[row.Name]))
+                .Where(entry => entry.Stated != entry.Declared)
+                .ToList();
+
+            return new Report(missing, unknown, repeated, disagreeing, unsettled, undefaulted);
         }
 
         /// <summary>
