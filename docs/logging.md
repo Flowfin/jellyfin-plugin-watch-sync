@@ -86,5 +86,13 @@ fixtures are what make each rule a guard rather than a green tick.
 
 ## What is owed
 
-The privacy note in M11, which is #107, has to reference this document, and it does not
-exist yet. That reference is owed rather than made.
+The privacy note in M11, which is #107, has to reference this document. It exists and it
+does, in [privacy.md](privacy.md) under `## What is in a log, and what is never in one`,
+which states the two lists in a person's words and names this document as the authority
+for them. `PrivacyNoteTests` refuses that reference being deleted, so the note cannot
+quietly become the authority for a rule it only summarises.
+
+What the reference does not carry across is the disclosure above: two of the four rows in
+`## What may never be logged, at any level` are refused by a pattern and two are refused by
+nobody. The note says which document to read and this one says which half of it a machine
+keeps.
