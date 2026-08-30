@@ -5,8 +5,8 @@
 # So a comparison that stopped noticing the drift passes both tables, and one that
 # started refusing correct tables fails this one.
 
-| the threshold | default | why that default |
-| --- | --- | --- |
-| `move` | 5 minutes | How far a position moves while something is still playing before the move is worth carrying. It bounds the changes one playback produces by the length of the work rather than by the number of reports the player sent. |
-| `finish` | 2 minutes | How close to the end a position has to be to be a finish rather than a place to resume from. It is the length of what sits after the last thing anybody watches. |
-| `shortestItem` | 5 minutes | The length below which no position is carried at all. Below it a resume point is not a thing anybody uses. |
+| the threshold | default | the setting | why that default |
+| --- | --- | --- | --- |
+| `move` | 5 minutes | `PositionMoveSeconds` | How far a position moves while something is still playing before the move is worth carrying. It bounds the changes one playback produces by the length of the work rather than by the number of reports the player sent. |
+| `finish` | 2 minutes | `PositionFinishSeconds` | How close to the end a position has to be to be a finish rather than a place to resume from. It is the length of what sits after the last thing anybody watches. |
+| `shortestItem` | 5 minutes | `PositionShortestItemSeconds` | The length below which no position is carried at all. Below it a resume point is not a thing anybody uses. |
