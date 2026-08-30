@@ -20,7 +20,8 @@
       "Apply/**/*.cs",
       "Agreement/**/*.cs",
       "Records/**/*.cs",
-      "UserData/**/*.cs"
+      "UserData/**/*.cs",
+      "Undo/**/*.cs"
     ],
     "thresholds": {
       "high": 100,
