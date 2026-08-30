@@ -8,7 +8,7 @@ using Jellyfin.Plugin.WatchSync.Records;
 namespace Jellyfin.Plugin.WatchSync.Tests.Configuration;
 
 /// <summary>
-/// The six settings the configuration document carries, as something a fact can walk.
+/// The settings the configuration document carries, as something a fact can walk.
 ///
 /// A test cannot reach a property by reflection and still say anything about the unit it is in
 /// or the rule that bounds it, so this file names both. That makes it a second list beside the
@@ -33,43 +33,50 @@ internal static class Settings
             Unit.Seconds,
             PositionThresholds.DefaultMove,
             PositionThresholds.MaximumMove,
-            (document, value) => document.PositionMoveSeconds = value),
+            (document, value) => document.PositionMoveSeconds = value,
+            reading => (int)reading.Positions!.Move.TotalSeconds),
         new Setting(
             nameof(PluginConfiguration.PositionFinishSeconds),
             Unit.Seconds,
             PositionThresholds.DefaultFinish,
             PositionThresholds.MaximumFinish,
-            (document, value) => document.PositionFinishSeconds = value),
+            (document, value) => document.PositionFinishSeconds = value,
+            reading => (int)reading.Positions!.Finish.TotalSeconds),
         new Setting(
             nameof(PluginConfiguration.PositionShortestItemSeconds),
             Unit.Seconds,
             PositionThresholds.DefaultShortestItem,
             PositionThresholds.MaximumShortestItem,
-            (document, value) => document.PositionShortestItemSeconds = value),
+            (document, value) => document.PositionShortestItemSeconds = value,
+            reading => (int)reading.Positions!.ShortestItem.TotalSeconds),
         new Setting(
             nameof(PluginConfiguration.EchoWindowSeconds),
             Unit.Seconds,
             EchoWindow.DefaultWindow,
             EchoWindow.MaximumWindow,
-            (document, value) => document.EchoWindowSeconds = value),
+            (document, value) => document.EchoWindowSeconds = value,
+            reading => (int)reading.EchoWindow!.Value.TotalSeconds),
         new Setting(
             nameof(PluginConfiguration.ConflictRetentionDays),
             Unit.Days,
             ConflictRecords.DefaultRetention,
             ConflictRecords.MaximumRetention,
-            (document, value) => document.ConflictRetentionDays = value),
+            (document, value) => document.ConflictRetentionDays = value,
+            reading => (int)reading.ConflictRetention!.Value.TotalDays),
         new Setting(
             nameof(PluginConfiguration.ProvenanceRetentionDays),
             Unit.Days,
             ProvenanceRecords.DefaultRetention,
             ProvenanceRecords.MaximumRetention,
-            (document, value) => document.ProvenanceRetentionDays = value),
+            (document, value) => document.ProvenanceRetentionDays = value,
+            reading => (int)reading.ProvenanceRetention!.Value.TotalDays),
         new Setting(
             nameof(PluginConfiguration.MaximumFailureSharePercent),
             Unit.PerCent,
             FailureShare.DefaultMaximumShare,
             FailureShare.LargestConfigurableShare,
             (document, value) => document.MaximumFailureSharePercent = value,
+            reading => (int)Math.Round(reading.MaximumFailureShare!.Value * 100),
             FailureShare.SmallestConfigurableShare),
     };
 
@@ -119,6 +126,7 @@ internal static class Settings
     internal sealed class Setting
     {
         private readonly Action<PluginConfiguration, int> _set;
+        private readonly Func<ServerWideSettingsReading, int> _read;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Setting"/> class.
@@ -128,6 +136,12 @@ internal static class Settings
         /// <param name="declaredDefault">The default the consuming rule declares.</param>
         /// <param name="declaredBound">The widest value the consuming rule accepts.</param>
         /// <param name="set">Writes a value into a document.</param>
+        /// <param name="read">
+        /// Takes this setting's value back out of an accepted reading, in the unit the document
+        /// stores it in. It is the other half of <paramref name="set"/> and it is what lets a
+        /// fact compare the number that went in against the number that came out without knowing
+        /// which member of the reading holds it.
+        /// </param>
         /// <param name="declaredFloor">
         /// The smallest value the consuming rule accepts, where the rule declares one, and null
         /// where the floor is one of the setting's own unit. Only the failure share has one, and
@@ -139,6 +153,7 @@ internal static class Settings
             object declaredDefault,
             object declaredBound,
             Action<PluginConfiguration, int> set,
+            Func<ServerWideSettingsReading, int> read,
             object? declaredFloor = null)
         {
             Name = name;
@@ -147,6 +162,7 @@ internal static class Settings
             DeclaredBound = declaredBound;
             DeclaredFloor = declaredFloor;
             _set = set;
+            _read = read;
         }
 
         /// <summary>
@@ -196,6 +212,13 @@ internal static class Settings
         /// <param name="document">The document.</param>
         /// <param name="value">The value, in this setting's unit.</param>
         internal void Set(PluginConfiguration document, int value) => _set(document, value);
+
+        /// <summary>
+        /// Takes this setting's value out of an accepted reading.
+        /// </summary>
+        /// <param name="reading">A reading that was accepted.</param>
+        /// <returns>The value, in this setting's unit.</returns>
+        internal int Read(ServerWideSettingsReading reading) => _read(reading);
 
         private int Count(object declared) => (InUnit, declared) switch
         {
