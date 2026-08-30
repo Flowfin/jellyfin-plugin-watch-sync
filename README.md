@@ -70,6 +70,8 @@ operator does not hold.
 
 ## Where the detail is
 
+- [docs/privacy.md](docs/privacy.md), what personal data moves, to where, on whose
+  authority, what this plugin keeps about a person and for how long.
 - [docs/compatibility.md](docs/compatibility.md), what each server line has been
   checked against, and what nothing has checked.
 - [docs/matching.md](docs/matching.md), which kinds of item carry watch state
