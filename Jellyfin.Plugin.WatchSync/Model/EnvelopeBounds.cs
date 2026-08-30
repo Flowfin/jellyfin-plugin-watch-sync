@@ -11,13 +11,21 @@ namespace Jellyfin.Plugin.WatchSync.Model;
 /// truncations, and each of them carries the reason for its value beside it.
 ///
 /// Two of the four sit under a ceiling this plugin does not choose. The transport an envelope
-/// travels on caps the body of one exchange, and the same plane spends a bounded budget of
-/// remembered requests per pairing inside a window. Both are read out of
-/// <c>Flowfin/jellyfin-plugin-server-pairing</c>, and both move when that tree moves, so what
-/// is written here is the reason and the relation rather than a copy of somebody else's number
-/// treated as this plugin's own. <see cref="TransportBodyCeilingBytes"/> and
-/// <see cref="FreshnessBudgetPerPairing"/> carry the readings and say when they were taken;
-/// <c>EnvelopeBoundsTests</c> refuses this plugin's own bounds reaching either of them.
+/// travels on caps the body of one exchange, the same plane spends a bounded budget of
+/// remembered requests per pairing inside a window, and it admits a bounded number of arrivals
+/// per claimed identifier inside a shorter one. All three are read out of
+/// <c>Flowfin/jellyfin-plugin-server-pairing</c>, and all three move when that tree moves, so
+/// what is written here is the reason and the relation rather than a copy of somebody else's
+/// number treated as this plugin's own. <see cref="TransportBodyCeilingBytes"/>,
+/// <see cref="FreshnessBudgetPerPairing"/> and <see cref="TransportArrivalsPerPairing"/> carry
+/// the readings and say when they were taken; <c>EnvelopeBoundsTests</c> refuses this plugin's
+/// own bounds reaching any of them.
+///
+/// ONE OF THE THREE IS A CONSTANT OF THAT TREE AND TWO ARE NOT ANY MORE. The body ceiling is
+/// declared in a document; the arrival allowance, and the span the freshness budget is spent
+/// over, are settings of the server that applies them, so a member here quoting either is
+/// quoting a default rather than a ceiling. Each says so at itself, because a reader who takes
+/// one of them for a bound the peer cannot move has been handed the wrong kind of number.
 ///
 /// Nothing here reads an envelope. #18 defines and versions the type, and this judges the two
 /// counts and the two lengths a reader hands over before it has read anything, which is what
@@ -102,12 +110,19 @@ public sealed class EnvelopeBounds
     /// Gets the window <see cref="MaximumEnvelopesInAWindow"/> is counted over.
     ///
     /// Ten minutes. It is this plugin's own number and not a copy of the plane's remembered
-    /// window, although the two are the same length today, because a window derived from
-    /// somebody else's constant changes meaning silently on the day that constant moves. What
-    /// the reason has to say is why ten minutes: it is long enough that an ordinary burst at the
-    /// end of an evening, several people stopping several things at once, sits inside one
-    /// window without reaching the count, and short enough that a peer refused for looping is
-    /// answering again within an evening rather than the next day.
+    /// window, because a window derived from somebody else's constant changes meaning silently
+    /// on the day that constant moves. What the reason has to say is why ten minutes: it is long
+    /// enough that an ordinary burst at the end of an evening, several people stopping several
+    /// things at once, sits inside one window without reaching the count, and short enough that
+    /// a peer refused for looping is answering again within an evening rather than the next day.
+    ///
+    /// This paragraph said the two were the same length today, and that sentence has stopped
+    /// being a fact about a constant. The plane derives its remembered span from the tolerated
+    /// skew rather than declaring it, and the skew is an operator's setting there:
+    /// <c>RememberedSeconds</c> is twice a <c>TimestampWindowSeconds</c> of 300 by default and
+    /// 1 to 900 by range. So the two are the same length at that default and at no other value,
+    /// which is the reason this number was never derived from it and is now the reason it may
+    /// not be.
     /// </summary>
     public static TimeSpan Window => TimeSpan.FromMinutes(10);
 
@@ -134,8 +149,49 @@ public sealed class EnvelopeBounds
     /// tree. It is a budget shared by every request type on the pairing rather than a bound on
     /// envelopes, which is why <see cref="MaximumEnvelopesInAWindow"/> is a small fraction of it
     /// and not a number just underneath it.
+    ///
+    /// The count is still a constant there and the span it is spent over is not. A nonce is
+    /// remembered for twice the tolerated skew, and the skew is an operator's setting, so the
+    /// budget is spent over two seconds at that setting's floor and over half an hour at its
+    /// ceiling. The direction that shortens is the safe one: a shorter span forgets nonces
+    /// sooner and makes this budget harder to reach rather than easier. That is why the member
+    /// is kept and why the relation the suite holds is stated against the count rather than
+    /// against a rate.
     /// </summary>
     public static int FreshnessBudgetPerPairing => 4096;
+
+    /// <summary>
+    /// Gets how many requests the plane admits from one claimed pairing identifier inside
+    /// <see cref="TransportArrivalWindowSeconds"/>, where the operator of the receiving server
+    /// has not chosen otherwise.
+    ///
+    /// Sixty, read at <c>d9e90d3394a5476a5f1bda597fddd5543293da59</c> of
+    /// <c>Flowfin/jellyfin-plugin-server-pairing</c>, from <c>Api/ArrivalLimit.cs</c>. It did
+    /// not exist when the two ceilings above were read, and it is a third ceiling rather than a
+    /// restatement of either: it is consulted before the signature computation, it counts every
+    /// request type against the identifier a request CLAIMS rather than one it has proved, and
+    /// its refusal is the plane's undistinguished one.
+    ///
+    /// IT IS A DEFAULT AND NOT A CEILING, which is the half to read carefully and the reason
+    /// this member says so in its own first sentence. That tree publishes it as
+    /// <c>PeerPlaneArrivalsPerPairing</c>, an operator setting with a range of 1 to 3600 over a
+    /// <c>PeerPlaneWindowSeconds</c> of the same range, and the operator who sets it sits on the
+    /// receiving server. So no number chosen here can be held under it in general, and what the
+    /// suite holds is the relation at the published default, which is the configuration a peer
+    /// that has chosen nothing is in.
+    /// </summary>
+    public static int TransportArrivalsPerPairing => 60;
+
+    /// <summary>
+    /// Gets the span <see cref="TransportArrivalsPerPairing"/> is counted over, in seconds,
+    /// where the operator of the receiving server has not chosen otherwise.
+    ///
+    /// Sixty, read at the same commit and out of the same type. The window is fixed rather than
+    /// sliding there and starts at the first arrival counted into it, so twice the allowance can
+    /// legitimately arrive inside one span of this length. That is the plane's own disclosure,
+    /// and it is why the relation below is a floor rather than a tight bound.
+    /// </summary>
+    public static int TransportArrivalWindowSeconds => 60;
 
     /// <summary>
     /// Gets what the bounds answered.
