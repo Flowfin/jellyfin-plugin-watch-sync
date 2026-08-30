@@ -202,6 +202,39 @@ public class EnvelopeBoundsTests
     }
 
     /// <summary>
+    /// The rate bound stays reachable under the arrival allowance the plane applies by default.
+    ///
+    /// The plane admits a bounded number of arrivals per claimed identifier and refuses the rest
+    /// before it verifies anything, so a rate bound here above what that allowance permits across
+    /// this plugin's own window is a bound the layer below reaches first. That is the same
+    /// failure the byte assertion above exists for, one bound over: this plugin's refusal, its
+    /// own answer and the record #19 asks for would all be unreachable for the peer that is
+    /// actually looping, and what an operator would see instead is the plane's undistinguished
+    /// refusal, which says nothing about syncing at all.
+    ///
+    /// What it compares is a count against a count, and both windows are stated rather than
+    /// assumed: this plugin's is <c>EnvelopeBounds.Window</c> and the plane's is
+    /// <c>TransportArrivalWindowSeconds</c>, so a change to either window moves this assertion
+    /// rather than leaving it comparing two numbers that are no longer about the same span.
+    ///
+    /// THE ALLOWANCE IS A DEFAULT AND THIS SAYS NOTHING ABOUT A PEER THAT HAS MOVED IT. The
+    /// receiving operator may set it as low as one arrival an hour, and no number chosen here
+    /// sits under that. The relation held is the one at the published default, which is the
+    /// configuration a peer that has chosen nothing is in, and the member carrying the reading
+    /// says so about itself.
+    /// </summary>
+    [Fact]
+    public void TheRateBoundIsReachableUnderThePlanesDefaultArrivalAllowance()
+    {
+        var windowsBelow = EnvelopeBounds.Window.TotalSeconds / EnvelopeBounds.TransportArrivalWindowSeconds;
+        var admittedAcrossOurWindow = EnvelopeBounds.TransportArrivalsPerPairing * windowsBelow;
+
+        Assert.True(
+            EnvelopeBounds.MaximumEnvelopesInAWindow < admittedAcrossOurWindow,
+            $"the rate bound is {EnvelopeBounds.MaximumEnvelopesInAWindow} envelopes per {EnvelopeBounds.Window.TotalSeconds} seconds and the plane admits {admittedAcrossOurWindow} arrivals across the same span by default, so this bound would never be the one that refused a looping peer");
+    }
+
+    /// <summary>
     /// The two bounds that are reached together are reachable together.
     ///
     /// A change is a match key, four field values and a date. If the byte bound divided by the

@@ -175,6 +175,8 @@ numbers that are not settings as well as the ones that will be.
 | `MatchIndex.PageSize` | `int` | 500 | none | deliberately absent | it changes how much memory a rebuild takes and nothing an operator can observe |
 | `EnvelopeBounds.TransportBodyCeilingBytes` | `int` | 1048576 | none | another tree | read from the pairing plugin's protocol document |
 | `EnvelopeBounds.FreshnessBudgetPerPairing` | `int` | 4096 | none | another tree | read from the pairing plugin's freshness window |
+| `EnvelopeBounds.TransportArrivalsPerPairing` | `int` | 60 | none | another tree | the arrival allowance the pairing plane applies per claimed identifier, which is a setting on the receiving server |
+| `EnvelopeBounds.TransportArrivalWindowSeconds` | `int` | 60 | none | another tree | the span that allowance is counted over there, which is a setting on the receiving server too |
 | `DocumentVersions.Current` | `int` | 1 | none | derived | the newest version in `DocumentVersions.Shipped` |
 | `EnvelopeVersions.Current` | `int` | 1 | none | derived | the newest version in `EnvelopeVersions.Supported` |
 
