@@ -106,6 +106,7 @@ special handling, so no row's next step is a repair.
 | Refused, no live pairing | Nothing read, nothing written, the watermark unmoved. A refusal is on the status page with the state that caused it, #41. | Nothing, until the pairing is live again. The next exchange asks the same question and gets the same answer, cheaply. |
 | Refused, already running for this pairing and user | Nothing. | Nothing. The exchange in progress reaches the state this one would have. |
 | The peer did not answer, or timed out | The watermark unmoved. The peer's failure count advances, and a peer failing for the configured period is shown as unreachable, #53. | The next exchange asks from the same watermark, after the backoff. |
+| The layer below refused the request | The watermark unmoved and nothing read. The refusal is recorded with the peer and the code the plane answered with, and the peer is **not** counted as unreachable, because it answered. | It depends on the code, and the plane is the authority for them, so this row names the shape rather than copying the list. A refusal the same request succeeds under later is one wait and one retry. A refusal about the two clocks is not retried at any interval and an operator is shown which two instants disagreed. A refusal about a repeated request is a fresh request rather than a repeat. A refusal carrying no cause is backed off, #53. |
 | The envelope was refused for its version | The watermark unmoved, the refusal recorded with both versions, #18. | Nothing until one side is upgraded. Retrying changes nothing and the status page is where an operator sees why. |
 | The envelope was refused for a member carried twice | The watermark unmoved, the refusal recorded with the peer and the member that arrived twice, #253. | Nothing until the peer's serializer is repaired. Retrying changes nothing, because the same peer builds the same body, and the status page is where an operator sees which member it was. |
 | The envelope was refused for a bound | The watermark unmoved, the refusal recorded with the peer, the bound and the count, #19. | The next exchange asks from the same watermark. A peer that keeps exceeding a bound is a peer to look at rather than a state to recover from. |
@@ -114,6 +115,34 @@ special handling, so no row's next step is a repair.
 | Some items applied, then the process stopped | The agreed record written for the items decided. The watermark is wherever it was last written, which is at or behind those items. | The next exchange asks from that watermark. Items decided but behind the watermark are offered again and change nothing, because applying a change twice is #50. |
 | An item could not be matched or was ambiguous | Nothing written for that item, the reason recorded against it, #26 and #27. The rest of the exchange continued. | Nothing automatic. The operator fixes the library metadata and the next exchange matches it. |
 | The pairing was revoked mid-exchange | Whatever was applied before the revocation was learned, its provenance stamped with the pairing, #44. The queue for that peer is dropped and nothing further is sent or applied, #45. | Nothing on that pairing, ever. Undoing what was written is the provenance route in #44 and it is an operator action. |
+
+### The row above is the one this table did not have
+
+It is written out here rather than left in the cell, because what it costs is
+invisible from the cell. Every other refusal in the table is this plugin refusing
+something, and every one of those has a cause this plugin decided. This one is the
+pairing plane refusing the request before anything of this plugin's is involved,
+and the cause reaches this side as an answer it gives rather than as anything
+readable from here.
+
+Collapsing it into the row above it is the mistake worth naming, and it is the one
+this table made until now. A peer that never answers and a peer that answers
+instantly with a refusal are opposite observations about a link. Under the row
+above, the second advances a failure count and ends with an operator being shown a
+peer that is down, while the peer is up, is answering in milliseconds, and has said
+which of several different things is wrong. That is the failure this whole table
+exists to refuse, arriving through it rather than around it.
+
+The next step is left as a shape rather than as a list of codes, and that is
+deliberate. The vocabulary belongs to `docs/protocol.md` on the pairing board, and a
+copy of it here would be a list that drifts against the thing it describes. What
+this document fixes is that those refusals have different next steps and that none
+of them is the unreachable-peer route; the adapter in #40 is where a code becomes
+one of them.
+
+Which states answer an exchange at all is the neighbouring question and is not this
+row's. It belongs to the `Refused, no live pairing` row above, and #41 carries the
+reading it rests on.
 
 There is no row whose next step is a repair, and that is a property of the design
 rather than of the table. The agreed record and the watermark are the only two
