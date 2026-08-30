@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Serialization;
 using Jellyfin.Plugin.WatchSync.Configuration;
@@ -55,19 +58,40 @@ public class PluginConfigurationTests
     /// whole point: what this refuses is a setting that saves without an error and comes back as
     /// something else, which is the failure the operator cannot see, because the page they are
     /// looking at shows what they typed.
+    ///
+    /// THE SETTINGS ARE WALKED RATHER THAN LISTED, AND THIS FACT USED TO LIST THEM. It named six
+    /// of the seven the type declares: <c>MaximumFailureSharePercent</c> arrived after the list
+    /// was written and was never written, never read back and never compared, so the one setting
+    /// this fact did not cover was the newest one, which is the direction a hand-written list
+    /// always drifts in. The set now comes off the members themselves, so a setting added
+    /// tomorrow is covered without anybody remembering to add it.
     /// </summary>
     [Fact]
     public void EverySettingSurvivesTheServersSerializer()
     {
-        var written = new PluginConfiguration
+        var declared = Declared();
+
+        Assert.NotEmpty(declared);
+
+        var written = new PluginConfiguration();
+        var untouched = new PluginConfiguration();
+        var chosen = new Dictionary<string, int>(StringComparer.Ordinal);
+        var next = 101;
+
+        foreach (var property in declared.Values)
         {
-            PositionMoveSeconds = 91,
-            PositionFinishSeconds = 92,
-            PositionShortestItemSeconds = 993,
-            EchoWindowSeconds = 94,
-            ConflictRetentionDays = 15,
-            ProvenanceRetentionDays = 96,
-        };
+            // Neither this setting's own default nor any value already handed to another one, so
+            // a member read back off the wrong element cannot come out looking correct.
+            while (chosen.Values.Contains(next)
+                || declared.Values.Any(other => (int)other.GetValue(untouched)! == next))
+            {
+                next++;
+            }
+
+            property.SetValue(written, next);
+            chosen[property.Name] = next;
+            next++;
+        }
 
         using var stream = new MemoryStream();
         SerializeToStream(written, stream);
@@ -75,12 +99,72 @@ public class PluginConfigurationTests
         var read = Assert.IsType<PluginConfiguration>(
             DeserializeFromStream(typeof(PluginConfiguration), stream));
 
-        Assert.Equal(written.PositionMoveSeconds, read.PositionMoveSeconds);
-        Assert.Equal(written.PositionFinishSeconds, read.PositionFinishSeconds);
-        Assert.Equal(written.PositionShortestItemSeconds, read.PositionShortestItemSeconds);
-        Assert.Equal(written.EchoWindowSeconds, read.EchoWindowSeconds);
-        Assert.Equal(written.ConflictRetentionDays, read.ConflictRetentionDays);
-        Assert.Equal(written.ProvenanceRetentionDays, read.ProvenanceRetentionDays);
+        Assert.Empty(declared.Values
+            .Where(property => (int)property.GetValue(read)! != chosen[property.Name])
+            .Select(property =>
+                $"{property.Name} was stored as {chosen[property.Name]} and came back as {property.GetValue(read)}"));
+    }
+
+    /// <summary>
+    /// A stored value that is not a whole number is refused by the serializer rather than read as
+    /// something else, for every setting.
+    ///
+    /// This is the third of the three inputs #61 asks each setting to be covered against, and it
+    /// is the one that never reaches <c>ServerWideSettings</c>: a document arrives from a form,
+    /// from an edit somebody made by hand, and from a backup written by an older version, and a
+    /// value of the wrong type is refused a layer earlier than a value out of range is.
+    ///
+    /// Two spellings, and they are two different mistakes. A word is what a hand edit produces.
+    /// A number with a fractional part is what a value that used to be a span or a share turns
+    /// into, and it is the one worth an assertion of its own: read as a number and rounded, it
+    /// would be a setting the operator did not choose, arriving with no error anywhere.
+    /// </summary>
+    [Fact]
+    public void AStoredValueThatIsNotAWholeNumberIsRefusedRatherThanReadAsSomethingElse()
+    {
+        var document = Written(new PluginConfiguration());
+
+        foreach (var name in Declared().Keys)
+        {
+            foreach (var instead in new[] { "five", "3.7" })
+            {
+                var edited = Regex.Replace(
+                    document,
+                    $"<{name}>[^<]*</{name}>",
+                    $"<{name}>{instead}</{name}>");
+
+                Assert.NotEqual(document, edited);
+
+                Assert.Throws<InvalidOperationException>(() =>
+                {
+                    using var stream = new MemoryStream(Encoding.UTF8.GetBytes(edited));
+                    DeserializeFromStream(typeof(PluginConfiguration), stream);
+                });
+            }
+        }
+    }
+
+    /// <summary>
+    /// The settings the configuration type declares, by name.
+    /// </summary>
+    /// <returns>The settings.</returns>
+    private static IReadOnlyDictionary<string, PropertyInfo> Declared() =>
+        typeof(PluginConfiguration)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .Where(property => property.CanRead && property.CanWrite)
+            .ToDictionary(property => property.Name, property => property, StringComparer.Ordinal);
+
+    /// <summary>
+    /// One configuration document as the server would write it.
+    /// </summary>
+    /// <param name="configuration">The configuration.</param>
+    /// <returns>The document.</returns>
+    private static string Written(PluginConfiguration configuration)
+    {
+        using var stream = new MemoryStream();
+        SerializeToStream(configuration, stream);
+
+        return Encoding.UTF8.GetString(stream.ToArray());
     }
 
     /// <summary>

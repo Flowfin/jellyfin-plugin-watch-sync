@@ -74,6 +74,68 @@ public class ServerWideSettingsTests
     }
 
     /// <summary>
+    /// Across its whole range, a setting is either refused or reaches the rule as the number
+    /// that was stored, and never as a third thing.
+    ///
+    /// This is the property the fact above states at one point and #61 asks for everywhere: no
+    /// path modifies a setting value without telling the operator. The two states a reader may
+    /// produce are a refusal, which the operator is told about, and the value they chose. What
+    /// is refused here is the third state - a value quietly clamped to a bound, rounded to
+    /// something the rule prefers, or replaced by the default - because that leaves a server
+    /// running a rule nobody chose while the page goes on showing what was typed.
+    ///
+    /// The assertion is conditional on the reading being accepted rather than requiring every
+    /// value to be, because a document is judged whole: five settings inside their own bounds
+    /// and one relation between two of them refused is a refused reading, and which values those
+    /// are is not this fact's business. The vacuous version of that is refused in the same pass
+    /// by requiring at least one value of each setting to be accepted, so a reader that refused
+    /// everything cannot satisfy this by never producing a number to compare.
+    ///
+    /// Five values per setting, at both ends and inside, because a clamp shows at the ends and a
+    /// rounding shows away from them.
+    /// </summary>
+    [Fact]
+    public void EverySettingIsEitherRefusedOrReachesTheRuleAsTheNumberThatWasStored()
+    {
+        foreach (var setting in Settings.All)
+        {
+            var middle = setting.Minimum + ((setting.Maximum - setting.Minimum) / 2);
+
+            var values = new[]
+            {
+                setting.Minimum,
+                setting.Minimum + 1,
+                middle,
+                setting.Maximum - 1,
+                setting.Maximum,
+            };
+
+            var accepted = 0;
+
+            foreach (var value in values)
+            {
+                var document = Settings.Document();
+                setting.Set(document, value);
+
+                var reading = ServerWideSettings.Read(document);
+
+                if (!reading.IsRead)
+                {
+                    continue;
+                }
+
+                accepted++;
+
+                Assert.Equal(value, setting.Read(reading));
+            }
+
+            Assert.True(
+                accepted > 0,
+                $"{setting.Name} was refused at every value between {setting.Minimum} and {setting.Maximum}, so nothing here compared a number that reached the rule");
+        }
+    }
+
+    /// <summary>
     /// A value one above the bound the rule declares is refused, for every setting.
     ///
     /// One above rather than something absurd, because the mistake somebody makes is at the

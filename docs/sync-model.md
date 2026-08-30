@@ -551,10 +551,25 @@ covering a person acting, and somebody who un-marks a work a few minutes after a
 applied it is making the deliberate change #34 exists to carry. Both numbers and where
 each of them lives are in `docs/configuration.md` rather than repeated here.
 
-A window of nothing is legal and switches the second mechanism off, leaving the agreed
-record carrying the rule alone. That is the state the plugin is in whenever the record
-is enough, so it is a setting an operator may choose rather than a configuration the
-rule refuses.
+A window of nothing is legal to the rule and switches the second mechanism off, leaving
+the agreed record carrying the rule alone. That is the state the plugin is in whenever
+the record is enough.
+
+It is not, however, a value an operator can choose. `EchoWindowSeconds` is refused at
+zero along with every other setting on this document, and the reason is the one
+`ServerWideSettings` states about all of them: every one of these settings is a distance
+or a window, zero switches its rule off through a number that means something else, and
+somebody typing a smaller number was not asking for that. So switching the suppression
+off is a decision of its own rather than the boundary value of the window, and nothing
+in the tree offers it today.
+
+THIS PARAGRAPH SAID THE OPPOSITE UNTIL #61 AND IT SAID IT ABOUT THE SURFACE AN OPERATOR
+ACTUALLY MEETS. What stood here read the rule's tolerance as the setting's range and
+concluded that a window of nothing was "a setting an operator may choose rather than a
+configuration the rule refuses". An operator following that sentence types a zero, the
+reader refuses the whole document, and every setting on it stops reaching its rule. The
+rule accepting a value and the setting offering it are two different statements, and
+this document now makes both of them.
 
 ### What of this has a rule in the sources today
 
