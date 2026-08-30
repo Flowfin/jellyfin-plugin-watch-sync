@@ -50,6 +50,21 @@ public sealed class AgreedRecords
     /// </summary>
     internal const string ItemsMember = "items";
 
+    /// <summary>
+    /// The member holding the point the peer last confirmed, absent where none has been.
+    /// </summary>
+    internal const string WatermarkMember = "watermark";
+
+    /// <summary>
+    /// The member of the watermark holding the point itself, as the far side wrote it.
+    /// </summary>
+    internal const string WatermarkPointMember = "point";
+
+    /// <summary>
+    /// The member of the watermark holding when this server confirmed the point.
+    /// </summary>
+    internal const string WatermarkConfirmedAtMember = "confirmedAt";
+
     private const string KindMember = "kind";
     private const string PlayedMember = "played";
     private const string PlayCountMember = "playCount";
@@ -60,11 +75,16 @@ public sealed class AgreedRecords
 
     private readonly Dictionary<Guid, AgreedRecord> _byItem;
 
-    private AgreedRecords(Guid pairingId, Guid mappedUserId, Dictionary<Guid, AgreedRecord> byItem)
+    private AgreedRecords(
+        Guid pairingId,
+        Guid mappedUserId,
+        Dictionary<Guid, AgreedRecord> byItem,
+        Watermark watermark)
     {
         PairingId = pairingId;
         MappedUserId = mappedUserId;
         _byItem = byItem;
+        Watermark = watermark;
     }
 
     /// <summary>
@@ -86,6 +106,16 @@ public sealed class AgreedRecords
     public int Count => _byItem.Count;
 
     /// <summary>
+    /// Gets the point up to which this pairing and this mapped user have agreed, which is #51.
+    ///
+    /// It is here rather than in a document of its own because the two are restored together or
+    /// they are not restored at all. A store holding a watermark later than the agreements
+    /// beside it would ask a peer for changes after a point whose items this record never
+    /// received, and every item in between would be one neither side mentions again.
+    /// </summary>
+    public Watermark Watermark { get; }
+
+    /// <summary>
     /// The record of a pairing and a mapped user that have agreed nothing yet.
     /// </summary>
     /// <param name="pairingId">The pairing.</param>
@@ -97,7 +127,11 @@ public sealed class AgreedRecords
         RefuseAnEmptyIdentifier(pairingId, nameof(pairingId));
         RefuseAnEmptyIdentifier(mappedUserId, nameof(mappedUserId));
 
-        return new AgreedRecords(pairingId, mappedUserId, new Dictionary<Guid, AgreedRecord>());
+        return new AgreedRecords(
+            pairingId,
+            mappedUserId,
+            new Dictionary<Guid, AgreedRecord>(),
+            Watermark.NoneYet);
     }
 
     /// <summary>
@@ -134,7 +168,8 @@ public sealed class AgreedRecords
 
         if (!TryReadIdentifier(document.Fields, PairingMember, out var pairingId)
             || !TryReadIdentifier(document.Fields, UserMember, out var mappedUserId)
-            || document.Fields[ItemsMember] is not JsonObject items)
+            || document.Fields[ItemsMember] is not JsonObject items
+            || !TryReadWatermark(document.Fields, out var watermark))
         {
             return AgreedRecordsReading.NotAnAgreedRecord();
         }
@@ -154,7 +189,8 @@ public sealed class AgreedRecords
             byItem[itemId] = agreement!;
         }
 
-        return AgreedRecordsReading.Readable(new AgreedRecords(pairingId, mappedUserId, byItem));
+        return AgreedRecordsReading.Readable(
+            new AgreedRecords(pairingId, mappedUserId, byItem, watermark!));
     }
 
     /// <summary>
@@ -199,7 +235,30 @@ public sealed class AgreedRecords
             [agreement.Subject.ItemId] = agreement,
         };
 
-        return new AgreedRecords(PairingId, MappedUserId, byItem);
+        return new AgreedRecords(PairingId, MappedUserId, byItem, Watermark);
+    }
+
+    /// <summary>
+    /// This record standing at one watermark, replacing whatever it stood at before.
+    ///
+    /// The record and the point are written in one document and therefore in one write. The
+    /// order the transfer document fixes, the agreed record first and the watermark second, is
+    /// about what a caller computes before it writes and not about two writes: a record whose
+    /// watermark landed and whose agreements did not would offer a peer a point it never
+    /// received the items for.
+    /// </summary>
+    /// <param name="watermark">The point the peer last confirmed.</param>
+    /// <returns>A record standing at it.</returns>
+    /// <exception cref="ArgumentNullException">The watermark is null.</exception>
+    public AgreedRecords At(Watermark watermark)
+    {
+        ArgumentNullException.ThrowIfNull(watermark);
+
+        return new AgreedRecords(
+            PairingId,
+            MappedUserId,
+            new Dictionary<Guid, AgreedRecord>(_byItem),
+            watermark);
     }
 
     /// <summary>
@@ -228,6 +287,16 @@ public sealed class AgreedRecords
             [ItemsMember] = items,
         };
 
+        if (!Watermark.IsNoneYet)
+        {
+            fields[WatermarkMember] = new JsonObject
+            {
+                [WatermarkPointMember] = JsonValue.Create(Watermark.Point),
+                [WatermarkConfirmedAtMember] = JsonValue.Create(
+                    Watermark.ConfirmedAt.ToString("o", CultureInfo.InvariantCulture)),
+            };
+        }
+
         return StoredDocument.At(DocumentVersions.Current, fields);
     }
 
@@ -255,6 +324,50 @@ public sealed class AgreedRecords
             JsonValue.Create(agreement.AgreedAt.ToString("o", CultureInfo.InvariantCulture)),
         [EnvelopeVersionMember] = JsonValue.Create(agreement.EnvelopeVersion),
     };
+
+    /// <summary>
+    /// Reads the point the peer last confirmed out of the document.
+    ///
+    /// An absent member is a record that has confirmed nothing, which is a state rather than a
+    /// damaged document: it is what a pairing that has never exchanged writes, and it is what
+    /// every record written before this member existed holds. A member that is present and is
+    /// not a watermark refuses the whole document, by the same rule an unreadable entry does,
+    /// because the alternative is a record that reads as having agreed nothing about a point and
+    /// silently asks a peer for a library it has already synced.
+    /// </summary>
+    /// <param name="fields">The members beside the version.</param>
+    /// <param name="watermark">The point, where the document carries one.</param>
+    /// <returns>Whether the document is readable this far.</returns>
+    private static bool TryReadWatermark(JsonObject fields, out Watermark? watermark)
+    {
+        watermark = Watermark.NoneYet;
+
+        if (!fields.ContainsKey(WatermarkMember))
+        {
+            return true;
+        }
+
+        if (fields[WatermarkMember] is not JsonObject members
+            || members[WatermarkPointMember] is not JsonValue pointValue
+            || !pointValue.TryGetValue<string>(out var point)
+            || !TryReadMoment(members, WatermarkConfirmedAtMember, out var confirmedAt))
+        {
+            watermark = null;
+            return false;
+        }
+
+        var reading = Watermark.Confirmed(point, confirmedAt);
+
+        if (reading.IsRefused)
+        {
+            watermark = null;
+            return false;
+        }
+
+        watermark = reading.Mark;
+
+        return true;
+    }
 
     private static bool TryReadIdentifier(JsonObject fields, string member, out Guid identifier)
     {
