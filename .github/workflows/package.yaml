@@ -1,6 +1,10 @@
 # Builds the package a release would ship, on every pull request, and publishes
 # the component inventory of what went into it.
 #
+# The inventory is also judged here rather than only recorded: a component under a
+# licence this repository may not distribute under its own is refused at build
+# time by .github/check-component-licences.py, which is #118's third condition.
+#
 # The inventory is the part nothing produced before. Packaging itself already ran
 # on a pull request: the shared workflow build.yaml calls runs the same packager,
 # which is a third call site rather than a second one, and it is why this file
@@ -133,6 +137,45 @@ jobs:
             fi
           done
           ls -l "${ARTIFACT}" "${ARTIFACT}.meta.json" "${INVENTORY}"
+
+      - name: Check the licence of every component in the inventory
+        env:
+          INVENTORY: inventory/components.cdx.json
+        # The inventory records what is in the build and never asks what any of
+        # it may be distributed under. This does, against the licence this
+        # repository itself ships under, which the check reads out of LICENSE
+        # rather than carrying an answer to. A component the inventory states no
+        # identifier for is declared in .github/component-licences.txt with where
+        # its licence was read, and a declaration covering nothing is refused, so
+        # a dependency bump takes the reading with it.
+        run: |
+          set -euo pipefail
+          python3 .github/check-component-licences.py < "${INVENTORY}"
+
+      - name: Prove the licence check refuses what it is written for
+        # The step above is green on every graph that has never carried a bad
+        # licence, which is every graph this repository has had, so on its own it
+        # says nothing about whether it can refuse. Five runs over three fixture
+        # inventories and two fixture registers, each arm beside its own repair.
+        run: |
+          set -euo pipefail
+          checker=.github/check-component-licences.py
+          fixtures=.github/inventory-fixtures
+          refuses() {
+            if python3 "${checker}" --declarations "$2" < "$1" > /dev/null 2>&1; then
+              echo "::error::${checker} passed $(basename "$1") against $(basename "$2"), and that fixture exists to be refused. The guard is not biting."
+              exit 1
+            fi
+          }
+          passes() {
+            python3 "${checker}" --declarations "$2" < "$1" > /dev/null
+          }
+          refuses "${fixtures}/an-incompatible-licence.cdx.json" "${fixtures}/nothing-declared.txt"
+          passes "${fixtures}/every-licence-permitted.cdx.json" "${fixtures}/nothing-declared.txt"
+          refuses "${fixtures}/a-licence-the-inventory-does-not-state.cdx.json" "${fixtures}/nothing-declared.txt"
+          passes "${fixtures}/a-licence-the-inventory-does-not-state.cdx.json" "${fixtures}/the-unstated-licence-read.txt"
+          refuses "${fixtures}/every-licence-permitted.cdx.json" "${fixtures}/the-unstated-licence-read.txt"
+          echo "The licence check refused all three of its arms and passed both repairs."
 
       - name: Attach the package and its inventory to the run
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
