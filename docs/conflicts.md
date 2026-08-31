@@ -74,8 +74,45 @@ answers it exactly as the hundredth does, and the deliberate unplayed that #34
 holds against the ratchet is the case that needs an agreement and therefore cannot
 arise on a first run. `PlayCount` cannot be reckoned without an agreement, because
 two sides each holding one play may be one play that already moved or two
-watchings that never met, and no reading of the two numbers separates those. That
-case is answered by #37 rather than guessed at by the rule.
+watchings that never met, and no reading of the two numbers separates those.
+
+### The mode, and what it does with a count it cannot reckon
+
+The first run is a mode of its own rather than the ordinary path meeting an empty
+record, and `ExchangeMode.First` is its name. Which of the two a pair is in is
+read out of the record of what they last agreed rather than declared by whoever
+started the run: the point the two sides confirmed is what says a whole set was
+exchanged, so a record carrying none is a pair still in its first exchange,
+whether it has never started one or was interrupted halfway through. That is what
+lets an interrupted run resume as the same mode and skip what it already agreed,
+and it is why a run over a pair that has confirmed a point is refused rather than
+answered.
+
+`FirstExchange` asks the rows above and answers with what they answered. Two
+places are its own, and both are conservative in the direction this whole document
+is written for.
+
+The count the reckoning refuses is one of them. Two equal counts are agreed at that
+count, because reading the same number on both sides as two histories that happen
+to be the same length is what doubles somebody's count on the day two servers first
+meet. A side holding no plays at all contributes nothing, so the other side's count
+stands: zero is not a history that disagrees with anything, and carrying the other
+count invents no play and discards none. Two different counts both above zero are
+not told apart, and the item is left standing.
+
+The other is the position under two completions. Where one side is played and the
+other is not, the ratchet discards the position offered against the completion and
+names it as the loser, so the played side's position is what stands. Where both
+sides are played the ratchet discards neither, and two leftover positions on one
+finished work are a pair no row decides between, so an equal pair is the position
+and an unequal one leaves the item standing.
+
+An item left standing carries the reason it was left standing, keeps both sides
+exactly as they are, and is agreed for by nothing, because an agreement over a
+state nobody decided is what every later exchange would then be decided against.
+Showing those items to an operator is #62, and until there is a page they are
+carried out of the run and read by whoever called it.
+
 
 ## The pair that makes either rule safe
 
