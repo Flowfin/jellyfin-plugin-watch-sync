@@ -1,0 +1,12 @@
+The same slice with the answer put back. A release that cannot be proven against a
+second server waits for a machine that can prove it.
+
+## The two-server harness gates a release
+
+The harness of #88 runs this plugin's whole loop between two real servers.
+
+    Harness gate: required
+    No container runtime: the release waits
+
+So if the machine cutting a release has no container runtime, the release waits until
+one is available.
