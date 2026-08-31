@@ -1,12 +1,37 @@
-name: '🏗️ Build Plugin'
+# Builds every server line this plugin declares, in this repository, with the
+# analyzer settings the project itself carries.
+#
+# This file called jellyfin/jellyfin-meta-plugins until #90. That call was a
+# reasonable default for a plugin that is one project and one target, and it is
+# the wrong shape here for three reasons that are all visible in what it did.
+# It packaged rather than built, and the packager takes one framework, so the
+# check required on master compiled one of the two lines this plugin ships and
+# said nothing about the other. It built with whatever the shared tree passed,
+# so what "warnings are errors" meant here was decided in another repository.
+# And it checked the repository out with the run token left in .git/config,
+# which nothing in that job needed.
+#
+# The job below is named `build` rather than `call / build`. That prefix is what
+# a call into another repository's reusable workflow produces - `call` is the job
+# making the call and `build` is the job inside the thing being called - so
+# reproducing the old string from a workflow that calls nothing would mean naming
+# a local job `call` to keep a check run claiming a mechanism this change
+# removes. The required set on master still names the old two contexts until
+# #105 moves it; see that issue for the order, which uses this pull request's own
+# head as the proof that the replacements are green before the swap.
+#
+# There is deliberately no path filter here. A workflow a filter skips reports no
+# check run at all, so the context is absent rather than green and a merge waits
+# for a verdict that never arrives. A change touching only Markdown is the case
+# that hits it every time. The cost of the missing filter is a build on
+# documentation changes; the cost of having it was every such change being
+# unmergeable.
+#
+# Packaging is not lost with the call. package.yaml runs the packager on every
+# pull request and every push to master, at the commit and the framework the
+# release route uses, and uploads the archive with its component inventory.
+name: build
 
-# There is deliberately no path filter here. The check run this workflow
-# produces is one the ruleset on master requires, and a workflow a filter skips
-# reports no check run at all, so the context is absent rather than green and
-# the merge waits for a verdict that never arrives. A change touching only
-# Markdown is the case that hits it every time. The cost of the missing filter
-# is a build on documentation changes; the cost of having it was every such
-# change being unmergeable.
 on:
   push:
     branches:
@@ -16,22 +41,126 @@ on:
       - master
   workflow_dispatch:
 
-# Deny by default at the workflow level; the job below grants only the scopes
-# it needs. The shared workflow this calls declares no permissions of its own,
-# so what the caller grants is the whole of what it gets.
+# Deny by default at the workflow level; the job grants only what it needs.
 permissions: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  call:
+  build:
+    # The check context is this name. The ruleset matches the literal string, so
+    # a rename removes a required check rather than renaming one. Change it
+    # deliberately or not at all. Nothing in it comes from a matrix value, for
+    # the reason the three `Suite (os)` legs are a standing example of: a runner
+    # label is a value that moves, and a name carrying one renames itself the day
+    # the label does.
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
-      # Checkout and restore only; the artifact upload uses the run token.
+      # Checkout and restore only. Nothing here writes to the repository and
+      # nothing attaches an artifact to the run.
       contents: read
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/build.yaml@eb99033a7ff644881b014bc0b4169916c854a68b # master, 2026-07-29
-    with:
-      # The plugin targets one framework per supported server line, so both SDKs have
-      # to be present or the target the shared workflow was not told about fails to
-      # build. The shared workflow passes this string straight to the setup action,
-      # which reads one version per line.
-      dotnet-version: |
-        9.0.x
-        10.0.x
+    steps:
+      - name: Check out the commit under review
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing here pushes, so do not leave the token in .git/config. The
+          # shared workflow this replaced took the default and kept it.
+          persist-credentials: false
+
+      - name: Set up .NET
+        # One SDK per server line. The plugin declares both in one project, so a
+        # build told about only one of them fails on the target it was not told
+        # about, and installing only the newer one leaves the older line
+        # unbuildable rather than merely unmeasured.
+        #
+        # No dependency cache. A cache entry written by another run must not be
+        # able to reach the graph this build compiles from.
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Build every declared target
+        # No analyzer switch, no warning switch and no configuration override.
+        # Everything this build is judged by is declared in the project files and
+        # in Directory.Build.props: TreatWarningsAsErrors, AnalysisMode, the
+        # ruleset, and the locked-mode restore against the committed lock file.
+        # A flag here would be a second place those are decided, which is the
+        # thing this issue is about.
+        #
+        # The solution rather than the project, so the suite's own sources are
+        # compiled on the way through.
+        #
+        # WHAT THAT DOES NOT MEAN IS THAT EVERY WARNING IN THIS SOLUTION IS AN
+        # ERROR, and #90's second condition is met for the plugin rather than
+        # for both projects. The plugin project declares TreatWarningsAsErrors
+        # and the test project does not, so the suite's own analyzer warnings
+        # are warnings here and this step is green over them. Counted on master
+        # at 4127f3faa482c17796f94bf46d7c19606fe07fe4, over both targets:
+        #
+        #     dotnet build Jellyfin.Plugin.WatchSync.sln --nologo -t:Rebuild 2>&1 \
+        #       | grep -oE 'warning [A-Za-z0-9]+' | sort | uniq -c | sort -rn
+        #          28 warning xUnit1031
+        #           4 warning xUnit2031
+        #           4 warning xUnit2012
+        #
+        # Repairing those and declaring the property on the test project is a
+        # second topic and is what is left of that condition. It is written into
+        # #90 rather than only here.
+        run: dotnet build Jellyfin.Plugin.WatchSync.sln --nologo
+
+      - name: Prove a warning fails this build
+        # The step above is green on every tree that carries no warning, which is
+        # every tree this repository has had, so on its own it says nothing about
+        # whether warnings are errors here. It would stay green if
+        # TreatWarningsAsErrors were dropped from the project, if an analyzer
+        # package were removed, or if a future edit of this file passed a switch
+        # that turned either off - and that is the whole of what #90's second
+        # condition asks.
+        #
+        # So the compiler is asked. One file carrying one warning is written into
+        # the plugin project, the project is built, and the run fails unless the
+        # build refused it. The file is removed whether that passed or failed,
+        # and the checkout is discarded with the runner either way.
+        #
+        # The reason is checked as well as the exit code. A build that failed
+        # because the SDK was missing, because the restore was refused or because
+        # the probe itself does not compile would be a green verdict here read
+        # off a red build, which is worse than not asking.
+        #
+        # Both directions were run by hand before this landed. With the project
+        # as it is the probe fails with `error CS0219`; with
+        # -p:TreatWarningsAsErrors=false the same file builds and reports three
+        # warnings and no error. The transcript is in the pull request.
+        run: |
+          set -euo pipefail
+          probe=Jellyfin.Plugin.WatchSync/WarningsAreErrorsProbe.cs
+          trap 'rm -f "${probe}"' EXIT
+          cat > "${probe}" <<'CSHARP'
+          namespace Jellyfin.Plugin.WatchSync;
+
+          public class WarningsAreErrorsProbe
+          {
+              public int Unused()
+              {
+                  int value = 1;
+                  return 2;
+              }
+          }
+          CSHARP
+          if output=$(dotnet build Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj --nologo -f net10.0 2>&1); then
+            echo "${output}"
+            echo "::error::A file carrying CS0219 built without an error, so a warning does not fail this build. TreatWarningsAsErrors, the analyzer set or a switch in this workflow has changed."
+            exit 1
+          fi
+          if ! printf '%s\n' "${output}" | grep -q 'error CS0219'; then
+            echo "${output}"
+            echo "::error::The probe build failed without naming CS0219, so this step read a refusal it did not ask for. Fix the failure above before trusting this verdict."
+            exit 1
+          fi
+          echo "A warning is an error in this build: the probe was refused with error CS0219."
