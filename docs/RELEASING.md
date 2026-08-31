@@ -31,6 +31,32 @@ promoting a pre-release means raising the version in `build.yaml` and tagging th
 number, not retagging the old one. The release job asks for both suffixes before it
 writes anything and stops on either.
 
+## The two-server harness gates a release
+
+The harness of #88 runs this plugin's whole loop between two real servers, which is
+the only thing the unit suite cannot do and is the entire claim a sync plugin makes.
+So it gates: a release is not cut unless it has run and is green.
+
+    Harness gate: required
+    No container runtime: the release waits
+
+The third answer, gating only where a container runtime happens to be present, is
+refused rather than merely not chosen. A gate that disables itself when its runtime is
+missing produces a green result that means either "passed" or "never ran", with nothing
+in the result to tell them apart, and the reader who most needs the difference is the
+one cutting the release.
+
+So if the machine cutting a release has no container runtime, the release waits until
+one is available. It does not ship unproven, and it does not ship with the gate
+skipped. That is written here so it is met before a tag is pushed rather than
+discovered at the moment somebody wants to ship.
+
+**The harness does not exist yet.** #88 has neither a container runtime to run on nor
+this plugin's own behaviour to exercise, so nothing runs this gate today and any
+release cut before it lands is one no harness has proven. The rule above is what
+applies from the moment it does; it is not a description of what runs now, and a
+reader who takes it for one has been told the opposite here.
+
 ## Cutting a release
 
 1. Update `version` in `build.yaml` on the release branch and merge it.

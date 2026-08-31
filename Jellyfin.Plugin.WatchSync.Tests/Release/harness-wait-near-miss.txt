@@ -1,0 +1,13 @@
+The other direction, and it is the edit somebody makes under time pressure rather than
+by misreading anything. The gate stays required and what a missing runtime costs is
+turned from waiting into shipping, so the rule survives in the line a reader checks and
+is undone in the line underneath it.
+
+## The two-server harness gates a release
+
+The harness of #88 runs this plugin's whole loop between two real servers.
+
+    Harness gate: required
+    No container runtime: the release ships unproven
+
+So the release goes out and the harness runs when a runtime is next available.

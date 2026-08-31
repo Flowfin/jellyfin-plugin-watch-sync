@@ -1,0 +1,17 @@
+A slice of the release runbook with the gate made conditional on the runtime being
+there. It is the answer #104 refuses outright, and it is the one a reader arrives at on
+their own: the harness cannot run without a container runtime, so making the gate
+follow the runtime reads as describing reality rather than as weakening a rule.
+
+What it costs is the only thing the gate was for. A run that skipped the harness and a
+run that passed it both leave a green release, and nothing in the result separates them.
+
+## The two-server harness gates a release
+
+The harness of #88 runs this plugin's whole loop between two real servers.
+
+    Harness gate: required where a container runtime is present
+    No container runtime: the release waits
+
+So if the machine cutting a release has no container runtime, the release waits until
+one is available.

@@ -1,0 +1,13 @@
+The same slice with the two words that made the gate follow its runtime removed, and
+nothing else. The gate is required, and what happens where the runtime is missing is
+the line below it rather than a condition on the line above.
+
+## The two-server harness gates a release
+
+The harness of #88 runs this plugin's whole loop between two real servers.
+
+    Harness gate: required
+    No container runtime: the release waits
+
+So if the machine cutting a release has no container runtime, the release waits until
+one is available.
