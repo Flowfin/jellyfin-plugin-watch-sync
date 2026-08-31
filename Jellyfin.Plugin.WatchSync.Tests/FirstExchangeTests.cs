@@ -124,6 +124,45 @@ public sealed class FirstExchangeTests
     }
 
     /// <summary>
+    /// A server holding nothing at all does not clear a completion on the server it meets,
+    /// which is the second condition of #34.
+    ///
+    /// That condition is a property of this run and of no other. An unplayed state wins over a
+    /// played one only where an agreement separates an intent from an old value, and a first
+    /// exchange is by definition the run where there is no agreement to read, so what protects
+    /// the established side here is the ratchet holding and nothing else.
+    ///
+    /// The shape is the one the issue leads with: a fresh, empty server meeting an established
+    /// one. It is not a side holding the work unplayed at a position, which the pairs above
+    /// drive. An untouched side carries no position, no count and no date, so every value the
+    /// table could read from it is the empty one, and a rule that took any of those three for
+    /// something a person did would clear the other side's history on first contact.
+    ///
+    /// Both directions are driven, because which of the two servers runs the exchange is not
+    /// something either of them chooses.
+    /// </summary>
+    [Fact]
+    public void AnUntouchedServerDoesNotClearACompletionOnTheOtherSide()
+    {
+        using var servers = TwoServers.Create();
+
+        var finishedHere = Both(servers, Finished(4, At(60)), NeverTouched());
+        var finishedAtThePeer = Both(servers, NeverTouched(), Finished(4, At(60)));
+
+        var exchange = Run(servers, finishedHere, finishedAtThePeer);
+
+        Assert.Equal(2, exchange.Decided.Count);
+
+        Holds(exchange, finishedHere, Finished(4, At(60)));
+        Holds(exchange, finishedAtThePeer, Finished(4, At(60)));
+
+        Assert.False(For(exchange, finishedHere).ChangesHere);
+        Assert.True(For(exchange, finishedHere).ChangesAtThePeer);
+        Assert.True(For(exchange, finishedAtThePeer).ChangesHere);
+        Assert.False(For(exchange, finishedAtThePeer).ChangesAtThePeer);
+    }
+
+    /// <summary>
     /// The second exchange after a first one moves nothing, which is the third condition of #37.
     ///
     /// It is asserted against the type that decides what an exchange has to offer rather than
