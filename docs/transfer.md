@@ -243,18 +243,61 @@ the same thing on a server it was not written for. `ServerWideSettings` reads it
 a value outside what the rule accepts rather than repairing one, which is the only place
 between the document and this rule.
 
+## The wait after a failure
+
+An attempt on a peer that failed is retried, and the interval between attempts
+doubles from a first wait until it reaches a ceiling and stays there. Both numbers
+and the reason for each:
+
+| what | its default | the reason |
+| --- | --- | --- |
+| the first wait | 30 seconds | It is chosen against what the layer below admits rather than against how slow a peer is. At thirty seconds one pairing spends two arrivals inside the plane's published sixty second window, against sixty it admits there, so a peer that is down cannot make this plugin the reason its other traffic is refused. The short direction is the one that costs something quietly: a wait of a second or two looks attentive and is where a failing pairing spends its own allowance, and the refusal an operator then meets is the plane's undistinguished one, which says nothing about a peer being down. |
+| the ceiling | 30 minutes | It is reached at the seventh consecutive failure, which is a little over half an hour of a peer being unreachable, and it is the interval a peer that stays down is asked at afterwards. What the number is chosen against is how long a peer that came back stays unnoticed, and half an hour is the worst case for that. It is not shorter because the scheduled sweep asks anyway, so a peer that came back is picked up by whichever of the two happens first, and a ceiling under the sweep's own interval buys nothing and asks more often. |
+
+The ceiling is REACHED and not merely never exceeded, and the difference is the
+whole of what the second row buys. A rule that abandons the doubling as soon as the
+next one would pass the ceiling never exceeds it and never arrives at it, so it
+settles at whatever interval happened to be the last one underneath - sixteen
+minutes rather than thirty, at the numbers above, and a failing peer asked nearly
+twice as often as anybody chose. `BoundedBackoffTests` refuses both directions.
+
+Which failures are retried at all is not this rule's and is not decided here. The
+row above for a refusal from the layer below says why: the codes belong to
+`docs/protocol.md` on the pairing board, they are not interchangeable for anything
+retrying, and the adapter in #40 is where a code becomes one of the next steps in
+that table. What the wait answers is the interval for a caller that has already
+decided this failure is one to retry.
+
+The wait is not jittered. Jitter is worth its cost where many callers back off
+against one server at once, and one pairing is one caller against one peer, so what
+it would buy here is nothing and what it would cost is a rule whose answer cannot
+be stated. A second pairing to the same peer is the case that would change that,
+and it is not one this plan has.
+
+Neither number is a setting, and `docs/configuration.md` gives both the home
+`deliberately absent` with the reason. What decides that is where the numbers come
+from: the first wait is picked against an allowance another server applies rather
+than against anything an operator here can observe, and a shorter one is not a
+preference but the value at which a failing pairing spends that allowance. The
+first rule of #53 asks for a timeout that is a setting, and the timeout is a
+different number from either of these: it bounds one attempt and these bound the
+gap between two.
+
 ## How this document is held true
 
 By a reading, at the review of the change that touches it.
 
-Nothing in the tree compares this document against anything. The sentence here
-used to give the reason as every issue this document points at being unbuilt, and
-that has stopped being the reason: the walk in #54 is in the tree and the unwind
-rule above is asserted by facts over it. What is still true is the smaller half.
-There is no table here that names a member of a type, so there is nothing for a
-guard to compare, which is what `docs/sync-model.md` and `docs/matching.md` each
-have and this document does not. When the exchange exists, the end states above
-are the list a guard would read, and a row with an empty next step is what it
-would refuse.
+ONE TABLE HERE IS COMPARED AGAINST THE TREE NOW, AND THIS PARAGRAPH SAID NONE WAS.
+What stood here said there is no table naming a member of a type, so there is
+nothing for a guard to compare, and that stopped being true when the backoff
+section landed with two numbers a type declares. `BoundedBackoffTests` reads that
+section, refuses the two numbers disagreeing with `BoundedBackoff` in either
+direction, and refuses the section being absent.
+
+Everything else here is held by a reading, at the review of the change that touches
+it. The end states above are the table that matters most and are the one a guard
+cannot read yet: they name issues rather than members, so there is nothing to
+resolve them against until the exchange exists. When it does, that table is the list
+a guard would walk, and a row with an empty next step is what it would refuse.
 
 That is a gap and it is named here rather than left for somebody to discover.

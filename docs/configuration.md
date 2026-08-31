@@ -173,6 +173,10 @@ numbers that are not settings as well as the ones that will be.
 | `EnvelopeBounds.Window` | `TimeSpan` | 10 minutes | none | deliberately absent | an evening's burst sits inside one window and a refused peer answers again the same evening |
 | `VersionLanding.WidestRuntimeDifference` | `TimeSpan` | 1 minute | none | deliberately absent | under it the difference is packaging, over it it is an edit or a speed conversion |
 | `MatchIndex.PageSize` | `int` | 500 | none | deliberately absent | it changes how much memory a rebuild takes and nothing an operator can observe |
+| `BoundedBackoff.DefaultFirstWait` | `TimeSpan` | 30 seconds | at or above `ShortestFirstWait` | deliberately absent | it is chosen against the arrival allowance the pairing plane admits rather than against anything an operator can observe, and the short direction spends that allowance |
+| `BoundedBackoff.DefaultCeiling` | `TimeSpan` | 30 minutes | up to `LongestCeiling` | deliberately absent | the worst case for how long a peer that came back stays unnoticed, and the sweep asks anyway |
+| `BoundedBackoff.ShortestFirstWait` | `TimeSpan` | 1 second | none | deliberately absent | below it the attempts arrive faster than the plane counts its own window over, so the failure is one the caller manufactured |
+| `BoundedBackoff.LongestCeiling` | `TimeSpan` | 6 hours | none | deliberately absent | above it the ceiling stops being the interval a failing peer is asked at and becomes the reason a working one is not |
 | `EnvelopeBounds.TransportBodyCeilingBytes` | `int` | 1048576 | none | another tree | read from the pairing plugin's protocol document |
 | `EnvelopeBounds.FreshnessBudgetPerPairing` | `int` | 4096 | none | another tree | read from the pairing plugin's freshness window |
 | `EnvelopeBounds.TransportArrivalsPerPairing` | `int` | 60 | none | another tree | the arrival allowance the pairing plane applies per claimed identifier, which is a setting on the receiving server |
