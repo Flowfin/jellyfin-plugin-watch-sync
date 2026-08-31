@@ -1,0 +1,4 @@
+# An empty register, so a fixture run against it meets the guard with nothing
+# declared. It is a file rather than the absent path, because a missing register
+# and an empty one are the same state to this check and a fixture that relied on
+# the path not existing would stop proving anything the day somebody created it.

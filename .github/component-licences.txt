@@ -1,0 +1,28 @@
+# The licence of a component the inventory states no SPDX identifier for.
+#
+# Fields are separated by " :: ": the component as name@version exactly as the
+# inventory names it, the SPDX identifier, and where the licence was read.
+#
+# A NuGet package may carry its licence as a file inside the archive or as a link
+# in its manifest, and neither reaches the identifier field CycloneDX writes. So
+# an entry here is a reading somebody made of the package itself, recorded so that
+# a later reader can make the same one rather than trust this line.
+#
+# It is keyed on the exact version. A licence can change between two releases of
+# one package, and a key without a version would carry one reading forward over
+# every release after it. The cost is that a dependency bump takes the reading
+# with it: the old entry is refused as dangling until it is removed or moved on.
+#
+# This is not an acceptance register. An identifier this repository may not ship
+# under is refused here as well, because the repair for an incompatible licence is
+# removing the component rather than recording that it is present.
+
+BitFaster.Caching@2.5.4 :: MIT :: LICENSE inside the package, which opens "MIT License"
+BitFaster.Caching@2.6.0 :: MIT :: LICENSE inside the package, which opens "MIT License"
+Diacritics@4.0.17 :: MIT :: LICENSE inside the package, which opens "MIT License"
+Diacritics@4.1.8 :: MIT :: LICENSE inside the package, which opens "MIT License"
+ICU4N@60.1.0-alpha.356 :: Apache-2.0 :: LICENSE.txt inside the package, which is the Apache License, Version 2.0
+ICU4N.Transliterator@60.1.0-alpha.356 :: Apache-2.0 :: LICENSE.txt inside the package, which is the Apache License, Version 2.0
+J2N@2.0.0 :: Apache-2.0 :: LICENSE.txt inside the package, which is the Apache License, Version 2.0
+SerilogAnalyzer@0.15.0 :: Apache-2.0 :: the licenseUrl its manifest carries, which serves the Apache License, Version 2.0
+SmartAnalyzers.MultithreadingAnalyzer@1.1.31 :: MIT :: the licenseUrl its manifest carries, which serves the MIT License

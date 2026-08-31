@@ -1,0 +1,9 @@
+# The one declaration the fixture runs need: the licence of the component
+# `a-licence-the-inventory-does-not-state.cdx.json` carries no identifier for.
+#
+# It is the repair for that fixture and the near miss for the other direction at
+# once. Run against the inventory that does carry the component, it passes; run
+# against `every-licence-permitted.cdx.json`, which does not carry it, the same
+# line is refused as dangling.
+
+Fixture.Unstated@1.0.0 :: MIT :: nothing, and it says so: this is a fixture and no package of this name exists to read
