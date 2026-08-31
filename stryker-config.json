@@ -21,7 +21,8 @@
       "Agreement/**/*.cs",
       "Records/**/*.cs",
       "UserData/**/*.cs",
-      "Undo/**/*.cs"
+      "Undo/**/*.cs",
+      "Exchange/**/*.cs"
     ],
     "thresholds": {
       "high": 100,
