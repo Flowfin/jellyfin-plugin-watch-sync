@@ -182,19 +182,32 @@ store, which is the action an operator takes before uninstalling if they want th
 records of the syncing gone. It removes the one folder the store lives in and
 nothing the server owns.
 
-**No surface calls any of the three.** There is no page and no endpoint of this
-plugin's own that reaches them:
+**Two of the three are reachable and the third is not.** The report and the removal
+about one person are behind endpoints of this plugin's own, and an operator with an
+administrator account reaches both from the configuration page:
 
-    grep -rn "HeldAboutOnePerson\.\|StoreRemoval\." --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
-    exit=1
+    grep -rn "HeldAboutOnePerson\.\|StoreRemoval\." --include=*.cs Jellyfin.Plugin.WatchSync/
+    Jellyfin.Plugin.WatchSync/Api/HeldAboutOnePersonController.cs:67:        var held = HeldAboutOnePerson.Report(_store, mappedUserId);
+    Jellyfin.Plugin.WatchSync/Api/HeldAboutOnePersonController.cs:101:        return new RecordsRemoved(mappedUserId, HeldAboutOnePerson.Remove(_store, mappedUserId));
+    Jellyfin.Plugin.WatchSync/Api/RecordsRemoved.cs:9:/// <see cref="Jellyfin.Plugin.WatchSync.Storage.HeldAboutOnePerson.Remove"/>'s own distinction
 
-So today somebody asks their operator and the operator has no button to press. The
-surface is [#62](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/62)
-and [#64](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/64), the
-authorisation that decides who may ask is
-[#66](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/66), and the two
-operations are
-[#74](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/74).
+Two of those three lines are calls and the third is a comment naming the rule it
+describes, which is what a grep over sources returns and is left here rather than
+filtered out.
+
+The server's own elevation policy is what decides who may ask, on both, and the
+routes are in [the endpoint document](endpoints.md). Neither endpoint separates a
+person this plugin holds nothing about from a person this server has never had: both
+answer the same way, deliberately, so that the answer cannot be used to find out
+which accounts exist.
+
+`StoreRemoval` is the third and nothing reaches it. That is the whole-store removal
+an operator takes before an uninstall, it is
+[#73](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/73)'s question
+rather than this one's, and the surface for it does not exist. The status surface is
+[#62](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/62) and the other
+manual actions are
+[#64](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/64).
 
 ## What this does not do
 
