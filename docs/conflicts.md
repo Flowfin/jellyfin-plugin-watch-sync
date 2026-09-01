@@ -225,10 +225,33 @@ tie rule the rule and recency the exception.
 Named so that a gap is readable as a gap rather than as an answer nobody wrote
 down.
 
-- The setting an operator changes the tolerated clock skew with, which is #58.
-  The two numbers are fixed by the rule in #32, which refuses a tolerance outside
-  them, and nothing reads either at run time, because no run resolves anything
-  yet.
+- The setting an operator changes the tolerated clock skew with. The two numbers
+  are fixed by the rule in #32, which refuses a tolerance outside them.
+
+  THIS BULLET NAMED #58 AND SAID NOTHING READ EITHER NUMBER AT RUN TIME, BECAUSE
+  NO RUN RESOLVED ANYTHING YET. Both halves have stopped being true, and they
+  stopped for different reasons. A resolution exists. `FirstExchange.Resolve`
+  hands the tolerance to `PositionRecency.Settle`, and that rule reads
+  `MaximumToleratedSkew` on every call, to refuse a tolerance above it:
+
+      grep -n 'PositionRecency.Settle' Jellyfin.Plugin.WatchSync/Exchange/FirstExchange.cs
+      263:        var position = PositionRecency.Settle(item.Here, item.AtThePeer, toleratedSkew, now);
+
+  And #58 is closed. What it decided for this number is a home rather than a
+  member, and the home is not the plugin configuration:
+
+      grep -oE '^. `PositionRecency[.][A-Za-z]+`.*[|] pairing state [|]' docs/configuration.md
+      | `PositionRecency.DefaultToleratedSkew` | `TimeSpan` | 1 minute | up to `MaximumToleratedSkew` | pairing state |
+
+  That file is one an operator copies between servers, and this number is a
+  judgement about one particular peer's clock, so a copy of it points at the
+  wrong machine. What the setting waits on is therefore somewhere per pairing to
+  keep it, which arrives with the adapter in #40, and not #58.
+
+  What is still absent is narrower than what this bullet claimed.
+  `DefaultToleratedSkew` is read by nothing, because no setting carries it, and
+  nothing calls `FirstExchange.Over`, so neither number is reached by anything
+  running on a server.
 - Where a resolved conflict is recorded, what the record holds and how long it is
   kept, which is #36. This file fixes only that a loser exists and what it is.
 - What a run does when the number of changes it is about to make is large, which
