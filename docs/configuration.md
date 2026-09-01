@@ -5,10 +5,11 @@ before the page that carries them is built, and it answers two questions that ev
 those issues would otherwise answer for itself, differently: where a setting lives, and
 which numbers are deliberately not settings at all.
 
-Six of the numbers below are settings an operator can change, and the rest are not. The
-table under `## The settings the configuration document carries` is the six, and the table
+Some of the numbers below are settings an operator can change, and the rest are not. The
+table under `## The settings the configuration document carries` is those, and the table
 under `## Every number this plugin declares` is all of them with the reason each of the
-others is not one. Both are closed against the sources in both directions, so neither can
+others is not one. Neither count is written here, because a count in prose beside a table
+is a number nothing closes: this paragraph said six while that table held seven. Both are closed against the sources in both directions, so neither can
 quietly stop describing this plugin.
 
 Where a number is not a setting, this document says which of five things it is instead
@@ -45,7 +46,7 @@ there, or means the wrong thing, does not belong in a file that travels.
 
 ## The settings the configuration document carries
 
-Seven, and every one of them is server-wide by the rule above. Each is stored as a whole
+Every one of them is server-wide by the rule above. Each is stored as a whole
 number of the unit its name ends in, and the reason is the control rather than the format.
 What an operator meets on the page is a number box, so a duration held as a `TimeSpan` would
 be formatted into one and parsed back out of it, and those two conversions are where a value
@@ -72,6 +73,7 @@ the widest value the rule accepts, declared on the same type.
 | `ConflictRetentionDays` | days | 14 | `ConflictRecords.DefaultRetention` | 1 | `ConflictRecords.MaximumRetention` |
 | `ProvenanceRetentionDays` | days | 90 | `ProvenanceRecords.DefaultRetention` | 1 | `ProvenanceRecords.MaximumRetention` |
 | `MaximumFailureSharePercent` | per cent | 50 | `FailureShare.DefaultMaximumShare` | `FailureShare.SmallestConfigurableShare` | `FailureShare.LargestConfigurableShare` |
+| `SweepIntervalMinutes` | minutes | 15 | `SweepSchedule.DefaultInterval` | 1 | `SweepSchedule.LongestInterval` |
 
 `ServerWideSettings` is the one place this document becomes the values the rules take, and it
 refuses rather than repairs. A value outside its bound is not clamped and not replaced by the
@@ -79,13 +81,13 @@ default, because both of those leave a server running a rule the operator did no
 the page goes on showing the number they typed. Every refused setting is named at once rather
 than the first one, because the other end of this is a person with a form open.
 
-Zero is refused along with everything below it. Six of these are a distance or a window, and
-zero switches the rule off through the setting: no move threshold, no echo suppression, no
-retention. Switching a rule off is a decision of its own rather than a boundary value of a
-number that means something else.
+Zero is refused along with everything below it. All but one of these are a distance, a window
+or an interval, and zero switches the rule off through the setting: no move threshold, no echo
+suppression, no retention, no sweep. Switching a rule off is a decision of its own rather than
+a boundary value of a number that means something else.
 
-The seventh is floored higher than its own unit and it is the only one whose dangerous end is
-the low one. A failure share near zero stops a walk at the first item a library no longer
+The one exception is floored higher than its own unit and it is the only one whose dangerous
+end is the low one. A failure share near zero stops a walk at the first item a library no longer
 holds, and at every exchange after it, which is the all-or-nothing outcome #54 exists to refuse
 arrived at through the rule that bounds it. `FailureShare.SmallestConfigurableShare` is where
 that floor is declared and the `Smallest` column is closed against it, the same way the
@@ -124,7 +126,7 @@ live once it is a setting, and none of them is one today.
 
 The reason is the same for all four and it is mechanical rather than a judgement about whether
 an operator wants them. Each is read inside the type that declares it, as the cap a trim is
-performed against, rather than taken as a parameter the way the six above are. So making one a
+performed against, rather than taken as a parameter the way the settings above are. So making one a
 setting is a change to that type's own surface and to every caller of it, and it needs a bound
 of its own that nothing declares yet. Doing it in passing here would have been four types
 changed for a table's sake.
@@ -166,6 +168,8 @@ numbers that are not settings as well as the ones that will be.
 | `FailureShare.SmallestConfigurableShare` | `double` | 0.25 | none | bound on a setting | below it one deleted film stops an exchange, which is the all-or-nothing outcome the rule sits inside the refusal of |
 | `FailureShare.LargestConfigurableShare` | `double` | 0.9 | none | bound on a setting | above it the rule fires only once essentially everything has failed, which is the rule switched off from the page |
 | `FailureShare.SmallestJudgeableAttempts` | `int` | 8 | none | deliberately absent | below it a share is arithmetic on too few points, and one refused item is a share of one |
+| `SweepSchedule.DefaultInterval` | `TimeSpan` | 15 minutes | up to `LongestInterval` | plugin configuration | the longest a change the events missed goes unseen, and below `BoundedBackoff.DefaultCeiling`, which is what that number's own reason assumes |
+| `SweepSchedule.LongestInterval` | `TimeSpan` | 6 hours | none | bound on a setting | `BoundedBackoff.LongestCeiling` read rather than copied: past it a working pairing is reached more slowly than a failing one |
 | `PeerText.DefaultLimit` | `int` | 200 | none | plugin configuration | a server name, a user name and a refusal reason arrive whole, and a page of a hundred is still a page |
 | `EnvelopeBounds.MaximumChanges` | `int` | 1000 | none | deliberately absent | what the answering side may put in one reply |
 | `EnvelopeBounds.MaximumBytes` | `int` | 262144 | none | deliberately absent | well below the transport ceiling, so a refusal here is always a peer doing something wrong |

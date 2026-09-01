@@ -4,6 +4,7 @@ using Jellyfin.Plugin.WatchSync.Configuration;
 using Jellyfin.Plugin.WatchSync.Apply;
 using Jellyfin.Plugin.WatchSync.Model;
 using Jellyfin.Plugin.WatchSync.Records;
+using Jellyfin.Plugin.WatchSync.Transfer;
 
 namespace Jellyfin.Plugin.WatchSync.Tests.Configuration;
 
@@ -78,6 +79,13 @@ internal static class Settings
             (document, value) => document.MaximumFailureSharePercent = value,
             reading => (int)Math.Round(reading.MaximumFailureShare!.Value * 100),
             FailureShare.SmallestConfigurableShare),
+        new Setting(
+            nameof(PluginConfiguration.SweepIntervalMinutes),
+            Unit.Minutes,
+            SweepSchedule.DefaultInterval,
+            SweepSchedule.LongestInterval,
+            (document, value) => document.SweepIntervalMinutes = value,
+            reading => (int)reading.SweepInterval!.Value.TotalMinutes),
     };
 
     /// <summary>
@@ -89,6 +97,11 @@ internal static class Settings
         /// Whole seconds.
         /// </summary>
         Seconds,
+
+        /// <summary>
+        /// Whole minutes.
+        /// </summary>
+        Minutes,
 
         /// <summary>
         /// Whole days.
@@ -223,6 +236,7 @@ internal static class Settings
         private int Count(object declared) => (InUnit, declared) switch
         {
             (Unit.Seconds, TimeSpan span) => (int)span.TotalSeconds,
+            (Unit.Minutes, TimeSpan span) => (int)span.TotalMinutes,
             (Unit.Days, TimeSpan span) => (int)span.TotalDays,
             (Unit.PerCent, double fraction) => (int)Math.Round(fraction * 100),
             _ => throw new InvalidOperationException(
