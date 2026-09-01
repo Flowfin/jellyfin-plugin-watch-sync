@@ -15,13 +15,33 @@ a person is handed, so where they disagree the other three are right.
 
 ## What is true of this plugin today, before anything below is read
 
-Nothing in this plugin runs on its own. There is no scheduled task, no entry point
-and no event handler in it, so nothing transfers anything, nothing writes a record
-and nothing writes a log line:
+Nothing in this plugin runs on its own. There is no scheduled task, no background
+service and no event handler in it, so nothing transfers anything on a schedule or
+off a playback, and nothing writes a log line:
 
-    grep -rlnE "IScheduledTask|IServerEntryPoint|IHostedService|IPluginServiceRegistrator|ILogger" \
+    grep -rlnE "IScheduledTask|IServerEntryPoint|IHostedService" \
       --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
     exit=1
+
+    grep -rln "ILogger" --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
+    exit=1
+
+CORRECTED BY RE-RUNNING IT. THIS PARAGRAPH ASKED FOR `IPluginServiceRegistrator` IN
+THE SAME COMMAND AND PASTED `exit=1` UNDER IT. That reading stopped reproducing when
+the registration in [#8](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/8)
+landed, and the paste went on saying the opposite:
+
+    grep -rln "IPluginServiceRegistrator" --include=*.cs Jellyfin.Plugin.WatchSync/
+    Jellyfin.Plugin.WatchSync/ServiceRegistrator.cs
+
+That file is the list of services the server hands to whatever asks for one. It starts
+nothing, it is not called on a schedule and it is not a route into this plugin from
+outside, so what the sentence above says about this plugin running is unchanged. The
+term is split out rather than dropped, because somebody checking whether this plugin
+has a way in is owed the answer that it has a registrar and what a registrar is.
+
+The two endpoints described below are the one thing here that runs at all, and they run
+when an administrator calls them rather than on their own.
 
 Everything below is therefore a rule that exists as a value or a function a caller
 hands its inputs to, and the caller is what has not been built. Where a rule is
