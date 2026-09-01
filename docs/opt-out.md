@@ -88,15 +88,40 @@ the rules above are what it is read against.
 
 ## What is not here
 
-The setting. Where it is stored is #58, which draws the distinction this choice
-depends on: a per-user choice belongs with that user's record rather than in the
-plugin configuration, because the configuration file is one an operator copies
-between servers and a per-user choice copied to another server is a choice
-somebody made about a different machine.
+The setting. THIS PARAGRAPH SAID WHERE IT IS STORED IS #58. That issue is closed
+and the distinction it draws is drawn, in [configuration.md](configuration.md):
 
-The surface. The page a person would set this on is the administrator surface in
-#57 and #59, and the wording above is written to be placed in one rather than to
-be one.
+    grep -n 'opt-out in `docs/opt-out.md` is this kind' docs/configuration.md
+    33:opt-out in `docs/opt-out.md` is this kind.
+
+The rule there is that a per-user choice belongs with that user's record rather
+than in the plugin configuration, because the configuration file is one an
+operator copies between servers and a per-user choice copied to another server is
+a choice somebody made about a different machine. So what is missing is not the
+rule but the record: nothing in this plugin writes one per person, and until
+something does there is nowhere this choice may be kept.
+
+The surface. THIS PARAGRAPH NAMED #57 AS ONE OF THE TWO PLACES IT WOULD BE PLACED
+IN, AND THAT ISSUE HAD ALREADY CLOSED WHEN THIS DOCUMENT LANDED. The page it asked
+for is in the tree, and it is not a page this wording can go on, because it is
+server-wide by construction and says so about itself:
+
+    grep -n 'Every setting on this page is server-wide' Jellyfin.Plugin.WatchSync/Configuration/configPage.html
+    23:                    Every setting on this page is server-wide. A setting belonging to one pairing is
+
+A choice one person makes about their own history is neither server-wide nor an
+operator's, so it does not belong on that document any more than a per-pairing
+value does. The per-pairing selection this choice has to beat is #59. Nor does
+this plugin serve a route a person could set it through: both of the endpoints it
+has are elevated, so each is an operator acting about somebody else rather than a
+person acting about themselves.
+
+    grep -vE '^#|^$' Jellyfin.Plugin.WatchSync.Tests/Endpoints/policies.txt
+    HeldAboutOnePersonController.Report :: GET :: Plugins/WatchSync/Persons/{mappedUserId}/Records :: RequiresElevation
+    HeldAboutOnePersonController.Remove :: DELETE :: Plugins/WatchSync/Persons/{mappedUserId}/Records :: RequiresElevation
+
+The wording above is written to be placed in a surface rather than to be one, and
+that is unchanged.
 
 The behaviour. That an opted-out person is skipped everywhere, that the opt-out
 beats the pairing selection, and that opting out drops what was outstanding for
