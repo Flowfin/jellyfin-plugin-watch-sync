@@ -123,7 +123,7 @@ somebody is answerable without opening a document to find out what it is about.
 
 | document | what it holds about a person | how long it is kept | the setting |
 | --- | --- | --- | --- |
-| `agreed-` | The last state the two servers agreed for one item: the four moved fields, when it was agreed, and under which envelope version. | As long as the pairing and the mapping exist. Nothing expires it, because it is what stops the next exchange inventing a play. | none |
+| `agreed-` | The last state the two servers agreed for one item: the four moved fields, when it was agreed, and under which envelope version. | As long as the pairing and the mapping exist. Nothing expires it, because it is what stops the next exchange inventing a play. The document holds at most 20000 items, and an item past that is refused rather than an older one dropped. | none |
 | `conflicts-` | One row per disagreement resolved: the item, the field, the rule that decided, the two values, and which side lost. | 14 days by default, and at most 90. | `ConflictRetentionDays` |
 | `provenance-` | One row per value this plugin wrote into the server: the item, the field, what was there before, what was written, and which pairing and which account on the peer it came from. | 90 days by default, and at most 365. | `ProvenanceRetentionDays` |
 | `unmatched-` | One row per item that produced no match key: the item, its kind, and the reason. It names items rather than what anybody watched. | No time limit. The document holds at most 1000 rows and the oldest go first. | none |

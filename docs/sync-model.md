@@ -374,6 +374,18 @@ than the ordinary path with an empty record, and the shape of what it records.
 The record is bounded by the number of matched items and not by the number of
 playback events. Watching one item a hundred times adds no rows.
 
+That bound is against an evening rather than against a peer, and #313 is the
+second one. The number of matched items is a number an operator never chose and
+cannot see, and a peer offering items this side has never agreed reaches it one
+entry per item, one exchange at a time, inside every bound the wire carries. So
+one record holds at most `AgreedRecords.MaximumEntries` items. Reaching it is a
+refusal with its own answer and never a dropped entry: an item unagreed to make
+room is a first exchange the next time anybody looks at it, which is the run
+allowed to change the most, so making room is the failure the bound exists
+against. A record at the bound goes on agreeing every item it already holds.
+[configuration.md](configuration.md) carries the reason for the number and what
+an operator does when it is reached.
+
 ## The reason the server gives when it saves
 
 The server raises one event whenever it saves what a user's record holds for an

@@ -17,6 +17,8 @@ namespace Jellyfin.Plugin.WatchSync.Agreement;
 /// entries are an object keyed on the item, so agreeing the same item again replaces an entry
 /// and an evening of playback leaves the record the size it was. Nothing here can grow with the
 /// number of playback events, because there is nowhere for a second entry about one item to go.
+/// What that shape does not bound is a peer offering items this side has never agreed, one
+/// exchange at a time, and <see cref="MaximumEntries"/> is #313's answer to it.
 ///
 /// The pairing is the document rather than a column in it. Two pairings of one server agree
 /// separately, so an agreement under one of them says nothing about the other, and a record
@@ -86,6 +88,28 @@ public sealed class AgreedRecords
         _byItem = byItem;
         Watermark = watermark;
     }
+
+    /// <summary>
+    /// Gets how many items one record may hold, which is #313.
+    ///
+    /// The shape above bounds this record by the number of matched items, and that is a bound
+    /// against an evening of playback rather than against a peer. A peer offers changes and this
+    /// side keys them on its own items, so a peer with a large library reaches one entry per item
+    /// it can name, one exchange at a time, without breaking a single rule the wire carries. The
+    /// number of matched items is also a number an operator never chose and cannot see, which is
+    /// what makes it the wrong bound to be relying on: nothing about it says what this side has
+    /// agreed to hold.
+    ///
+    /// <para>
+    /// Twenty thousand is twice <c>RunCap.MaximumConfigurableChanges</c>, so two runs at the
+    /// widest cap an operator can set fit under it whole and no ordinary run reaches it. It is
+    /// deliberately reachable, because a bound nothing can reach bounds nothing:
+    /// <c>docs/configuration.md</c> says what an operator does when it is reached, and the size
+    /// of a full document is measured by <c>AgreedRecordsBoundTests</c> rather than asserted
+    /// here.
+    /// </para>
+    /// </summary>
+    public static int MaximumEntries => 20000;
 
     /// <summary>
     /// Gets the pairing these agreements are under.
@@ -158,6 +182,15 @@ public sealed class AgreedRecords
     /// refusing a whole pairing's record, and what it buys is that an item is never silently
     /// unagreed: an entry dropped on the way in is a first exchange for that item on the way
     /// out, and a first exchange is the run that is allowed to change the most.
+    ///
+    /// <para>
+    /// The count is the one thing not refused on. A document holding more than
+    /// <see cref="MaximumEntries"/> is read as it stands, for the same reason the entries are:
+    /// refusing it would unagree every item in it at once, which is the outcome the bound exists
+    /// against, arrived at through the bound. What such a record does is stop taking items it
+    /// does not already hold, at the next <see cref="Agreeing"/>, until it holds fewer than the
+    /// bound again.
+    /// </para>
     /// </summary>
     /// <param name="document">The document, already read at a version this code may read.</param>
     /// <returns>The record, or the reason the document is not one.</returns>
@@ -210,6 +243,12 @@ public sealed class AgreedRecords
 
     /// <summary>
     /// This record with one agreement in it, replacing whatever was agreed about that item.
+    ///
+    /// This is the route for a caller that cannot reach <see cref="MaximumEntries"/> or has
+    /// already been told there is room. At the bound it throws rather than answering, because the
+    /// two things it could do instead are the two this bound exists against: returning the record
+    /// unchanged loses the agreement in silence, and dropping an older entry to make room
+    /// unagrees an item two servers had settled. <see cref="Agreeing"/> is the route that answers.
     /// </summary>
     /// <param name="agreement">What was agreed.</param>
     /// <returns>A record carrying it.</returns>
@@ -219,7 +258,44 @@ public sealed class AgreedRecords
     /// an agreement about another one has no entry here it could replace, and it would be
     /// readable afterwards under a user it was never about.
     /// </exception>
+    /// <exception cref="InvalidOperationException">
+    /// The record holds <see cref="MaximumEntries"/> items already and the agreement is about an
+    /// item it does not hold.
+    /// </exception>
     public AgreedRecords With(AgreedRecord agreement)
+    {
+        var admission = Agreeing(agreement);
+
+        if (admission.IsRefused)
+        {
+            throw new InvalidOperationException(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"This record already holds {admission.Held} items, which is the bound of {MaximumEntries}, and the agreement is about an item it does not hold. Ask Agreeing rather than this, because the alternatives here are losing this agreement or unagreeing an item two servers had settled."));
+        }
+
+        return admission.Records!;
+    }
+
+    /// <summary>
+    /// This record with one agreement offered to it, answering whether it took it.
+    ///
+    /// This is the route a caller that can reach the bound takes, and #313 is why there is one.
+    /// An agreement about an item this record already holds replaces that entry and is never
+    /// refused, whatever the record holds, because a replacement cannot grow it: a record at the
+    /// bound goes on agreeing every item it has already agreed, and only an item it has never
+    /// agreed is turned away. That is the difference between a record that has stopped taking new
+    /// work and one that has frozen.
+    /// </summary>
+    /// <param name="agreement">What was agreed.</param>
+    /// <returns>The record carrying it, or the reason it does not.</returns>
+    /// <exception cref="ArgumentNullException">The agreement is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// The agreement is about a mapped user this record is not about. A record is one user's, so
+    /// an agreement about another one has no entry here it could replace, and it would be
+    /// readable afterwards under a user it was never about.
+    /// </exception>
+    public AgreementAdmission Agreeing(AgreedRecord agreement)
     {
         ArgumentNullException.ThrowIfNull(agreement);
 
@@ -230,12 +306,19 @@ public sealed class AgreedRecords
                 nameof(agreement));
         }
 
+        if (_byItem.Count >= MaximumEntries
+            && !_byItem.ContainsKey(agreement.Subject.ItemId))
+        {
+            return AgreementAdmission.AtTheBound(_byItem.Count);
+        }
+
         var byItem = new Dictionary<Guid, AgreedRecord>(_byItem)
         {
             [agreement.Subject.ItemId] = agreement,
         };
 
-        return new AgreedRecords(PairingId, MappedUserId, byItem, Watermark);
+        return AgreementAdmission.Agreed(
+            new AgreedRecords(PairingId, MappedUserId, byItem, Watermark));
     }
 
     /// <summary>
