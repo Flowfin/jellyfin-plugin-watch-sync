@@ -13,10 +13,20 @@ and the refusals in it are the reason a wrong match is not offered as an option.
 ## What this guide cannot tell you yet
 
 Where an operator reads these reasons is the status page, and there is no status
-page. #62 holds it, and the record the page would count is #26. Neither exists, so
-this document names the reasons and what to do about each one, and it does not say
-which screen to look at or what a repaired item looks like there. That half arrives
-with those two issues.
+page. #62 holds it. So this document names the reasons and what to do about each one,
+and it does not say which screen to look at or what a repaired item looks like there.
+That half arrives with that issue.
+
+CORRECTED BY LISTING THE TREE. THIS PARAGRAPH SAID THE RECORD THE PAGE WOULD COUNT DID
+NOT EXIST EITHER, AND IT HAS SINCE 2026-08-27:
+
+    git log --format='%h %ad %s' --date=short -1 -- Jellyfin.Plugin.WatchSync/Records/UnmatchedRecords.cs
+    6b78509 2026-08-27 Keep the record of what did not match and why (#26, #74, #58)
+
+What is absent is not the record but anything that puts an item into one, which is a
+narrower absence and a different issue's. It matters to a reader here because it decides
+what the sections below are: they are the repair for a reason the code can already name
+and already store, rather than for a vocabulary nothing holds yet.
 
 The reasons themselves are in the sources today, which is what makes the sections
 below something other than a plan.
@@ -155,10 +165,18 @@ Two effects, and the table admits no third:
   the item. It takes effect at the next full pass rather than immediately, because
   nothing re-derives a key for an item that did not change.
 
-Neither the record that would show the reason nor the pass that would pick a repaired
-item up exists in this repository today. The record is #26 and the sweep is #55. So
-the column below is the rule an implementation of them is held to, and it is not a
-description of something running.
+The record that would show the reason is in this repository and nothing outside it fills
+one; the pass that would pick a repaired item up is not here at all. THIS PARAGRAPH SAID
+NEITHER OF THE TWO EXISTED, which stopped being true for the record on 2026-08-27 and is
+still true of the pass. #26 landed the record, and the only construction of one is inside
+the collection that holds them:
+
+    grep -rn 'new UnmatchedRecord(' --include=*.cs Jellyfin.Plugin.WatchSync/
+    Jellyfin.Plugin.WatchSync/Records/UnmatchedRecords.cs:386:            unmatched = new UnmatchedRecord(itemId, kind, refusal, answer, lastAttemptedAt);
+
+#55 has landed the interval a sweep would run at and not the sweep, so nothing re-derives
+a key on a schedule either. So the column below is the rule an implementation of the two
+is held to, and it is not a description of something running.
 
 | reason | effect | what the repair is |
 | --- | --- | --- |
