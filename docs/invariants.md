@@ -207,7 +207,7 @@ green run.
 
 **A scan is only as wide as its subject.** These rules read the plugin's own sources, so
 what a green run is worth depends on what those sources hold, and that moves under this
-paragraph without anybody editing it. Read at `f9ec69a`, which is what the mainline is on.
+paragraph without anybody editing it. Every reading below was taken at `f9ec69a`.
 Four of the eleven invariants that guard carries scan sources holding nothing of the kind
 the rule is about, and seven scan sources that hold the surface a violation would be
 written on. The eleven are counted from the register rather than from this sentence:
