@@ -281,21 +281,52 @@ let an operator claim this plugin writes a version it does not write.
 Nothing consumes the settings. `ServerWideSettings` turns the document into the values the
 rules take and no caller asks it to, because the things that would - the event this plugin
 classifies, the walk that decides what to send, the sweep that trims a record - are #15, the
-transfer plane in #47 and #55, and none of them exists. So an operator can change these six
-and save them, and what a changed value alters today is what the next caller is handed rather
-than any behaviour that runs. That is stated here rather than left to be discovered from a
-page that saves.
+transfer plane in #47 and #55, and none of them exists. So an operator can change what the
+table above carries and save it, and what a changed value alters today is what the next
+caller is handed rather than any behaviour that runs. That is stated here rather than left to
+be discovered from a page that saves.
+
+THIS SENTENCE CARRIED A COUNT AND SAID SIX. It was written when six settings sat on the
+configuration type, and the failure share and the sweep interval have joined them since. It
+carries none now, because the count is the one thing here nothing holds: the table and the
+configuration type are closed against each other by `ConfigurationDocumentTests`, and a
+sentence counting them is a third copy no run reads. Derive it instead:
+
+    grep -cE '^\| `[A-Za-z]+` \| (seconds|days|per cent|minutes) \|' docs/configuration.md
+    grep -c 'public int ' Jellyfin.Plugin.WatchSync/Configuration/PluginConfiguration.cs
 
 The per-pairing and per-user settings have no home to be stored in. Both of those homes are a
 record beside a pairing or a person and neither is written by anything yet, so the tolerated
-skew, the run caps, the failure share and the opt-out stay numbers on their own types with a
-row saying where they will live.
+skew, the run caps and the opt-out stay numbers on their own types with a row saying where
+they will live.
 
-Two settings this plan names have no number in the sources yet and therefore no row: the
-queue depth and age, which is #48, and the sweep schedule, which is #55. Each arrives with
-a row, because the closure refuses the number without one. #48's own premise was overtaken
-by the decision that the transfer pulls rather than pushes, so whether it contributes a
-setting at all is a scope question taken there.
+THE FAILURE SHARE STOOD IN THAT LIST AND IS NOT ONE OF THEM. Its row moved into the plugin
+configuration on #294, with the argument at `## One row that moved` above, so it is a setting
+an operator changes today rather than a number waiting for a home:
+
+    grep -E '^\| `FailureShare\.DefaultMaximumShare`' docs/configuration.md
+    | `FailureShare.DefaultMaximumShare` | `double` | 0.5 | from `SmallestConfigurableShare` to `LargestConfigurableShare` | plugin configuration | every second write refused is a side that has stopped accepting them, and no library reaches it by having items missing |
+
+One setting this plan names has no number in the sources yet and therefore no row: the queue
+depth and age, which is #48. It arrives with a row, because the closure refuses the number
+without one. #48's own premise was overtaken by the decision that the transfer pulls rather
+than pushes, so whether it contributes a setting at all is a scope question taken there.
+
+THE SWEEP SCHEDULE WAS THE SECOND OF THOSE AND HAS BOTH NOW, AND THIS PARAGRAPH SAID IT HAD
+NEITHER. #55 landed the interval, and the closure took its row with it:
+
+    grep -E '^\| `SweepIntervalMinutes`' docs/configuration.md
+    | `SweepIntervalMinutes` | minutes | 15 | `SweepSchedule.DefaultInterval` | 1 | `SweepSchedule.LongestInterval` |
+
+What that leaves is an interval and not a sweep. Nothing reads the number on a schedule,
+because the pass it would drive is the rest of #55, and the two settings members that name it
+are the document's own default and bound:
+
+    grep -rn 'SweepSchedule\.' --include=*.cs Jellyfin.Plugin.WatchSync/ | grep -v 'Transfer/SweepSchedule.cs'
+    Jellyfin.Plugin.WatchSync/Configuration/PluginConfiguration.cs:124:    /// Defaults to <see cref="SweepSchedule.DefaultInterval"/>, bounded by
+    Jellyfin.Plugin.WatchSync/Configuration/PluginConfiguration.cs:125:    /// <see cref="SweepSchedule.LongestInterval"/>. It is the only member here stored in minutes,
+    Jellyfin.Plugin.WatchSync/Configuration/PluginConfiguration.cs:132:        (int)SweepSchedule.DefaultInterval.TotalMinutes;
+    Jellyfin.Plugin.WatchSync/Configuration/ServerWideSettings.cs:84:            SweepSchedule.LongestInterval);
 
 The cap on what one run may change was the third of those and has its numbers now, in
 `RunCap`. Both of its settings are per pairing rather than server-wide, and that is the
