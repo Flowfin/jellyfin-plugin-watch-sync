@@ -586,11 +586,30 @@ this document now makes both of them.
 ### What of this has a rule in the sources today
 
 The rule and its two numbers, in `EchoWindow`, held by `EchoWindowTests`. Nothing
-calls it. The event it would be asked from is #15 and the walk whose writes it would
-be told about is the apply path in #54, which records nothing about when it wrote, so
-what a caller reads for the second parameter does not exist yet. The three assertions
-#16 asks for are each over an apply and an event together, and they arrive with that
-caller rather than with this rule.
+calls it. The event it would be asked from is #15.
+
+THIS PARAGRAPH SAID THE APPLY PATH RECORDS NOTHING ABOUT WHEN IT WROTE, AND THAT WHAT
+A CALLER READS FOR THE SECOND PARAMETER DOES NOT EXIST YET. It was accurate when it
+was written and it stopped being so six hours later, on the same day, and it has said
+the opposite of the tree since. The walk stamps one entry per field a write moved, and
+the entry carries the moment:
+
+    grep -n 'public DateTimeOffset WrittenAt' Jellyfin.Plugin.WatchSync/Records/ProvenanceRecord.cs
+    179:    public DateTimeOffset WrittenAt { get; }
+
+    git log --format='%h %ad %s' --date=short -S writtenAt -- Jellyfin.Plugin.WatchSync/Apply/ItemByItemApply.cs
+    36edf8d 2026-08-28 Stamp what each write replaced, so a revoked pairing can be undone (#44)
+
+A provenance document is already one pairing's and one mapped user's, and `With`
+appends, so the answer the second parameter wants is the last entry whose item and
+field match, and nothing where there is none. The moment therefore does not have to be
+kept a second time by whatever drives the two rules together.
+
+What is absent is narrower, and it is two things rather than a record. No member of
+`ProvenanceRecords` answers that question, and a lookup landed now would be a surface
+written ahead of its only caller. And the caller itself: the three assertions #16 asks
+for are each over an apply and an event together, and they arrive with it rather than
+with this rule.
 
 ## The position thresholds
 
