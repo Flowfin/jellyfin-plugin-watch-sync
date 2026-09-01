@@ -449,6 +449,71 @@ The `cs/linq/missed-select` alert in that output is a different rule and a
 different question. It is raised against a site added after the rewrites the
 sections above describe, it is untriaged, and nothing here decides it.
 
+### The split stopped holding, read on 2026-09-01
+
+THE SECTION ABOVE SAYS THE WHOLE SET OF SITES THIS RULE CAN REACH IS IN THE TEST
+PROJECT AND PASTES `exit=1` UNDER THE COMMAND THAT SHOWED IT. That reading was taken
+on 2026-08-12; the store folder landed on 2026-08-17 and the store itself on
+2026-08-23, so it was true when it was written and has not been true since. It is
+left standing above rather than edited, so that a reader who acted on it can see
+what replaced it.
+
+Read before this section was written:
+
+    git grep -n 'Path\.Combine' origin/master -- 'Jellyfin.Plugin.WatchSync/**/*.cs'
+    origin/master:Jellyfin.Plugin.WatchSync/Storage/DocumentStore.cs:492:        return Path.Combine(_folder.CreateIfAbsent(), name + DocumentSuffix);
+    origin/master:Jellyfin.Plugin.WatchSync/Storage/DocumentStore.cs:510:        return Path.Combine(
+    origin/master:Jellyfin.Plugin.WatchSync/Storage/StoreFolder.cs:48:    public string FullPath => Path.Combine(_applicationPaths.DataPath, FolderName);
+
+Two of the three are open alerts of this rule, and they are the only two of its open
+alerts outside the test project:
+
+    gh api --paginate 'repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&per_page=100' | jq '[.[] | select(.rule.id=="cs/path-combine")] | length'
+    64
+
+    gh api --paginate 'repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=open&per_page=100' | jq -r '.[] | select(.rule.id=="cs/path-combine") | select(.most_recent_instance.location.path | startswith("Jellyfin.Plugin.WatchSync/")) | "\(.number) \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
+    142 Jellyfin.Plugin.WatchSync/Storage/DocumentStore.cs:510
+    141 Jellyfin.Plugin.WatchSync/Storage/DocumentStore.cs:492
+
+### Why those two are a different question from the sixty two beside them
+
+Every kind above rests on the same argument: the later argument is a literal in the
+source, or a name a test composed for itself, so it cannot be rooted and no earlier
+argument can be dropped. Neither of these two is that. The later argument at both is a
+document name a caller chose, and what stands between a caller and an absolute path is
+a guard rather than the shape of the source.
+
+The guard exists and it is at one of the two sites rather than at both:
+
+    git grep -n 'RefuseANameThisStoreMayNotCompose' origin/master -- Jellyfin.Plugin.WatchSync/Storage/DocumentStore.cs
+    origin/master:Jellyfin.Plugin.WatchSync/Storage/DocumentStore.cs:365:    private static void RefuseANameThisStoreMayNotCompose(string name)
+    origin/master:Jellyfin.Plugin.WatchSync/Storage/DocumentStore.cs:490:        RefuseANameThisStoreMayNotCompose(name);
+
+It refuses anything but lower case letters, digits and hyphens, which is a closed set
+rather than a search for separators, so a name that would traverse is refused whatever
+platform this runs on. Alert 141 is the site that calls it, at line 492, two lines
+below the call.
+
+Alert 142 is `InFlightPathFor` at line 510, and nothing in that method guards. What
+makes it safe today is the order of two statements in the one method that reaches it:
+
+    git grep -n 'PathFor(name)' origin/master -- Jellyfin.Plugin.WatchSync/Storage/DocumentStore.cs
+    origin/master:Jellyfin.Plugin.WatchSync/Storage/DocumentStore.cs:158:    public DocumentReading? Read(string name) => ReadWhereItIsThere(PathFor(name));
+    origin/master:Jellyfin.Plugin.WatchSync/Storage/DocumentStore.cs:228:        var path = PathFor(name);
+    origin/master:Jellyfin.Plugin.WatchSync/Storage/DocumentStore.cs:257:        var path = PathFor(name);
+    origin/master:Jellyfin.Plugin.WatchSync/Storage/DocumentStore.cs:284:            var inFlight = InFlightPathFor(name);
+
+`Write` composes the guarded path at 257 and the in-flight path at 284 out of the same
+name, so the guard has run by the time the second one is composed. That is a true
+statement about this method and not a property of the site, and it stops being true if
+anybody calls `InFlightPathFor` from anywhere else or moves the two lines apart.
+
+So a dismissal of these two written in the words of the kinds above would be wrong
+about them, and a dismissal of the whole rule taken on the strength of the sentence in
+the earlier section would rest on a reading that no longer reproduces. Nothing is
+decided here and no alert was touched: which of the three answers each rule gets is
+what #271 is for, and this is a reading for whoever takes it.
+
 ### The write is not refused, read on 2026-08-13
 
 Alert 79 was open and untriaged when the section above was written. It now
