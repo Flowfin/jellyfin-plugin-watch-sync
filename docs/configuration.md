@@ -169,7 +169,7 @@ numbers that are not settings as well as the ones that will be.
 | `FailureShare.LargestConfigurableShare` | `double` | 0.9 | none | bound on a setting | above it the rule fires only once essentially everything has failed, which is the rule switched off from the page |
 | `FailureShare.SmallestJudgeableAttempts` | `int` | 8 | none | deliberately absent | below it a share is arithmetic on too few points, and one refused item is a share of one |
 | `SweepSchedule.DefaultInterval` | `TimeSpan` | 15 minutes | up to `LongestInterval` | plugin configuration | the longest a change the events missed goes unseen, and below `BoundedBackoff.DefaultCeiling`, which is what that number's own reason assumes |
-| `SweepSchedule.LongestInterval` | `TimeSpan` | 6 hours | none | bound on a setting | `BoundedBackoff.LongestCeiling` read rather than copied: past it a working pairing is reached more slowly than a failing one |
+| `SweepSchedule.LongestInterval` | `TimeSpan` | 6 hours | none | bound on a setting | past it a working pairing is reached more slowly than a failing one, so it is the same value as `BoundedBackoff.LongestCeiling` and is declared here rather than read off it, which is what lets a fact redden when either moves |
 | `PeerText.DefaultLimit` | `int` | 200 | none | plugin configuration | a server name, a user name and a refusal reason arrive whole, and a page of a hundred is still a page |
 | `EnvelopeBounds.MaximumChanges` | `int` | 1000 | none | deliberately absent | what the answering side may put in one reply |
 | `EnvelopeBounds.MaximumBytes` | `int` | 262144 | none | deliberately absent | well below the transport ceiling, so a refusal here is always a peer doing something wrong |
