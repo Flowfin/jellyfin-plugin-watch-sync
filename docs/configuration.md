@@ -157,6 +157,7 @@ numbers that are not settings as well as the ones that will be.
 | `ProvenanceRecords.DefaultRetention` | `TimeSpan` | 90 days | up to `MaximumRetention` | plugin configuration | the undo is bounded by when a pairing is revoked rather than by how long a diagnostic stays interesting |
 | `ProvenanceRecords.MaximumRetention` | `TimeSpan` | 365 days | none | bound on a setting | past a year the record is kept for a revocation nobody expects and what is held is a year of somebody's viewing |
 | `UnmatchedRecords.MaximumEntries` | `int` | 1000 | none | plugin configuration | a list somebody can work through, and a library that reaches it has a systematic problem rather than rows to repair |
+| `AgreedRecords.MaximumEntries` | `int` | 20000 | none | deliberately absent | twice the widest run cap an operator can set, so no run reaches it, and a full document measures about four mebibytes |
 | `RunCap.DefaultMaximumChanges` | `int` | 100 | up to `MaximumConfigurableChanges` | pairing state | a busy evening and a day of catching up fit under it, and a mass-mark is nowhere near it |
 | `RunCap.DefaultMaximumShare` | `double` | 0.1 | up to `MaximumConfigurableShare` | pairing state | a tenth of a small library is a change nobody makes by watching things |
 | `RunCap.MaximumConfigurableChanges` | `int` | 10000 | none | bound on a setting | above it the count reads as a cap while letting a mass-mark through |
@@ -208,6 +209,35 @@ misbehaving may send, which is a question nobody has the information to answer, 
 answer is only ever discovered to have been wrong. `WidestRuntimeDifference` is the same
 shape pointed at a person rather than at a peer: raising it drops somebody into a scene
 they had not reached, and that is the one failure here that cannot be taken back.
+
+`AgreedRecords.MaximumEntries` is the same refusal one layer in, and it is the one to read
+carefully because the number is deliberately reachable. The envelope bounds say what a peer
+may send in one exchange; this one says what a peer can make this side hold across all of
+them. A peer offering items this side has never agreed adds one entry per item, one
+exchange at a time, with every exchange inside every bound the wire carries, so without a
+number here the only thing bounding the record is how many items the peer can name. Raising
+it asks an operator to decide how much a peer that is already offering more than a library
+may be allowed to leave behind, which is the question the paragraph above says nobody has
+the information to answer.
+
+## What an operator does when the agreed record reaches its bound
+
+A record at the bound goes on agreeing every item it already holds, so nothing anybody is
+watching stops syncing, and it takes no item it has never agreed. The refusal names the
+pairing, the person and the count. Nothing shows it yet, which is #62.
+
+Reaching it is not a peer misbehaving by itself. Twenty thousand distinct matched items for
+one person is a library rather than an evening, and the two ways to get there are a peer
+with a very large library legitimately matched against this one, and a peer offering items
+that are not what it says they are. They are told apart by the unmatched record and by the
+provenance record rather than by this number, and what to do differs:
+
+- where the items are real, the answer is to narrow what that pairing carries for that
+  person, which is #59, rather than to raise a bound that is holding;
+- where they are not, the answer is to revoke the pairing, which removes the mapping and
+  with it the record this bound is about.
+
+Neither of those is built. What exists today is the bound and the refusal.
 
 **A number nobody can observe is not worth configuring.** `MatchIndex.PageSize` changes
 how much memory a rebuild holds at once and changes nothing an operator can see. A setting
