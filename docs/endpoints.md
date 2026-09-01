@@ -5,15 +5,16 @@ trusted. So this one is held against the routes by a comparison that fails in bo
 directions rather than by somebody remembering to update it, and what that comparison
 cannot see is written down here beside what it can.
 
-**This plugin serves no endpoint today and the table below has no row.** That is a
+**This plugin serves two endpoints and the table below has a row for each.** That is a
 reading rather than a claim:
 
-    git grep -l 'ControllerBase\|\[HttpGet\|\[HttpPost\|ApiController' origin/master -- Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
-    exit=1
+    git grep -l 'ControllerBase' -- Jellyfin.Plugin.WatchSync/
+    Jellyfin.Plugin.WatchSync/Api/HeldAboutOnePersonController.cs
 
-The surface arrives with the administrator page: the status in #62, the manual actions
-in #64, and what one person may ask about their own record in #74. Their authorisation
-is #66.
+Both are #74's, and they are the whole of the surface. The status in #62 and the manual
+actions in #64 are still ahead of it, and each adds its own rows here in the change that
+adds it, because the comparison below fails on the day a route exists without one. Their
+authorisation is #66.
 
 ## What counts as an endpoint
 
@@ -34,10 +35,15 @@ the first controller lands, which is the day both are believed.
 
 | Endpoint | Method | Route | Authorisation | Inputs | Outputs | Refusals |
 | --- | --- | --- | --- | --- | --- | --- |
+| `HeldAboutOnePersonController.Report` | GET | Plugins/WatchSync/Persons/{mappedUserId}/Records | RequiresElevation | The person, in the route. No body. | `200` with the person, a count, and one entry per document: its name in the store, the prefix of the kind that wrote it, the pairing it is about, the version it was written at, and the document itself as the store holds it. | `400` where the identifier names nobody, which is the all-zero one. `401` where the caller has not signed in and `403` where they are signed in and not elevated, both from the server's own policy rather than from anything here. |
+| `HeldAboutOnePersonController.Remove` | DELETE | Plugins/WatchSync/Persons/{mappedUserId}/Records | RequiresElevation | The person, in the route. No body. | `200` with the person and how many documents were removed, which is the count of documents that went rather than of documents that were found. | `400` where the identifier names nobody, which is the all-zero one. `401` and `403` as above. |
 
-The table is empty because the surface is. It is not a placeholder to be filled in
-later by whoever notices: the comparison below fails on the day a route exists without
-a row here, so the first controller cannot land without one.
+The two rows are the whole surface rather than the start of a list somebody fills in
+when they notice: the comparison below fails on the day a route exists without a row
+here, so the next controller cannot land without one either.
+
+Neither endpoint answers a body on a refusal, and the cells say a status and nothing
+more, because a status and nothing more is what a caller receives.
 
 ## Refusals as the caller sees them
 
@@ -54,11 +60,16 @@ sameness is stated as deliberate.** This is the row that gets tidied. A reader w
 finds two rows with identical answers assumes a copying mistake and merges them, and
 what they remove is a decision.
 
-The case this plugin will meet first: a request naming a pairing that does not exist,
-and a request naming a pairing the caller may not see. These answer identically, and
-they must, because an answer that separates them tells a caller which pairings exist on
-a server they were not authorised to ask about. The same shape applies to a user
-identifier and to an item.
+The case this plugin meets today, on both rows above: a person this plugin holds nothing
+about, and a person this server has never had. Both answer `200` with an empty report,
+or with a removal of nothing, and neither says which of the two it was. That is
+deliberate. This plugin holds no list of users, so it could not separate them without
+asking the server, and an answer that did separate them would tell a caller which
+accounts exist on a server they were authorised to ask one question of.
+
+The case still ahead of this one has the same shape: a request naming a pairing that
+does not exist, and a request naming a pairing the caller may not see, which answer
+identically for the same reason. The same applies to an item.
 
 **A refusal never carries a peer's own text.** What arrived from another machine is
 bounded and stripped before anything is built out of it, which is #63, and a refusal

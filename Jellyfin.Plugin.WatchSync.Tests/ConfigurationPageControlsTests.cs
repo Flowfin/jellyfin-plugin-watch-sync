@@ -40,6 +40,24 @@ public class ConfigurationPageControlsTests
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>
+    /// The form the settings are saved from, which is the subject rather than the whole page.
+    ///
+    /// The page is not only settings any more. #74 put an action on it, and an action needs a
+    /// field saying who it is about, so a rule reading every control on the page would call that
+    /// field a setting and refuse the page for carrying it. Narrowing to the form is what the two
+    /// directions are actually about: what this form carries is what the submit writes, and what
+    /// the submit writes is what the configuration type has to declare.
+    ///
+    /// It is a narrowing rather than an exemption, and both ways out of it fail loudly. A settings
+    /// control moved out of the form stops being saved and is reported as a setting with no
+    /// control; a form renamed out from under this pattern is reported by name rather than
+    /// leaving a page that reads as having no controls at all.
+    /// </summary>
+    private static readonly Regex _settingsForm = new Regex(
+        "<form\\b[^>]*\\bid\\s*=\\s*[\"']WatchSyncConfigForm[\"'][^>]*>(.*?)</form>",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Singleline);
+
+    /// <summary>
     /// The page this plugin serves and the settings it declares name the same set.
     ///
     /// This is the fact that fails on the day a setting is added without a control, which is what
@@ -64,7 +82,8 @@ public class ConfigurationPageControlsTests
     public void ASettingWithNoControlOnThePageIsRefused()
     {
         const string Page =
-            "<div><input is=\"emby-input\" type=\"number\" id=\"PositionThresholdSeconds\" /></div>";
+            "<form id=\"WatchSyncConfigForm\">"
+            + "<input is=\"emby-input\" type=\"number\" id=\"PositionThresholdSeconds\" /></form>";
 
         var found = Disagreements(new[] { "PositionThresholdSeconds", "FinishThresholdSeconds" }, Page);
 
@@ -81,7 +100,8 @@ public class ConfigurationPageControlsTests
     public void AControlBoundToNoSettingIsRefused()
     {
         const string Page =
-            "<div><input is=\"emby-input\" type=\"number\" id=\"PositionThresholdSecond\" /></div>";
+            "<form id=\"WatchSyncConfigForm\">"
+            + "<input is=\"emby-input\" type=\"number\" id=\"PositionThresholdSecond\" /></form>";
 
         var found = Disagreements(new[] { "PositionThresholdSeconds" }, Page);
 
@@ -101,9 +121,71 @@ public class ConfigurationPageControlsTests
     public void AnIdentifierOnSomethingThatIsNotAControlIsNotASetting()
     {
         const string Page =
-            "<div id=\"WatchSyncConfigPage\"><p id=\"WatchSyncNoSettings\">nothing to set</p></div>";
+            "<div id=\"WatchSyncConfigPage\"><form id=\"WatchSyncConfigForm\">"
+            + "<p id=\"WatchSyncNoSettings\">nothing to set</p></form></div>";
 
         Assert.Empty(Disagreements(Array.Empty<string>(), Page));
+    }
+
+    /// <summary>
+    /// A control outside the settings form is not a setting and is not asked to be one.
+    ///
+    /// This is the case #74 landed: an action needs a field naming who it is about, that field is
+    /// never written to the configuration, and a rule reading the whole page would refuse the page
+    /// for carrying it. The repair somebody would reach for instead is a list of identifiers to
+    /// ignore, which goes stale the first time one is renamed and quietly stops covering the
+    /// setting somebody adds beside it.
+    /// </summary>
+    [Fact]
+    public void AControlOutsideTheSettingsFormIsNotASetting()
+    {
+        const string Page =
+            "<div><form id=\"WatchSyncConfigForm\">"
+            + "<input is=\"emby-input\" type=\"number\" id=\"PositionThresholdSeconds\" /></form>"
+            + "<input is=\"emby-input\" type=\"text\" id=\"WatchSyncPersonId\" /></div>";
+
+        Assert.Empty(Disagreements(new[] { "PositionThresholdSeconds" }, Page));
+    }
+
+    /// <summary>
+    /// A settings control moved out of the form is refused.
+    ///
+    /// This is what the narrowing costs if it is wrong, asked directly. A control outside the form
+    /// is not written by the submit, so a setting whose control has drifted out of it is one an
+    /// operator can type into and cannot change, which is the first of the two failures this file
+    /// exists against arriving by a different route.
+    /// </summary>
+    [Fact]
+    public void ASettingsControlMovedOutOfTheFormIsRefused()
+    {
+        const string Page =
+            "<div><form id=\"WatchSyncConfigForm\"></form>"
+            + "<input is=\"emby-input\" type=\"number\" id=\"PositionThresholdSeconds\" /></div>";
+
+        Assert.Contains(
+            "PositionThresholdSeconds",
+            Assert.Single(Disagreements(new[] { "PositionThresholdSeconds" }, Page)),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A page with no settings form at all is refused, and it is refused by name.
+    ///
+    /// The subject of every comparison here is that form, so a page that lost it or renamed it
+    /// would otherwise read as a page where every setting is missing and would say nothing about
+    /// why. Naming the absence is what puts somebody in front of the right file.
+    /// </summary>
+    [Fact]
+    public void APageWithNoSettingsFormIsRefused()
+    {
+        const string Page =
+            "<div><form id=\"WatchSyncSettings\">"
+            + "<input is=\"emby-input\" type=\"number\" id=\"PositionThresholdSeconds\" /></form></div>";
+
+        Assert.Contains(
+            "the page carries no form with id \"WatchSyncConfigForm\", so nothing on it is saved",
+            Disagreements(new[] { "PositionThresholdSeconds" }, Page),
+            StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -169,8 +251,16 @@ public class ConfigurationPageControlsTests
         IReadOnlyCollection<string> settings,
         string html)
     {
-        var controls = ControlsOn(html);
+        var form = _settingsForm.Match(html);
         var findings = new List<string>();
+
+        if (!form.Success)
+        {
+            findings.Add(
+                "the page carries no form with id \"WatchSyncConfigForm\", so nothing on it is saved");
+        }
+
+        var controls = ControlsOn(form.Success ? form.Groups[1].Value : string.Empty);
 
         foreach (var setting in settings.Where(
                      setting => !controls.Contains(setting, StringComparer.Ordinal)))

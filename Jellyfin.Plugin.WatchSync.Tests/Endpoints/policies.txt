@@ -17,11 +17,15 @@
 # also refuses an endpoint that is open and one whose attribute does not say what
 # its row says.
 #
-# THIS FILE HAS NO ROWS AND THE PLUGIN HAS NO ENDPOINT. The comparison is therefore
-# empty against empty today, which decides nothing on its own, and that is why the
-# guard is a function over a set of types rather than a search over one assembly:
-# the fixtures beside it carry an endpoint of each shape, so the reflection is
-# proven to find one and to refuse one before the plugin has any. What an endpoint
-# is, for this file and for the document #112 holds against the same routes, is a
-# public method of a public type deriving from ControllerBase that carries an HTTP
-# method attribute.
+# THE FILE HAD NO ROWS AND THE PLUGIN HAD NO ENDPOINT UNTIL #74. The comparison over
+# the real pair was empty against empty, which decides nothing on its own, and that
+# is why the guard is a function over a set of types rather than a search over one
+# assembly: the fixtures beside it carry an endpoint of each shape, so the
+# reflection was proven to find one and to refuse one before the plugin had any.
+# That construction is unchanged and it is what the rows below are now judged by.
+# What an endpoint is, for this file and for the document #112 holds against the
+# same routes, is a public method of a public type deriving from ControllerBase
+# that carries an HTTP method attribute.
+
+HeldAboutOnePersonController.Report :: GET :: Plugins/WatchSync/Persons/{mappedUserId}/Records :: RequiresElevation
+HeldAboutOnePersonController.Remove :: DELETE :: Plugins/WatchSync/Persons/{mappedUserId}/Records :: RequiresElevation

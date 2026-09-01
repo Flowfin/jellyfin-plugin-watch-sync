@@ -20,10 +20,12 @@
                     taking a value is not a statement that everything is in order.
                 </p>
                 <p id="WatchSyncServerWideOnly">
-                    Everything on this page is server-wide. Anything belonging to one pairing or to
-                    one person is deliberately not here, because this document is one an operator
-                    copies between servers and a per-pairing value copied that way points at a peer
-                    that is not there.
+                    Every setting on this page is server-wide. A setting belonging to one pairing is
+                    deliberately not here, because this document is one an operator copies between
+                    servers and a per-pairing value copied that way points at a peer that is not
+                    there. The action at the bottom of the page is about one person and is not a
+                    setting: nothing about it is stored in this document and nothing about it is
+                    copied anywhere.
                 </p>
                 <p id="WatchSyncWhereTheDetailIs">
                     What each setting below does, what happens at either end of its range, where
@@ -114,6 +116,37 @@
                         <span>Save</span>
                     </button>
                 </form>
+                <h2>What is held about one person</h2>
+                <p id="WatchSyncHeldAboutOnePerson">
+                    Somebody who asks what this plugin holds about them, or asks for it to go, is
+                    answered here rather than by an administrator opening files. Both actions are
+                    about the person whose identifier is in the field below, and both need an
+                    administrator account.
+                </p>
+                <p id="WatchSyncRemovalKeepsTheHistory">
+                    Removing these records does not remove what that person watched. Their watch
+                    history belongs to the server and stays exactly where it is. What goes is this
+                    plugin's own record of what it agreed with a peer, what it wrote, what it could
+                    not match and which conflicts it resolved.
+                </p>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="WatchSyncPersonId">
+                        The person's identifier
+                    </label>
+                    <input is="emby-input" type="text" id="WatchSyncPersonId" />
+                    <div class="fieldDescription">
+                        The identifier this server gives the account, which is in the address bar
+                        of that user's page in the dashboard. It is not a setting and nothing here
+                        is saved with the settings above.
+                    </div>
+                </div>
+                <button is="emby-button" type="button" id="WatchSyncReport" class="raised block">
+                    <span>Show what is held</span>
+                </button>
+                <button is="emby-button" type="button" id="WatchSyncRemove" class="raised block">
+                    <span>Remove what is held</span>
+                </button>
+                <pre id="WatchSyncHeldOutput"></pre>
             </div>
         </div>
         <script type="text/javascript">
@@ -161,6 +194,85 @@
                             .then(Dashboard.processPluginConfigurationUpdateResult);
                     });
                     return false;
+                });
+
+            // What is held about one person, and the removal of it. Both are calls to this
+            // plugin's own endpoints, which the server authorises with its elevation policy, so
+            // an administrator signed in reaches them and nobody else does.
+            //
+            // Everything written into the page below goes in as text and never as markup. What
+            // comes back carries values this plugin stored, and some of those arrived from
+            // another server, so a page that built markup out of them would be running a peer's
+            // string in a dashboard an administrator is signed in to. That is the failure #63 is
+            // about, and textContent is what refuses it here.
+            WatchSyncConfig.show = function (text) {
+                document.querySelector('#WatchSyncHeldOutput').textContent = text;
+            };
+
+            WatchSyncConfig.recordsUrl = function () {
+                var person = document.querySelector('#WatchSyncPersonId').value.trim();
+
+                if (!person) {
+                    WatchSyncConfig.show('Type the identifier of the person first.');
+
+                    return null;
+                }
+
+                return ApiClient.getUrl(
+                    'Plugins/WatchSync/Persons/' + encodeURIComponent(person) + '/Records');
+            };
+
+            document.querySelector('#WatchSyncReport')
+                .addEventListener('click', function () {
+                    var url = WatchSyncConfig.recordsUrl();
+
+                    if (!url) {
+                        return;
+                    }
+
+                    Dashboard.showLoadingMsg();
+                    ApiClient.ajax({ type: 'GET', url: url, dataType: 'json' })
+                        .then(function (report) {
+                            WatchSyncConfig.show(JSON.stringify(report, null, 2));
+                            Dashboard.hideLoadingMsg();
+                        }, function () {
+                            WatchSyncConfig.show(
+                                'That did not work. The identifier has to be the one this server '
+                                + 'gives the account, and this page needs an administrator account.');
+                            Dashboard.hideLoadingMsg();
+                        });
+                });
+
+            document.querySelector('#WatchSyncRemove')
+                .addEventListener('click', function () {
+                    var url = WatchSyncConfig.recordsUrl();
+
+                    if (!url) {
+                        return;
+                    }
+
+                    // Asked before it is done, because it is the one action on this page that
+                    // destroys something and there is no undo behind it.
+                    if (!confirm(
+                        'Remove everything this plugin holds about that person? Their watch '
+                        + 'history on this server is not touched and this cannot be undone.')) {
+                        return;
+                    }
+
+                    Dashboard.showLoadingMsg();
+                    ApiClient.ajax({ type: 'DELETE', url: url, dataType: 'json' })
+                        .then(function (removed) {
+                            WatchSyncConfig.show(
+                                'Removed ' + removed.Removed + ' record(s). What that person '
+                                + 'watched is untouched and is still on this server.');
+                            Dashboard.hideLoadingMsg();
+                        }, function () {
+                            WatchSyncConfig.show(
+                                'That did not work and nothing was removed. The identifier has to '
+                                + 'be the one this server gives the account, and this page needs '
+                                + 'an administrator account.');
+                            Dashboard.hideLoadingMsg();
+                        });
                 });
         </script>
     </div>

@@ -22,7 +22,8 @@
       "Records/**/*.cs",
       "UserData/**/*.cs",
       "Undo/**/*.cs",
-      "Exchange/**/*.cs"
+      "Exchange/**/*.cs",
+      "Api/**/*.cs"
     ],
     "thresholds": {
       "high": 100,
