@@ -4,6 +4,7 @@ using System.Globalization;
 using Jellyfin.Plugin.WatchSync.Apply;
 using Jellyfin.Plugin.WatchSync.Model;
 using Jellyfin.Plugin.WatchSync.Records;
+using Jellyfin.Plugin.WatchSync.Transfer;
 
 namespace Jellyfin.Plugin.WatchSync.Configuration;
 
@@ -76,6 +77,11 @@ public static class ServerWideSettings
             configuration.MaximumFailureSharePercent,
             FailureShare.SmallestConfigurableShare,
             FailureShare.LargestConfigurableShare);
+        var sweepInterval = Minutes(
+            refusals,
+            nameof(configuration.SweepIntervalMinutes),
+            configuration.SweepIntervalMinutes,
+            SweepSchedule.LongestInterval);
 
         // The relation between two of the three thresholds, which neither of them can be judged
         // against on its own. A finish distance at or above the shortest item length makes every
@@ -104,7 +110,8 @@ public static class ServerWideSettings
             echoWindow!.Value,
             conflictRetention!.Value,
             provenanceRetention!.Value,
-            maximumFailureShare!.Value);
+            maximumFailureShare!.Value,
+            sweepInterval!.Value);
     }
 
     /// <summary>
@@ -131,6 +138,30 @@ public static class ServerWideSettings
         Bounded(refusals, setting, found, 1, (int)maximum.TotalSeconds, "seconds")
             is { } seconds
             ? TimeSpan.FromSeconds(seconds)
+            : null;
+
+    /// <summary>
+    /// A setting stored as whole minutes, judged against the bound the rule declares.
+    ///
+    /// It is a third unit rather than seconds with a larger number, because the floor every
+    /// setting here shares is one of its own unit and that is where the sweep's floor belongs: a
+    /// sweep at one minute is already asking a peer faster than the pairing plane counts its own
+    /// arrival window over, and a sweep stored in seconds would have a floor of one second and no
+    /// rule declaring where the interval stops being one.
+    /// </summary>
+    /// <param name="refusals">Where a refusal is collected.</param>
+    /// <param name="setting">The member being read.</param>
+    /// <param name="found">The value the document carried.</param>
+    /// <param name="maximum">The longest value the rule accepts.</param>
+    /// <returns>The span, or null where it was refused.</returns>
+    private static TimeSpan? Minutes(
+        List<SettingRefusal> refusals,
+        string setting,
+        int found,
+        TimeSpan maximum) =>
+        Bounded(refusals, setting, found, 1, (int)maximum.TotalMinutes, "minutes")
+            is { } minutes
+            ? TimeSpan.FromMinutes(minutes)
             : null;
 
     /// <summary>

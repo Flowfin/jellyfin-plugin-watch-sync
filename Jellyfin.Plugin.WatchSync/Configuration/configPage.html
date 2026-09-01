@@ -100,6 +100,17 @@
                         </div>
                     </div>
                     <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="SweepIntervalMinutes">
+                            How often the scheduled sweep runs, in minutes
+                        </label>
+                        <input is="emby-input" type="number" id="SweepIntervalMinutes" min="1" max="360" required />
+                        <div class="fieldDescription">
+                            The sweep is what catches a change the server never raised an event
+                            for. This interval is the longest such a change can go unseen, so
+                            raising it makes the two servers agree later rather than less often.
+                        </div>
+                    </div>
+                    <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="MaximumFailureSharePercent">
                             How much of one exchange may fail before it stops, in per cent
                         </label>
@@ -163,7 +174,8 @@
                     'EchoWindowSeconds',
                     'ConflictRetentionDays',
                     'ProvenanceRetentionDays',
-                    'MaximumFailureSharePercent'
+                    'MaximumFailureSharePercent',
+                    'SweepIntervalMinutes'
                 ]
             };
 

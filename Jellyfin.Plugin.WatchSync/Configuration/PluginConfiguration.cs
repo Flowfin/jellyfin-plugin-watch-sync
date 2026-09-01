@@ -2,6 +2,7 @@ using System;
 using Jellyfin.Plugin.WatchSync.Apply;
 using Jellyfin.Plugin.WatchSync.Model;
 using Jellyfin.Plugin.WatchSync.Records;
+using Jellyfin.Plugin.WatchSync.Transfer;
 using MediaBrowser.Model.Plugins;
 
 namespace Jellyfin.Plugin.WatchSync.Configuration;
@@ -116,4 +117,17 @@ public class PluginConfiguration : BasePluginConfiguration
     /// </summary>
     public int MaximumFailureSharePercent { get; set; } =
         (int)Math.Round(FailureShare.DefaultMaximumShare * 100);
+
+    /// <summary>
+    /// Gets or sets how often, in minutes, the scheduled sweep runs.
+    ///
+    /// Defaults to <see cref="SweepSchedule.DefaultInterval"/>, bounded by
+    /// <see cref="SweepSchedule.LongestInterval"/>. It is the only member here stored in minutes,
+    /// and the unit is the floor rather than a preference: the smallest value any setting on this
+    /// document may take is one of its own unit, and one minute is where a sweep stops being a
+    /// convergence pass and starts arriving faster than the pairing plane counts its own arrival
+    /// window over.
+    /// </summary>
+    public int SweepIntervalMinutes { get; set; } =
+        (int)SweepSchedule.DefaultInterval.TotalMinutes;
 }
