@@ -205,14 +205,58 @@ actually written, and it is not the same as the property being held. Where the t
 apart, it is written here rather than left for somebody to discover after trusting a
 green run.
 
-**A scan is only as wide as its subject.** These rules read the plugin's own sources.
-The plugin is small today. Nothing in it logs, names a user, reads a machine clock, waits
-on one, writes a change, names anything of the pairing plugin's or exposes an endpoint, so
-seven of the eleven invariants carried by that guard scan sources that could not have
-violated them:
+**A scan is only as wide as its subject.** These rules read the plugin's own sources, so
+what a green run is worth depends on what those sources hold, and that moves under this
+paragraph without anybody editing it. Read at `f9ec69a`, which is what the mainline is on.
+Four of the eleven invariants that guard carries scan sources holding nothing of the kind
+the rule is about, and seven scan sources that hold the surface a violation would be
+written on. The eleven are counted from the register rather than from this sentence:
+
+    grep -c ':: InvariantGuardTests$' Jellyfin.Plugin.WatchSync.Tests/Invariants/register.txt
+    11
+
+The four are `mapping-not-inferred`, `log-holds-no-viewing`,
+`waiting-is-on-the-injected-clock` and `pairing-behind-the-adapter`. Nothing in this plugin
+names a user, logs at all, waits on anything, or names anything of the pairing plugin's:
+
+    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)\s*\(|\bILogger\b|\bUsername\b|Thread\.Sleep|\bSpinWait\b|Task\.Delay|new\s+(System\.Threading\.)?(Periodic)?Timer\s*\(|\bJellyfin\.Plugin\.ServerPairing\b|\b(IPairedPeers|IPairingKeySource|IPairingKeyStore|IPairingRecordStore|PairingRecord|PairingState|PairingMessage|PeerChannel|PeerReply|KeyMaterial|PairingKeys|OfferedKey)\b' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
+    exit=1
+
+CORRECTED BY RE-RUNNING IT, FOR THE SECOND TIME AND FOR THE SAME REASON. THIS PARAGRAPH
+SAID SEVEN OF THE ELEVEN WERE IN THAT POSITION AND PASTED A COMMAND UNDER `exit=1`. Seven
+and four have swapped ends since, and the command it rested on no longer returns nothing:
 
     grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)|\.(PlayCount|PlaybackPositionTicks)\s*(\+\+|\+=)|Thread\.Sleep|Task\.Delay|SpinWait|new (System\.Threading\.)?(Periodic)?Timer\(|Jellyfin\.Plugin\.ServerPairing|IPair(edPeers|ingKeySource|ingKeyStore|ingRecordStore)|Pairing(Record|State|Message)|Peer(Channel|Reply)|KeyMaterial|PairingKeys|OfferedKey|\[AllowAnonymous\]|\[From(Query|Route|Form|Header)\].*[Uu]serId|Policy\s*=\s*"|\.IsInRole\s*\(' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
-    exit=1
+    Jellyfin.Plugin.WatchSync/Api/HeldAboutOnePersonController.cs:60:    public ActionResult<HeldRecordsReport> Report([FromRoute] Guid mappedUserId)
+    Jellyfin.Plugin.WatchSync/Api/HeldAboutOnePersonController.cs:94:    public ActionResult<RecordsRemoved> Remove([FromRoute] Guid mappedUserId)
+    exit=0
+
+WHICH CLAUSE MOVED MATTERS MORE THAN THE COUNT. It is "nor exposes an endpoint", and the
+invariant it made vacuous is `endpoint-authorised-by-the-server`, which exists for the
+surface this plugin now has. A reader was told that rule scanned sources that could not
+have violated it at the moment they first could. The endpoints landed with #74 on
+2026-09-01, so the sentence was true when it was last corrected and stopped being true
+without anything reading this file: what a guard carries and what it scans are both derived
+on every run, and a sentence typed into a document is neither. #320 is where this
+correction was argued; the earlier one is below and stands unchanged.
+
+THE TWO HITS ARE NOT A VIOLATION AND ARE NOT A HOLE. Both are the same declared departure,
+and it is where the guard reads it rather than in prose here, with the reason beside it:
+
+    grep -n 'HeldAboutOnePersonController' Jellyfin.Plugin.WatchSync.Tests/Invariants/exceptions.txt
+
+A departure whose file stops carrying a hit for its rule is refused as dangling, so that
+entry goes with the call rather than outliving it. What the entry says is that both
+endpoints are deliberately about another person, which is the case that rule names
+elevation for, and that the server's own elevation policy is on the controller. Whether
+that is the right reading of those two endpoints is #66's subject and not this document's.
+
+WHAT MAKES THIS PARAGRAPH GO STALE IS ANY CHANGE THAT GIVES THIS PLUGIN A SURFACE. A first
+log call, a first user name, a first wait, a first call into the pairing plugin: each moves
+one invariant out of the four and into the seven, and none of them is a change anybody
+would open this file to make. The command under the four is what to re-run, and what to
+read out of it is which of those names has stopped returning nothing, not whether the
+number is still four.
 
 CORRECTED BY RE-RUNNING IT. THIS PARAGRAPH SAID SEVEN OF NINE AND ITS COMMAND CARRIED THE
 USER DATA NAMES. Two things had moved under it. The guard carries eleven invariants rather
@@ -222,13 +266,12 @@ while the entry above was being added rather than by anything that reads this fi
 guard carries is derived from the register on every run, and a count typed into a document
 is not. The names that now return hits are out of the command, the endpoint names are in it
 because that invariant arrived after this paragraph was written and never joined its count,
-and the seven the sentence is about are a different seven from the ones it named.
+and the seven the sentence was about are a different seven from the ones it named.
 
-The other four are not in that position. The static that `static-instance-not-read` refuses
-reaching for is in `Plugin.cs`, and every source in the project can see it, so that rule
-has had something to be true of since the day the project was created. And
-`store-path-from-the-server` arrived with the one type that composes a path, so it has
-been about a real line from the change that added it:
+The seven that are not vacuous. The static that `static-instance-not-read` refuses reaching
+for is in `Plugin.cs`, and every source in the project can see it, so that rule has had
+something to be true of since the day the project was created. `store-path-from-the-server`
+arrived with the one type that composes a path:
 
     grep -rn 'DataPath' --include=*.cs Jellyfin.Plugin.WatchSync/
     Jellyfin.Plugin.WatchSync/Storage/StoreFolder.cs:15:/// The root is <see cref="IApplicationPaths.DataPath"/>, which the server creates and keeps across
@@ -237,9 +280,35 @@ been about a real line from the change that added it:
 The first of the two is the comment saying so and the second is the line. One type composes
 a path and the rules above are about the roots it did not take.
 
-A run that finds nothing is not evidence that the rule holds over code that has not been
-written. The near-miss fixtures are what make each rule a guard rather than a green tick,
-and each one is refused and its repair passes on every run.
+`user-data-behind-the-adapter`, `no-second-chance-match` and
+`endpoint-authorised-by-the-server` are each about a surface that arrived with a declared
+departure, which is what the exceptions file beside the register is a list of rather than a
+set of holes. `applied-change-is-assigned` is about the two fields an apply writes, and
+there is an apply that writes them:
+
+    grep -rn 'gateway.Write' --include=*.cs Jellyfin.Plugin.WatchSync/
+    Jellyfin.Plugin.WatchSync/Apply/ItemByItemApply.cs:280:            gateway.Write(
+
+`injected-clock` is the seventh and is the one to read carefully, because no source here
+reads a machine clock and the rule is still not vacuous. What makes it live is that the
+decisions it exists for are in the tree and take their moment as a parameter, so the line
+that reads a clock instead is one somebody can now write inside a file that already
+compiles:
+
+    grep -rnE '^\s*(DateTime|DateTimeOffset)\??\s+(now|appliedAt|writtenAt)\b' --include=*.cs Jellyfin.Plugin.WatchSync/
+    Jellyfin.Plugin.WatchSync/Apply/ItemByItemApply.cs:149:        DateTimeOffset appliedAt,
+    Jellyfin.Plugin.WatchSync/Apply/ItemByItemApply.cs:325:        DateTimeOffset writtenAt)
+    Jellyfin.Plugin.WatchSync/Conflict/PositionRecency.cs:155:        DateTime now)
+    Jellyfin.Plugin.WatchSync/Exchange/FirstExchange.cs:144:        DateTime now,
+    Jellyfin.Plugin.WatchSync/Exchange/FirstExchange.cs:239:        DateTime now)
+    Jellyfin.Plugin.WatchSync/Records/ProvenanceRecord.cs:95:        DateTimeOffset writtenAt)
+
+That is the line the four and the seven are drawn on, and it is not the same line as
+whether a rule has ever refused anything. Vacuous here means the sources hold nothing of
+the kind the rule reads, so a green run over them says nothing at all. A run that finds
+nothing is not evidence that the rule holds over code that has not been written. The
+near-miss fixtures are what make each rule a guard rather than a green tick, and each one
+is refused and its repair passes on every run.
 
 **`mapping-not-inferred` sees comparisons, not every inference.** The rules match a name
 compared with an operator, compared through an equality call, or searched for in a
