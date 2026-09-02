@@ -98,7 +98,7 @@ public class EndpointPolicyTests
 
         Assert.Equal(
             "GET",
-            Assert.Single(found.Where(endpoint => endpoint.Name.EndsWith(".Elevated", StringComparison.Ordinal))).Verb);
+            Assert.Single(found, endpoint => endpoint.Name.EndsWith(".Elevated", StringComparison.Ordinal)).Verb);
     }
 
     /// <summary>

@@ -92,7 +92,7 @@ public class LockFileTests
     /// </summary>
     /// <param name="root">The repository root.</param>
     /// <returns>The repository-relative path of each tracked project.</returns>
-    private static IReadOnlyList<string> TrackedProjects(string root) => TrackedPaths(root, "*.csproj");
+    internal static IReadOnlyList<string> TrackedProjects(string root) => TrackedPaths(root, "*.csproj");
 
     private static IReadOnlyList<string> TrackedPaths(string root, string pattern) =>
         Run(root, "git", "ls-files -- " + pattern)
@@ -104,15 +104,27 @@ public class LockFileTests
     /// <summary>
     /// Evaluates named properties of a project through the build itself. Reading a property
     /// out of a file would prove what that file says rather than what the project resolves to.
+    ///
+    /// One name and several names are two output shapes rather than one. Asked for several,
+    /// msbuild answers with a document under a Properties member; asked for one, it answers
+    /// with the bare value and nothing around it, so a document read would fail on the value
+    /// rather than on the property being unset. Both are handled here because the caller
+    /// asking for one property is the likelier one and its failure would read as a broken
+    /// project rather than as a helper that never met that case.
     /// </summary>
     /// <param name="root">The repository root.</param>
     /// <param name="project">The repository-relative project path.</param>
     /// <param name="names">The properties to read.</param>
     /// <returns>Each name with the value the project evaluates it to, empty where it is unset.</returns>
-    private static IReadOnlyDictionary<string, string> Properties(string root, string project, params string[] names)
+    internal static IReadOnlyDictionary<string, string> Properties(string root, string project, params string[] names)
     {
         var arguments = "msbuild " + project + string.Concat(names.Select(name => " -getProperty:" + name));
         var output = Run(root, "dotnet", arguments);
+
+        if (names.Length == 1)
+        {
+            return new Dictionary<string, string>(StringComparer.Ordinal) { [names[0]] = output.Trim() };
+        }
 
         using var document = JsonDocument.Parse(output);
         var properties = document.RootElement.GetProperty("Properties");
