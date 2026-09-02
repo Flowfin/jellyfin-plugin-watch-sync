@@ -167,9 +167,21 @@ dropped. A side whose count is BELOW the agreed one is not a rewatch and is not 
 as one; that is a restore, it is #33's shortfall, and reading it as movement here
 would take the unmark's win away for the one reason it should have it.
 
-What is still missing is a caller. Nothing drives the two rules together yet, so the
-order above is a rule whoever writes the resolver is held to and not one a machine
-keeps, and this document says so here rather than describing a sequence that runs.
+What is still missing is a caller for the pair. Nothing drives the two rules together,
+so the order above is a rule whoever writes the resolver is held to and not one a
+machine keeps, and this document says so here rather than describing a sequence that
+runs.
+
+ONE OF THE TWO HAS A CALLER, AND THAT IS NOT AN EXCEPTION TO THE SENTENCE ABOVE.
+`FirstExchange` asks the ratchet:
+
+    grep -n 'PlayedRatchet.Hold' Jellyfin.Plugin.WatchSync/Exchange/FirstExchange.cs
+    249:        var ratchet = PlayedRatchet.Hold(item.Here, item.AtThePeer);
+
+It does not ask the unmark rule, and that is the rule holding rather than being
+skipped: a first exchange has no agreement to read, so the unmark rule answers
+`NoUnmarkToCarry` for every pair it could be handed there, and the ordering above is
+about a run that has an agreement. That run is the one still missing.
 
 The save reason the unmark arrives under is `TogglePlayed`, which
 `docs/sync-model.md` classifies with the rest, so the event reaches the plugin and
@@ -185,6 +197,7 @@ is taken at the commit being read rather than at a remote reference, so it
 answers for the tree in front of the reader:
 
     git ls-tree -r --name-only HEAD -- Jellyfin.Plugin.WatchSync/Conflict/
+    Jellyfin.Plugin.WatchSync/Conflict/DeliberateUnplayed.cs
     Jellyfin.Plugin.WatchSync/Conflict/LastPlayedAnswer.cs
     Jellyfin.Plugin.WatchSync/Conflict/LastPlayedMaximum.cs
     Jellyfin.Plugin.WatchSync/Conflict/PlayCountAnswer.cs
@@ -193,6 +206,15 @@ answers for the tree in front of the reader:
     Jellyfin.Plugin.WatchSync/Conflict/PositionAnswer.cs
     Jellyfin.Plugin.WatchSync/Conflict/PositionRecency.cs
     Jellyfin.Plugin.WatchSync/Conflict/RatchetAnswer.cs
+    Jellyfin.Plugin.WatchSync/Conflict/UnplayedAnswer.cs
+
+CORRECTED BY RE-RUNNING IT. THE PASTE ABOVE HELD EIGHT NAMES AND THE COMMAND
+RETURNS TEN. `DeliberateUnplayed` and its answer landed on `af07e4c` on
+2026-08-27 for #34, and the listing was not re-run with them, so a paste whose
+own sentence says it answers for the tree in front of the reader stopped doing
+so on the day the pair this section is about arrived. The two names are not a
+fifth row: `DeliberateUnplayed` is the unmark rule argued above, and
+`UnplayedAnswer` is what it answers with.
 
 `PlayedRatchet` is the `Played` row and is #31. `PlayCountReconciliation` is the
 `PlayCount` row and is #33. `PositionRecency` is the `PlaybackPositionTicks` row
