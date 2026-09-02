@@ -1,0 +1,13 @@
+[
+    {
+        "tag_name": "0.1.0.0-stable",
+        "prerelease": false,
+        "assets": [
+            { "name": "watch-sync_0.1.0.0.zip", "browser_download_url": "https://github.com/Flowfin/jellyfin-plugin-watch-sync/releases/download/0.1.0.0-stable/watch-sync_0.1.0.0.zip" },
+            { "name": "watch-sync_0.1.0.0.zip.meta.json", "browser_download_url": "https://github.com/Flowfin/jellyfin-plugin-watch-sync/releases/download/0.1.0.0-stable/watch-sync_0.1.0.0.zip.meta.json" },
+            { "name": "watch-sync_0.1.0.0.md5", "browser_download_url": "https://github.com/Flowfin/jellyfin-plugin-watch-sync/releases/download/0.1.0.0-stable/watch-sync_0.1.0.0.md5" },
+            { "name": "watch-sync_0.1.0.0.sha256", "browser_download_url": "https://github.com/Flowfin/jellyfin-plugin-watch-sync/releases/download/0.1.0.0-stable/watch-sync_0.1.0.0.sha256" },
+            { "name": "watch-sync_0.1.0.0-net10.0.zip", "browser_download_url": "https://github.com/Flowfin/jellyfin-plugin-watch-sync/releases/download/0.1.0.0-stable/build.yaml" }
+        ]
+    }
+]

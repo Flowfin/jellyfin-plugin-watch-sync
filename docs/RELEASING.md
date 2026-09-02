@@ -116,9 +116,35 @@ checked against it:
 gh attestation verify <archive>.zip --repo <owner>/<repository>
 ```
 
-Nothing here writes a plugin catalog. A GitHub release is the whole output. If this
-repository previously published through the Jellyfin meta plugins workflow, that path
-is gone and no catalog is fed until a manifest generator is added.
+## The manifest the run generates
+
+THIS SECTION SAID NOTHING HERE WROTE A PLUGIN CATALOG. A run generates one now, and
+what has not moved is where it is served from.
+
+After the release exists, a further job reads the whole release history and writes one
+manifest per channel with `.github/generate-manifest.py`, then regenerates each of them
+from the same history and refuses a difference. Both are attached to the run, together
+with the history they were generated from.
+
+Nothing about that manifest comes from the checkout. The plugin's identity in it is read
+out of the packaging metadata the newest release in that channel published, and each
+version entry out of that release's metadata, its archive's own download address and its
+`.md5`. So the manifest is a function of the releases that exist, and regenerating it
+from a later commit reproduces it byte for byte rather than quietly carrying a
+description that has moved since. That is what makes a repair of a lost index
+comparable to what is being served, which is what `docs/publication-route.md` is about.
+
+The run refuses rather than writing an index that is wrong in a way an operator finds by
+failing to install: a history that answered nothing, a tag whose channel is a guess, a
+release whose pre-release flag disagrees with its own tag, a release with no archive or
+with more than one, an archive with no checksum, a checksum that is the digest of
+another file, and two releases claiming one version. A channel with no release in it is
+not one of those: it produces an index with no versions rather than a failed run.
+
+**No address is chosen and nothing is served.** The manifests are attached to the run
+and go nowhere else, so an operator cannot subscribe to either channel today. Choosing
+the two addresses and publishing to them is #123, and this section is what a run
+produces rather than a description of a catalog anybody can reach.
 
 ## What fails the run
 

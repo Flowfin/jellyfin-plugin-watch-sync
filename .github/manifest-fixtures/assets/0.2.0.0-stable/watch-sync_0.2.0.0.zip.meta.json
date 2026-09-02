@@ -1,0 +1,13 @@
+{
+    "guid": "aa15847e-2417-4fa7-889c-4c1960d2efec",
+    "name": "Watch Sync",
+    "description": "Moves watch history between paired Jellyfin servers.",
+    "overview": "Moves watch history between Jellyfin servers that the same operator has paired.",
+    "owner": "Flowfin",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/Flowfin/jellyfin-plugin-watch-sync/master/img/logo.png",
+    "version": "0.2.0.0",
+    "changelog": "The second version.",
+    "targetAbi": "10.11.11.0",
+    "timestamp": "2026-09-02T10:00:00Z"
+}
