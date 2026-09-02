@@ -35,12 +35,20 @@ namespace Jellyfin.Plugin.WatchSync.Records;
 /// </para>
 ///
 /// <para>
-/// What this does not decide: nothing writes one yet. The first condition of #36 asks that every
-/// branch of the resolver write a record, and the three rules on the mainline are reached
-/// independently with nothing driving them together, so there is no caller to hold to that. The
-/// fourth condition asks that a record survive a restart, and the store that would carry it is
-/// on the mainline while the document shape for this record is not written here. Both are named
-/// in #36 rather than answered by this type.
+/// SOMETHING WRITES ONE NOW, AND THIS PARAGRAPH SAID NOTHING DID. It said the rules were reached
+/// independently with nothing driving them together, so there was no caller to hold to the first
+/// condition of #36. <c>FirstExchange</c> drives them, and it writes one record per row of the
+/// table whose two readings disagreed. What it does not write is a record for a row whose two
+/// readings are equal, because a conflict is a moment where the two servers hold DIFFERENT
+/// values, which is the sentence <c>docs/conflicts.md</c> opens with.
+/// </para>
+///
+/// <para>
+/// What is still not decided here: an exchange that has an agreement to read. The played row can
+/// then be answered by the rule that carries a deliberate unmark rather than by the ratchet, and
+/// which rule such a record names is that run's to say. The fourth condition of #36 asks that a
+/// record survive a restart, and the store that would carry it is on the mainline while nothing
+/// writes the document into it. Both are named in #36 rather than answered by this type.
 /// </para>
 /// </summary>
 public sealed class ConflictRecord

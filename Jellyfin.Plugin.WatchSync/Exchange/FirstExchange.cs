@@ -5,6 +5,7 @@ using System.Linq;
 using Jellyfin.Plugin.WatchSync.Agreement;
 using Jellyfin.Plugin.WatchSync.Conflict;
 using Jellyfin.Plugin.WatchSync.Model;
+using Jellyfin.Plugin.WatchSync.Records;
 
 namespace Jellyfin.Plugin.WatchSync.Exchange;
 
@@ -45,11 +46,13 @@ public sealed class FirstExchange
     private FirstExchange(
         ExchangeMode mode,
         IReadOnlyList<FirstExchangeResolution> resolutions,
-        AgreedRecords agreed)
+        AgreedRecords agreed,
+        ConflictRecords conflicts)
     {
         Mode = mode;
         Resolutions = resolutions;
         Agreed = agreed;
+        Conflicts = conflicts;
     }
 
     /// <summary>
@@ -78,6 +81,33 @@ public sealed class FirstExchange
     /// stopped halfway leaves a record that still reads as a first exchange.
     /// </summary>
     public AgreedRecords Agreed { get; }
+
+    /// <summary>
+    /// Gets what this run discarded, one record per row of the conflict table that met a
+    /// disagreement.
+    ///
+    /// A conflict is a moment where the two servers hold different values for one mapped user,
+    /// one leaf item and one moved field, which is the sentence <c>docs/conflicts.md</c> opens
+    /// with, so a row whose two readings are equal produced no conflict and is not recorded. The
+    /// record is what an operator asking why an episode is marked watched is answered from, and
+    /// #36 is where that is argued.
+    ///
+    /// <para>
+    /// The row's own loser column decides <c>Discarded</c> rather than this run doing so. The
+    /// reckoning carries a side up rather than lowering the other and the maximum keeps a moment
+    /// that already happened, so both record <c>ConflictSide.Neither</c>: a rule ran and nothing
+    /// was thrown away, which is a different statement from no rule having run.
+    /// </para>
+    ///
+    /// <para>
+    /// It is a record of this run alone rather than the pairing's document extended, because
+    /// nothing here writes and the document is read from the store by whoever does. What that
+    /// caller inherits is the bound: <c>ConflictRecords.MaximumEntries</c> is 200 and a run over
+    /// more disagreements than that keeps the most recent of them, so this is a sample of a large
+    /// first exchange rather than a census of one.
+    /// </para>
+    /// </summary>
+    public ConflictRecords Conflicts { get; }
 
     /// <summary>
     /// Gets the items the run decided.
@@ -127,7 +157,12 @@ public sealed class FirstExchange
     /// <param name="now">
     /// This server's present moment, in UTC, which the position rule reads.
     /// </param>
-    /// <param name="agreedAt">The moment an agreement this run records was reached.</param>
+    /// <param name="agreedAt">
+    /// The moment an agreement this run records was reached, which is also the moment a conflict
+    /// this run records was decided. The two are one act: the rule that decided is what produced
+    /// the agreement, so a second moment here would be two readings of one clock that a reader
+    /// could find disagreeing.
+    /// </param>
     /// <returns>The run.</returns>
     /// <exception cref="ArgumentNullException">The record or the items are absent.</exception>
     /// <exception cref="ArgumentException">
@@ -156,6 +191,7 @@ public sealed class FirstExchange
 
         var resolutions = new List<FirstExchangeResolution>(items.Count);
         var agreed = records;
+        var conflicts = ConflictRecords.NoneYet(records.PairingId, records.MappedUserId);
 
         foreach (var item in items)
         {
@@ -181,13 +217,15 @@ public sealed class FirstExchange
             {
                 agreed = agreed.With(
                     new AgreedRecord(item.Subject, settled, agreedAt, EnvelopeVersions.Current));
+                conflicts = Recorded(conflicts, item, settled, agreedAt);
             }
         }
 
         return new FirstExchange(
             ExchangeMode.First,
             new ReadOnlyCollection<FirstExchangeResolution>(resolutions),
-            agreed);
+            agreed,
+            conflicts);
     }
 
     /// <summary>
@@ -232,6 +270,124 @@ public sealed class FirstExchange
 
         return atThePeer == 0 ? here : null;
     }
+
+    /// <summary>
+    /// What one decided item leaves behind for an operator to read, one record per row of the
+    /// conflict table whose two readings disagreed.
+    ///
+    /// Which rule each row names is the table's rule column and not a choice made here, with one
+    /// row that is answered by either of two rules. A position under a completion is the
+    /// ratchet's, which discards the position offered against the completion whatever the two
+    /// clocks say; a position where neither side is played is recency's. Asking which of the two
+    /// answered by reading the two played states rather than by asking the rules a second time is
+    /// what keeps this from being a second implementation of the table that could disagree with
+    /// the first.
+    ///
+    /// <para>
+    /// The played row names <c>Ratchet</c> in every record this run writes, because the rule that
+    /// can take the other side of it needs an agreement to separate an intent from an old value
+    /// and there is none here. A run that has one answers the same row under a different rule,
+    /// and that run is not this one.
+    /// </para>
+    ///
+    /// <para>
+    /// The side a position record names as discarded is the side that is not the resolved
+    /// position. Both rules that reach this line answer with one of the two readings they were
+    /// handed, so where the two differ exactly one of them survives, and a record naming a loser
+    /// that held nothing is refused by <see cref="ConflictRecord"/> itself rather than by a check
+    /// here.
+    /// </para>
+    /// </summary>
+    /// <param name="conflicts">What the run has recorded so far.</param>
+    /// <param name="item">The item and the two readings.</param>
+    /// <param name="resolved">The state the table answered with.</param>
+    /// <param name="recordedAt">The moment the rules decided.</param>
+    /// <returns>The record carrying what this item's rows discarded.</returns>
+    private static ConflictRecords Recorded(
+        ConflictRecords conflicts,
+        ItemOnBothSides item,
+        SyncedState resolved,
+        DateTimeOffset recordedAt)
+    {
+        var here = item.Here;
+        var atThePeer = item.AtThePeer;
+
+        if (here.Played != atThePeer.Played)
+        {
+            conflicts = conflicts.With(Written(
+                conflicts.PairingId,
+                item,
+                SyncedField.Played,
+                ConflictRule.Ratchet,
+                here.Played ? 1 : 0,
+                atThePeer.Played ? 1 : 0,
+                here.Played ? ConflictSide.AtThePeer : ConflictSide.Here,
+                recordedAt));
+        }
+
+        if (here.PlayCount != atThePeer.PlayCount)
+        {
+            conflicts = conflicts.With(Written(
+                conflicts.PairingId,
+                item,
+                SyncedField.PlayCount,
+                ConflictRule.Reckon,
+                here.PlayCount,
+                atThePeer.PlayCount,
+                ConflictSide.Neither,
+                recordedAt));
+        }
+
+        if (here.PlaybackPositionTicks != atThePeer.PlaybackPositionTicks)
+        {
+            conflicts = conflicts.With(Written(
+                conflicts.PairingId,
+                item,
+                SyncedField.PlaybackPositionTicks,
+                here.Played || atThePeer.Played ? ConflictRule.Ratchet : ConflictRule.Recency,
+                here.PlaybackPositionTicks,
+                atThePeer.PlaybackPositionTicks,
+                here.PlaybackPositionTicks == resolved.PlaybackPositionTicks
+                    ? ConflictSide.AtThePeer
+                    : ConflictSide.Here,
+                recordedAt));
+        }
+
+        if (here.LastPlayedDate != atThePeer.LastPlayedDate)
+        {
+            conflicts = conflicts.With(Written(
+                conflicts.PairingId,
+                item,
+                SyncedField.LastPlayedDate,
+                ConflictRule.Maximum,
+                here.LastPlayedDate?.Ticks,
+                atThePeer.LastPlayedDate?.Ticks,
+                ConflictSide.Neither,
+                recordedAt));
+        }
+
+        return conflicts;
+    }
+
+    private static ConflictRecord Written(
+        Guid pairingId,
+        ItemOnBothSides item,
+        SyncedField field,
+        ConflictRule rule,
+        long? here,
+        long? atThePeer,
+        ConflictSide discarded,
+        DateTimeOffset recordedAt) =>
+        new ConflictRecord(
+            pairingId,
+            item.Subject.MappedUserId,
+            item.Subject.ItemId,
+            field,
+            rule,
+            here,
+            atThePeer,
+            discarded,
+            recordedAt);
 
     private static FirstExchangeResolution Resolve(
         ItemOnBothSides item,
