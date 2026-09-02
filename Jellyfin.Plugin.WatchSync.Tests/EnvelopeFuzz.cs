@@ -249,8 +249,8 @@ internal static class EnvelopeFuzz
     /// One mutated input, derived from the corpus and from the run's own source of choices.
     ///
     /// The shapes are the ones this surface is written against: a version that is not a whole
-    /// number, a change list large enough to reach its bound, a string past its own, nesting
-    /// deep enough to matter to a parser, and two seeds spliced together.
+    /// number, a change list large enough to reach its bound, a string past its own, a body past
+    /// the byte bound, nesting deep enough to matter to a parser, and two seeds spliced together.
     /// </summary>
     /// <param name="seeds">The corpus to derive from.</param>
     /// <param name="random">The run's own source of choices.</param>
@@ -269,7 +269,7 @@ internal static class EnvelopeFuzz
 
         var body = seeds[random.Next(seeds.Count)];
 
-        return random.Next(10) switch
+        return random.Next(11) switch
         {
             0 => Truncated(body, random),
             1 => WithACharacterChanged(body, random),
@@ -279,7 +279,8 @@ internal static class EnvelopeFuzz
             5 => WithAVersionOf(body, VersionLiteral(random)),
             6 => WithAChangeListOf(random.Next(1, 4096)),
             7 => WithALongStringOf(random.Next(1, 4) * EnvelopeBounds.LongestStringLength),
-            8 => Nested(random.Next(1, 64)),
+            8 => PastTheByteBound(random),
+            9 => Nested(random.Next(1, 64)),
             _ => Repeated(body, random.Next(2, 8)),
         };
     }
@@ -661,6 +662,34 @@ internal static class EnvelopeFuzz
 
     private static string WithALongStringOf(int length) =>
         "{\"version\":1,\"changes\":[\"" + new string('k', length) + "\"]}";
+
+    /// <summary>
+    /// A body past the byte bound, and past that bound alone.
+    ///
+    /// Every other mutation here is capped by its own shape well below the byte bound, so a run
+    /// of any length produced no body large enough to reach it and <c>TooManyBytes</c> was the
+    /// one refusal in the set that only the cases could produce. What caps them is the mutation
+    /// rather than the iteration count, which is why more iterations were never the answer.
+    ///
+    /// <para>
+    /// It crosses one bound rather than three. The change count stays under its own limit and no
+    /// string in it is longer than the string bound, so the refusal this produces is the byte
+    /// bound answering rather than the byte bound being asked first. Both numbers are read off
+    /// <see cref="EnvelopeBounds"/> and the member count is computed from them, so the shape
+    /// follows either bound moving instead of going quietly under one of them.
+    /// </para>
+    /// </summary>
+    /// <param name="random">The run's own source of choices.</param>
+    /// <returns>The body.</returns>
+    private static string PastTheByteBound(Random random)
+    {
+        var member = "{\"a\":\"" + new string('k', EnvelopeBounds.LongestStringLength) + "\"}";
+        var members = (EnvelopeBounds.MaximumBytes / (member.Length + 1)) + 1 + random.Next(0, 16);
+
+        return "{\"version\":1,\"changes\":["
+            + string.Join(',', Enumerable.Repeat(member, members))
+            + "]}";
+    }
 
     private static string Nested(int depth) =>
         "{\"version\":1,\"changes\":[" + new string('[', depth) + "1" + new string(']', depth) + "]}";

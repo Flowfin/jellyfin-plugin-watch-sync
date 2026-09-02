@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using Jellyfin.Plugin.WatchSync.Model;
 using Xunit;
 
@@ -173,6 +174,53 @@ public class EnvelopeFuzzTests
         Assert.NotEmpty(sweep.Findings);
         Assert.All(sweep.Findings, finding => Assert.Equal("reader-threw", finding.Rule));
         Assert.NotEmpty(sweep.Corpus);
+    }
+
+    /// <summary>
+    /// A run reaches the byte bound, and reaches it on that bound alone.
+    ///
+    /// The fifth condition of #19 asks that the refusal path be exercised by the harness rather
+    /// than only by the cases, and <c>TooManyBytes</c> was the member of that set no run could
+    /// produce. What kept it out of reach was the mutation set rather than the iteration count:
+    /// every other shape is capped well below a quarter of a mebibyte by its own arithmetic, so a
+    /// longer run met the same ceiling.
+    ///
+    /// The second half is what stops this being satisfied by a body that is simply enormous. The
+    /// byte bound is judged before the change count and before the string length, so a body past
+    /// all three answers <c>TooManyBytes</c> without the byte bound having decided anything. The
+    /// body found here is under the other two, which is asserted rather than described.
+    /// </summary>
+    [Fact]
+    public void ARunReachesTheByteBoundAndReachesItOnThatBoundAlone()
+    {
+        var sweep = EnvelopeFuzz.Run(EnvelopeCorpus.Seeds(), 64, 3, EnvelopeFuzz.TheRealReader());
+
+        var reached = sweep.Corpus
+            .Where(body => EnvelopeFuzz
+                .Judge(body, EnvelopeFuzz.TheRealReader())
+                .Answer
+                .EndsWith(EnvelopeBoundsAnswer.TooManyBytes.ToString(), StringComparison.Ordinal))
+            .ToList();
+
+        Assert.NotEmpty(reached);
+
+        var found = reached[0];
+
+        Assert.True(Encoding.UTF8.GetByteCount(found) > EnvelopeBounds.MaximumBytes);
+
+        using var read = JsonDocument.Parse(found);
+
+        var changes = read.RootElement.GetProperty("changes");
+
+        Assert.True(changes.GetArrayLength() <= EnvelopeBounds.MaximumChanges);
+
+        foreach (var change in changes.EnumerateArray())
+        {
+            foreach (var member in change.EnumerateObject())
+            {
+                Assert.True(member.Value.GetString()!.Length <= EnvelopeBounds.LongestStringLength);
+            }
+        }
     }
 
     /// <summary>
