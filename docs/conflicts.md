@@ -307,8 +307,38 @@ carry.
 
 The third condition of #30 asks for a test per row that fails when that row's rule
 is removed, and the fourth asks that this table be the input to the resolver
-rather than a description of it. Neither is met here and neither can be met by a
-document: there are two rules in the sources and no resolver for the table to be
-the input of. What is held today is the field column and the closure of the rule
-column, which is the half that stops the table and the moved set drifting apart
-while the rest is built.
+rather than a description of it.
+
+THIS PARAGRAPH SAID NEITHER IS MET AND NEITHER CAN BE, BECAUSE THERE ARE TWO
+RULES IN THE SOURCES AND NO RESOLVER. Both counts were true on 2026-08-18, when
+this was written, and neither is now. There are five rules, and the two added
+last are the deliberate unmark from #34 and its answer:
+
+    git ls-tree -r --name-only HEAD -- Jellyfin.Plugin.WatchSync/Conflict/ | grep -vE 'Answer.cs$'
+    Jellyfin.Plugin.WatchSync/Conflict/DeliberateUnplayed.cs
+    Jellyfin.Plugin.WatchSync/Conflict/LastPlayedMaximum.cs
+    Jellyfin.Plugin.WatchSync/Conflict/PlayCountReconciliation.cs
+    Jellyfin.Plugin.WatchSync/Conflict/PlayedRatchet.cs
+    Jellyfin.Plugin.WatchSync/Conflict/PositionRecency.cs
+
+And #30 closed as completed on 2026-08-31 with all four of its conditions met.
+The third was met on #81, and the fourth was met by a register the suite reads
+rather than by the plugin parsing this file: every row has an entry, every entry
+names classes that hold facts, and a public type under `Conflict/` that no entry
+claims is refused.
+
+    grep -oE '^[A-Za-z]+ :: [a-z]+' Jellyfin.Plugin.WatchSync.Tests/Conflict/coverage.txt
+    Played :: covered
+    PlayCount :: covered
+    PlaybackPositionTicks :: covered
+    LastPlayedDate :: covered
+
+    grep -n 'public void EveryTypeInTheResolverBelongsToOneEntry' Jellyfin.Plugin.WatchSync.Tests/ConflictRowCoverageTests.cs
+    165:    public void EveryTypeInTheResolverBelongsToOneEntry()
+
+So what this section is about is what THIS DOCUMENT holds rather than what is
+owed anywhere: the field column and the closure of the rule column, which is the
+half that stops the table and the moved set drifting apart. The conditions the
+paragraph reached for are met one file over, and a reader who took the sentence
+above at face value would have gone looking for two rules and a missing resolver
+and found five rules, a register and a closed issue.
