@@ -167,9 +167,21 @@ dropped. A side whose count is BELOW the agreed one is not a rewatch and is not 
 as one; that is a restore, it is #33's shortfall, and reading it as movement here
 would take the unmark's win away for the one reason it should have it.
 
-What is still missing is a caller. Nothing drives the two rules together yet, so the
-order above is a rule whoever writes the resolver is held to and not one a machine
-keeps, and this document says so here rather than describing a sequence that runs.
+What is still missing is a caller for the pair. Nothing drives the two rules together,
+so the order above is a rule whoever writes the resolver is held to and not one a
+machine keeps, and this document says so here rather than describing a sequence that
+runs.
+
+ONE OF THE TWO HAS A CALLER, AND THAT IS NOT AN EXCEPTION TO THE SENTENCE ABOVE.
+`FirstExchange` asks the ratchet:
+
+    grep -n 'PlayedRatchet.Hold' Jellyfin.Plugin.WatchSync/Exchange/FirstExchange.cs
+    249:        var ratchet = PlayedRatchet.Hold(item.Here, item.AtThePeer);
+
+It does not ask the unmark rule, and that is the rule holding rather than being
+skipped: a first exchange has no agreement to read, so the unmark rule answers
+`NoUnmarkToCarry` for every pair it could be handed there, and the ordering above is
+about a run that has an agreement. That run is the one still missing.
 
 The save reason the unmark arrives under is `TogglePlayed`, which
 `docs/sync-model.md` classifies with the rest, so the event reaches the plugin and
@@ -185,6 +197,7 @@ is taken at the commit being read rather than at a remote reference, so it
 answers for the tree in front of the reader:
 
     git ls-tree -r --name-only HEAD -- Jellyfin.Plugin.WatchSync/Conflict/
+    Jellyfin.Plugin.WatchSync/Conflict/DeliberateUnplayed.cs
     Jellyfin.Plugin.WatchSync/Conflict/LastPlayedAnswer.cs
     Jellyfin.Plugin.WatchSync/Conflict/LastPlayedMaximum.cs
     Jellyfin.Plugin.WatchSync/Conflict/PlayCountAnswer.cs
@@ -193,6 +206,15 @@ answers for the tree in front of the reader:
     Jellyfin.Plugin.WatchSync/Conflict/PositionAnswer.cs
     Jellyfin.Plugin.WatchSync/Conflict/PositionRecency.cs
     Jellyfin.Plugin.WatchSync/Conflict/RatchetAnswer.cs
+    Jellyfin.Plugin.WatchSync/Conflict/UnplayedAnswer.cs
+
+CORRECTED BY RE-RUNNING IT. THE PASTE ABOVE HELD EIGHT NAMES AND THE COMMAND
+RETURNS TEN. `DeliberateUnplayed` and its answer landed on `af07e4c` on
+2026-08-27 for #34, and the listing was not re-run with them, so a paste whose
+own sentence says it answers for the tree in front of the reader stopped doing
+so on the day the pair this section is about arrived. The two names are not a
+fifth row: `DeliberateUnplayed` is the unmark rule argued above, and
+`UnplayedAnswer` is what it answers with.
 
 `PlayedRatchet` is the `Played` row and is #31. `PlayCountReconciliation` is the
 `PlayCount` row and is #33. `PositionRecency` is the `PlaybackPositionTicks` row
@@ -225,10 +247,33 @@ tie rule the rule and recency the exception.
 Named so that a gap is readable as a gap rather than as an answer nobody wrote
 down.
 
-- The setting an operator changes the tolerated clock skew with, which is #58.
-  The two numbers are fixed by the rule in #32, which refuses a tolerance outside
-  them, and nothing reads either at run time, because no run resolves anything
-  yet.
+- The setting an operator changes the tolerated clock skew with. The two numbers
+  are fixed by the rule in #32, which refuses a tolerance outside them.
+
+  THIS BULLET NAMED #58 AND SAID NOTHING READ EITHER NUMBER AT RUN TIME, BECAUSE
+  NO RUN RESOLVED ANYTHING YET. Both halves have stopped being true, and they
+  stopped for different reasons. A resolution exists. `FirstExchange.Resolve`
+  hands the tolerance to `PositionRecency.Settle`, and that rule reads
+  `MaximumToleratedSkew` on every call, to refuse a tolerance above it:
+
+      grep -n 'PositionRecency.Settle' Jellyfin.Plugin.WatchSync/Exchange/FirstExchange.cs
+      263:        var position = PositionRecency.Settle(item.Here, item.AtThePeer, toleratedSkew, now);
+
+  And #58 is closed. What it decided for this number is a home rather than a
+  member, and the home is not the plugin configuration:
+
+      grep -oE '^. `PositionRecency[.][A-Za-z]+`.*[|] pairing state [|]' docs/configuration.md
+      | `PositionRecency.DefaultToleratedSkew` | `TimeSpan` | 1 minute | up to `MaximumToleratedSkew` | pairing state |
+
+  That file is one an operator copies between servers, and this number is a
+  judgement about one particular peer's clock, so a copy of it points at the
+  wrong machine. What the setting waits on is therefore somewhere per pairing to
+  keep it, which arrives with the adapter in #40, and not #58.
+
+  What is still absent is narrower than what this bullet claimed.
+  `DefaultToleratedSkew` is read by nothing, because no setting carries it, and
+  nothing calls `FirstExchange.Over`, so neither number is reached by anything
+  running on a server.
 - Where a resolved conflict is recorded, what the record holds and how long it is
   kept, which is #36. This file fixes only that a loser exists and what it is.
 - What a run does when the number of changes it is about to make is large, which

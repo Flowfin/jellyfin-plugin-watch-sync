@@ -18,8 +18,11 @@ namespace Jellyfin.Plugin.WatchSync.Agreement;
 /// agreed under an older version was agreed about the fields that version carried, so a reader
 /// asking why a field never moved has the answer in the record instead of in a release history.
 ///
-/// The moment is a parameter and never a clock this type reads. Waiting and reading time are on
-/// the injected clock in #86, which the <c>injected-clock</c> invariant refuses a departure from.
+/// The moment is a parameter and never a clock this type reads. Reading time is on the injected
+/// clock, which the <c>injected-clock</c> invariant refuses a departure from, and waiting is on
+/// the same clock under <c>waiting-is-on-the-injected-clock</c>. Those two are argued at #32 and
+/// #16 rather than at #86, which this comment named and which closed as completed on the suite's
+/// determinism without deciding what the plugin's clock is.
 ///
 /// One record per subject is the whole of #14's fourth condition, and it is a property of
 /// <see cref="AgreedRecords"/> rather than of this type: an evening of playback agrees the same
