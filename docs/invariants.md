@@ -379,9 +379,23 @@ That is a library compile of those three statements at `<TargetFrameworks>net9.0
 under SDK 10.0.301, and it says the overloads exist rather than that this plugin should
 use them. `wait-task-delay` refuses the first and `wait-timer` refuses the second; nothing
 refuses the third, because its rule reads a `new`. They are refused anyway, because what
-this plugin's injected clock will be is #86 and is undecided: a rule written to permit an
-overload carrying a provider would settle there and then that the clock is a
-`TimeProvider`, which is not this guard's to settle. When the clock arrives, a place that
+this plugin's injected clock will be is undecided: a rule written to permit an overload
+carrying a provider would settle there and then that the clock is a `TimeProvider`, which
+is not this guard's to settle.
+
+THIS PASSAGE SAID THAT DECISION IS #86. That issue closed as completed on 2026-08-17,
+five days before this rule landed on `608e677`, and what it delivered is the suite's
+determinism rather than a clock for the plugin. So the pointer named a place the answer
+was never going to come from, and what it pointed at has been closed for as long as this
+sentence has existed. The undecided half is unchanged, and nothing in this plugin names a
+provider:
+
+    grep -rn 'TimeProvider' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
+    exit=1
+
+Where it is decided is nowhere, and that is worse than a wait rather than the same thing:
+a decision behind an open issue is one somebody is holding, and this one is behind a
+closed one. When the clock arrives, a place that
 legitimately waits on it is a declared departure, which puts the exception where a reader
 meets it and takes it away again with the line. That is the same shape
 `static-instance-not-read` takes over the configuration accessor #8 names.
