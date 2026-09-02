@@ -1,3 +1,4 @@
+using Jellyfin.Plugin.WatchSync.Matching;
 using Jellyfin.Plugin.WatchSync.Storage;
 using Jellyfin.Plugin.WatchSync.UserData;
 using MediaBrowser.Controller;
@@ -37,6 +38,11 @@ public class ServiceRegistrator : IPluginServiceRegistrator
         // serialises two callers against one document, and two stores over one folder would
         // each be serialising against themselves.
         serviceCollection.AddSingleton<DocumentStore>();
+
+        // Where the index reads the library from. It is a singleton because it holds the
+        // snapshot of identifiers one walk pages through, and two of them over one library
+        // would each be taking a snapshot of their own for the same walk.
+        serviceCollection.AddSingleton<IMatchIndexSource, ServerLibrary>();
 
         // One adapter per supported line, and only the line's own implementation is compiled
         // into the target it is built for, so this is a registration rather than a choice made
