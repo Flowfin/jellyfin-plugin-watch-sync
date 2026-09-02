@@ -28,6 +28,13 @@ public sealed class DocumentStoreTests : IDisposable
 {
     private const string Name = "agreed";
 
+    /// <summary>
+    /// How long a write that is not being held is given to finish. It is a ceiling on a case
+    /// that passes in milliseconds, not a duration anything waits out: a run that reaches it
+    /// has already failed, and the number only decides how long a failing run takes to say so.
+    /// </summary>
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
+
     private readonly TemporaryDirectory _programData;
 
     /// <summary>
@@ -190,7 +197,7 @@ public sealed class DocumentStoreTests : IDisposable
     /// which is the shape that gets re-run until it passes.
     /// </summary>
     [Fact]
-    public void ManyWritersOfOneDocumentLoseNothing()
+    public async Task ManyWritersOfOneDocumentLoseNothing()
     {
         var store = Store();
         var writers = 24;
@@ -198,7 +205,7 @@ public sealed class DocumentStoreTests : IDisposable
         var running = Enumerable.Range(0, writers).Select(index => Task.Run(() =>
             store.Write(Name, reading => Adding(reading, "writer-" + index.ToString(CultureInfo.InvariantCulture), "here")))).ToArray();
 
-        Task.WaitAll(running);
+        await Task.WhenAll(running);
 
         Assert.All(running, each => Assert.Equal(DocumentWriteOutcome.Written, each.Result.Outcome));
 
@@ -219,7 +226,7 @@ public sealed class DocumentStoreTests : IDisposable
     /// document, so what the arrangement bought is not a lost write.
     /// </summary>
     [Fact]
-    public void TheBytesOfOneWriteAreNotPutDownUnderALockAnotherWriteWaitsOn()
+    public async Task TheBytesOfOneWriteAreNotPutDownUnderALockAnotherWriteWaitsOn()
     {
         var held = new ManualResetEventSlim(false);
         var reached = new ManualResetEventSlim(false);
@@ -241,13 +248,13 @@ public sealed class DocumentStoreTests : IDisposable
 
         var quick = Task.Run(() => store.Write(Name, reading => Adding(reading, "quick", "here")));
 
-        Assert.True(quick.Wait(TimeSpan.FromSeconds(30)), "A second write of the same document could not finish while the first was held inside its stream, so the write path holds a lock across the bytes.");
-        Assert.Equal(DocumentWriteOutcome.Written, quick.Result.Outcome);
+        Assert.True(await FinishedWithin(quick, Patience), "A second write of the same document could not finish while the first was held inside its stream, so the write path holds a lock across the bytes.");
+        Assert.Equal(DocumentWriteOutcome.Written, (await quick).Outcome);
 
         held.Set();
 
-        Assert.True(slow.Wait(TimeSpan.FromSeconds(30)), "The held writer never finished once it was let go.");
-        Assert.Equal(DocumentWriteOutcome.Written, slow.Result.Outcome);
+        Assert.True(await FinishedWithin(slow, Patience), "The held writer never finished once it was let go.");
+        Assert.Equal(DocumentWriteOutcome.Written, (await slow).Outcome);
 
         var document = store.Read(Name)!.Document!;
 
@@ -264,7 +271,7 @@ public sealed class DocumentStoreTests : IDisposable
     /// filesystem and a large document is the stall an operator reports as the plugin hanging.
     /// </summary>
     [Fact]
-    public void ADocumentBeingWrittenDoesNotHoldAnotherOne()
+    public async Task ADocumentBeingWrittenDoesNotHoldAnotherOne()
     {
         var held = new ManualResetEventSlim(false);
         var reached = new ManualResetEventSlim(false);
@@ -286,11 +293,11 @@ public sealed class DocumentStoreTests : IDisposable
 
         var other = Task.Run(() => store.Write(Name, _ => Document(("who", "the event"))));
 
-        Assert.True(other.Wait(TimeSpan.FromSeconds(30)), "A write of one document waited on a write of another, so there is a lock over the store.");
+        Assert.True(await FinishedWithin(other, Patience), "A write of one document waited on a write of another, so there is a lock over the store.");
 
         held.Set();
 
-        Assert.True(slow.Wait(TimeSpan.FromSeconds(30)), "The held writer never finished once it was let go.");
+        Assert.True(await FinishedWithin(slow, Patience), "The held writer never finished once it was let go.");
         Assert.Equal("the sweep", Member(store.Read("queue")!.Document!, "who"));
         Assert.Equal("the event", Member(store.Read(Name)!.Document!, "who"));
     }
@@ -339,6 +346,31 @@ public sealed class DocumentStoreTests : IDisposable
         Assert.ThrowsAny<ArgumentException>(() => store.Read(name));
         Assert.ThrowsAny<ArgumentException>(() => store.Write(name, _ => Document(("who", "nobody"))));
         Assert.Empty(Directory.Exists(StorePath) ? Directory.GetFiles(StorePath) : Array.Empty<string>());
+    }
+
+    /// <summary>
+    /// Whether a write finished inside the time it was given, without blocking the caller on it.
+    ///
+    /// The three cases that use this are about a write being held, so a blocking wait would put
+    /// the thread asking the question into the same pool as the writes it is waiting on. The
+    /// answer has to be a value rather than an exception, because what each caller asserts is
+    /// the sentence beside it: a timeout there means the write path took a lock, and a bare
+    /// timeout exception would say only that thirty seconds passed.
+    /// </summary>
+    /// <param name="write">The write to wait on.</param>
+    /// <param name="within">How long it is given.</param>
+    /// <returns>True where the write finished in time.</returns>
+    private static async Task<bool> FinishedWithin(Task write, TimeSpan within)
+    {
+        try
+        {
+            await write.WaitAsync(within).ConfigureAwait(false);
+            return true;
+        }
+        catch (TimeoutException)
+        {
+            return false;
+        }
     }
 
     private static string Member(StoredDocument document, string name) =>

@@ -42,7 +42,7 @@ public class PeerTextTests
         Assert.DoesNotContain('\r', line);
         Assert.DoesNotContain('\u2028', line);
         Assert.DoesNotContain('\u2029', line);
-        Assert.False(line.Any(char.IsControl));
+        Assert.DoesNotContain(line.AsEnumerable(), char.IsControl);
         Assert.Equal(
             "peer=the peer2026-01-01 the plugin refusedeverythingnowthen reason=unreachable",
             line);

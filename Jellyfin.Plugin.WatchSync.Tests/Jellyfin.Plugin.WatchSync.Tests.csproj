@@ -8,6 +8,14 @@
     <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
     <RootNamespace>Jellyfin.Plugin.WatchSync.Tests</RootNamespace>
     <Nullable>enable</Nullable>
+    <!-- The analyzers that come with the test packages are the ones this project is judged
+         by, and their findings are refused rather than printed. A warning left as a warning
+         is true, green and read by nobody: the xUnit analyzers report a blocking wait on a
+         task inside a test and an assertion that says less than the one it should be, and
+         both of those are how a suite starts passing for a reason other than the one it
+         names. The plugin project declares this too; a build over the solution was green
+         over this project's warnings until it was declared here. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ImplicitUsings>disable</ImplicitUsings>
     <IsPackable>false</IsPackable>
     <!-- The packaging step publishes the solution into one output directory and
