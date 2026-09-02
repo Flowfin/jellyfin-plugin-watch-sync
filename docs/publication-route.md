@@ -48,26 +48,42 @@ The order matters in one direction only. The address is published before it is
 announced, because an announcement pointing at an address that is not serving yet
 spends the one attempt an operator makes.
 
-## What is not built, and what that costs
+## What is built, what is not, and what that costs
 
-Nothing in this repository generates a manifest. The runbook says so about itself:
+THIS SECTION SAID NOTHING IN THIS REPOSITORY GENERATED A MANIFEST. Something does. The
+regeneration this document leans on is a command rather than a plan, and what is left is
+the address it would be published to.
 
-    git grep -n 'Nothing here writes a plugin catalog' -- docs/RELEASING.md
-    docs/RELEASING.md:83:Nothing here writes a plugin catalog. A GitHub release is the whole output. If this
+    grep -n 'generate-manifest.py' .github/workflows/publish.yaml
+    670:          generator=.github/generate-manifest.py
+    730:            python3 .github/generate-manifest.py \
+    748:            python3 .github/generate-manifest.py \
 
-There is also no release history to regenerate one from:
+Three lines and not one. The first is the step that proves the generator refuses what
+it is written for before the run trusts it; the second writes each channel's manifest
+and the third regenerates it to be compared.
+
+The release run reads the whole release history, writes one manifest per channel out of
+it, regenerates each from the same history and refuses a difference. `RELEASING.md`
+carries what it reads each field from and what it refuses. The manifest is a function of
+the releases that exist rather than of the checkout, which is what makes the recovery
+above a comparison instead of a reconstruction: a republished index can be held against
+what is being served, byte for byte.
+
+There is still no release history to regenerate one from:
 
     gh release list --repo Flowfin/jellyfin-plugin-watch-sync --json tagName --jq 'length'
     0
 
-So the regeneration named above is a plan rather than a command anybody can run
-today, and until it exists a lost address costs a manifest assembled by hand out of
-the release list. That is #119, whose fourth condition is exactly that a regeneration
-reproduces the manifest rather than approximating it.
+So the generator has never run over anything but its own fixtures, and the first tag
+pushed is the first exercise of it. That is the same position every other part of this
+route is in.
 
-No address has been chosen either. This document fixes what happens rather than
-recording a route that has run, and the day the first one is published is the day
-each claim above becomes checkable against something.
+No address has been chosen, and nothing serves either manifest: both are attached to the
+run and go no further. Until one is published an operator cannot subscribe at all, and a
+lost address is not yet a state this repository can be in. That is #123. This document
+fixes what happens rather than recording a route that has run, and the day the first
+address is published is the day each claim above becomes checkable against something.
 
 Nothing points at this file yet. The readme, the runbook and the manifest all naming
 one place is the second condition of #123, and the runbook it needs is #108.
