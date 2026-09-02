@@ -639,3 +639,133 @@ jobs:
           files: ./*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  manifest:
+    name: Generate the manifest for both channels
+    needs: release
+    runs-on: ubuntu-latest
+    # Reads the release history and writes nothing to the repository. The release it
+    # describes already exists by the time this starts, which is why this is a job
+    # after the publish rather than a step inside it: a manifest generated before the
+    # release exists would describe a history it is not in.
+    timeout-minutes: 20
+    permissions:
+      # Reading the checkout and the release list. The manifests are attached to the
+      # run by the run token; where they are served from is the address #123 holds and
+      # nothing here chooses one.
+      contents: read
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prove the generator refuses what it is written for
+        # The step below is green on every history that has never carried one of these
+        # states, so on its own it says nothing about whether the generator can refuse.
+        # Seven runs over the fixtures beside it, each arm named rather than the file
+        # being asserted to exist, with the repair run after the two that have one.
+        run: |
+          set -euo pipefail
+          generator=.github/generate-manifest.py
+          fixtures=.github/manifest-fixtures
+          refuses() {
+            if python3 "${generator}" --channel "$1" --assets "$2" < "$3" > /dev/null 2>&1; then
+              echo "::error::${generator} accepted $(basename "$3") against $(basename "$2"), and that fixture exists to be refused. The guard is not biting."
+              exit 1
+            fi
+          }
+          passes() {
+            python3 "${generator}" --channel "$1" --assets "$2" < "$3" > /dev/null
+          }
+          refuses stable "${fixtures}/assets" "${fixtures}/no-release-at-all.json"
+          refuses stable "${fixtures}/assets" "${fixtures}/a-tag-with-no-channel.json"
+          refuses stable "${fixtures}/assets" "${fixtures}/the-flag-disagrees-with-the-tag.json"
+          refuses stable "${fixtures}/assets" "${fixtures}/two-archives-in-one-release.json"
+          refuses stable "${fixtures}/assets-checksum-of-another-file" "${fixtures}/a-single-release.json"
+          refuses stable "${fixtures}/assets-the-checksum-is-not-a-digest" "${fixtures}/a-single-release.json"
+          refuses stable "${fixtures}/assets-one-version-twice" "${fixtures}/one-version-claimed-twice.json"
+          passes stable "${fixtures}/assets" "${fixtures}/a-single-release.json"
+          passes stable "${fixtures}/assets" "${fixtures}/two-channels.json"
+          passes prerelease "${fixtures}/assets" "${fixtures}/one-channel-only.json"
+          echo "The generator refused all seven of its arms and passed all three repairs."
+
+      - name: Read the release history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # The whole history rather than this release alone. A manifest is an index of
+        # every version an operator may install, so one generated from the newest
+        # release would offer that version and hide every earlier one, and a server
+        # already on a later version would be offered a downgrade by an index that
+        # looks complete.
+        run: |
+          set -euo pipefail
+          gh api --paginate \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${GITHUB_REPOSITORY}/releases" \
+            --jq '[.[] | {tag_name, prerelease, assets: [.assets[] | {name, browser_download_url}]}]' \
+            | python3 -c 'import json,sys; pages=[json.loads(line) for line in sys.stdin if line.strip()]; json.dump([release for page in pages for release in page], sys.stdout, indent=4)' \
+            > history.json
+          python3 -c 'import json; print(len(json.load(open("history.json"))), "releases read")'
+
+      - name: Download the metadata and the checksum of every release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Only the two small files a version entry is assembled from. The archives
+        # themselves are what the manifest points at rather than what it is built from,
+        # and downloading them would make this job's time a function of the history.
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          for tag in $(python3 -c 'import json; print("\n".join(release["tag_name"] for release in json.load(open("history.json"))))'); do
+            mkdir -p "assets/${tag}"
+            gh release download "${tag}" --dir "assets/${tag}" --pattern '*.md5' --pattern '*.zip.meta.json'
+          done
+          find assets -type f | sort
+
+      - name: Generate the manifest for each channel
+        run: |
+          set -euo pipefail
+          for channel in stable prerelease; do
+            python3 .github/generate-manifest.py \
+              --channel "${channel}" \
+              --assets assets \
+              --output "manifest-${channel}.json" \
+              < history.json
+          done
+          ls -l manifest-stable.json manifest-prerelease.json
+
+      - name: Regenerate each manifest and refuse a difference
+        # The fourth condition of #119, asked of the real history rather than only of a
+        # fixture. A regeneration that reproduces the manifest only approximately leaves
+        # an operator unable to tell a repair from a rewrite, and the shapes that break
+        # it - a member order that follows a dictionary, a timestamp taken from the
+        # clock, an ordering that follows the order the API answered in - all produce a
+        # first run that looks perfectly correct.
+        run: |
+          set -euo pipefail
+          for channel in stable prerelease; do
+            python3 .github/generate-manifest.py \
+              --channel "${channel}" \
+              --assets assets \
+              --output "regenerated-${channel}.json" \
+              < history.json
+            if ! cmp -s "manifest-${channel}.json" "regenerated-${channel}.json"; then
+              echo "::error::Regenerating the ${channel} manifest from the same release history produced different bytes, so a repair of a lost index could not be compared against what is served."
+              diff -u "manifest-${channel}.json" "regenerated-${channel}.json" || true
+              exit 1
+            fi
+            rm "regenerated-${channel}.json"
+          done
+          echo "Both manifests reproduce exactly from the release history."
+
+      - name: Attach both manifests to the run
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: manifests
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            manifest-stable.json
+            manifest-prerelease.json
+            history.json
