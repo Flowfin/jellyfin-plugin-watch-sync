@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace Jellyfin.Plugin.WatchSync.Tests;
@@ -41,7 +42,7 @@ public class ManifestGeneratorTests
     {
         var publish = ManifestRoute.Publish();
 
-        Assert.Contains(ManifestRoute.Generator, publish, StringComparison.Ordinal);
+        Assert.Matches(ManifestRoute.Generation, publish);
         Assert.Contains("for channel in stable prerelease", publish, StringComparison.Ordinal);
         Assert.Contains($"manifest-{channel}.json", publish, StringComparison.Ordinal);
     }
@@ -209,6 +210,21 @@ public class ManifestGeneratorTests
         /// The generator, named the way the workflow names it.
         /// </summary>
         internal const string Generator = ".github/generate-manifest.py";
+
+        /// <summary>
+        /// The call that writes a channel's manifest, read as one block rather than as a name
+        /// appearing somewhere in the file.
+        ///
+        /// The name alone is not the fact. It is in the proof step and in the regeneration step
+        /// beside this one, so a generation step that stopped calling the generator and copied
+        /// something into place instead left every rule here green. That change was applied by
+        /// hand and reddened nothing, which is why this is a block: the program, the channel it
+        /// is told to write and the file it is told to write it to, in the order the step gives
+        /// them.
+        /// </summary>
+        internal static readonly Regex Generation = new Regex(
+            @"python3 \.github/generate-manifest\.py \\\s+--channel ""\$\{channel\}"" \\\s+--assets assets \\\s+--output ""manifest-\$\{channel\}\.json""",
+            RegexOptions.None);
 
         private const string Workflow = ".github/workflows/publish.yaml";
 
