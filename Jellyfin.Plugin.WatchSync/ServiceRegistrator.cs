@@ -1,9 +1,11 @@
+using System;
 using Jellyfin.Plugin.WatchSync.Matching;
 using Jellyfin.Plugin.WatchSync.Storage;
 using Jellyfin.Plugin.WatchSync.UserData;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Jellyfin.Plugin.WatchSync;
 
@@ -28,7 +30,7 @@ public class ServiceRegistrator : IPluginServiceRegistrator
     /// <inheritdoc />
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
-        System.ArgumentNullException.ThrowIfNull(serviceCollection);
+        ArgumentNullException.ThrowIfNull(serviceCollection);
 
         // The folder is the server's to give and this plugin's to fill, so it is constructed
         // from IApplicationPaths the server registers rather than from a path composed here.
@@ -38,6 +40,14 @@ public class ServiceRegistrator : IPluginServiceRegistrator
         // serialises two callers against one document, and two stores over one folder would
         // each be serialising against themselves.
         serviceCollection.AddSingleton<DocumentStore>();
+
+        // The one place in this plugin that names a real clock, which is the answer taken on
+        // #32. Every rule downstream judges at an instant handed in, so a test moves time by
+        // handing in a different one, and the declared departure in the invariant register
+        // covers this file and no other; ClockEntryTests refuses a second one. TryAdd rather
+        // than Add, because the host may already have registered a clock, and two clocks in
+        // one container are two answers to what time it is.
+        serviceCollection.TryAddSingleton(TimeProvider.System);
 
         // Where the index reads the library from. It is a singleton because it holds the
         // snapshot of identifiers one walk pages through, and two of them over one library

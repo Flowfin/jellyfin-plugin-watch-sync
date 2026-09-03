@@ -38,6 +38,16 @@ public class ServiceRegistratorTests
     private static readonly IReadOnlyList<Type> ServerConstructs = new[] { typeof(Plugin) };
 
     /// <summary>
+    /// The one service registered as an instance rather than as a type of this plugin, and it
+    /// is a declared departure with its argument here rather than a line nobody notices. The
+    /// composition root is where a dependency is chosen rather than used, and the runtime's
+    /// clock is chosen there so that everything downstream takes a clock it was handed and a
+    /// test hands in a different one. <c>ClockEntryTests</c> holds that this is the only file
+    /// that names the real clock and that a clock the host registered first stands.
+    /// </summary>
+    private static readonly IReadOnlyList<Type> ChosenAtTheCompositionRoot = new[] { typeof(TimeProvider) };
+
+    /// <summary>
     /// The whole point. A type that cannot be built without something the server owns and that
     /// nothing registers is a type whose only remaining route to its dependency is to reach for
     /// it, which is what this issue was opened against.
@@ -73,6 +83,7 @@ public class ServiceRegistratorTests
         var owned = typeof(Plugin).Assembly;
 
         Assert.Empty(Registrations()
+            .Where(descriptor => !ChosenAtTheCompositionRoot.Contains(descriptor.ServiceType))
             .Where(descriptor => descriptor.ImplementationType?.Assembly != owned)
             .Select(descriptor => descriptor.ServiceType.Name + " is registered against an implementation this plugin does not own."));
     }

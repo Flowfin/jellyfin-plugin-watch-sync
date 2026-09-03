@@ -60,6 +60,22 @@ machine clock cannot be tested at that boundary at all. The suite half of this r
 already refused by the headless vocabulary; these rules are the plugin half, which is
 where the clock decides an outcome rather than a test.
 
+A clock still has to enter the plugin somewhere. A sweep has a start and an end, and a
+handler receiving a real event has to stamp it with a real moment, and every rule in
+this plugin takes its moments as parameters because these rules refuse reading one. It
+enters at the composition root and nowhere else, which is the answer taken on #32:
+`ServiceRegistrator` registers the runtime's own clock, and that file is the one declared
+departure from this invariant, in the exceptions file beside the register with its reason
+written on the entry. The composition root is the exception because that is where a
+dependency is chosen rather than used. Everything it hands the clock to takes it as a
+constructor argument or takes its moments as parameters, so a test replaces it by
+constructing the type it is testing. `ClockEntryTests` holds the departure to that one
+file in both directions, holds that the clock handed out is the runtime's own, and holds
+that a clock the host registered first is the one that stands, because two clocks in one
+container are two answers to what time it is. What no scan sees is a caller that resolves
+the clock and then reads it where a moment should have been handed in; that is the
+review's.
+
 **`log-holds-no-viewing`.** No log statement carries the title of a work or a provider
 identifier for it. A log is a file that gets copied into a support thread and shipped to
 a collector, and what somebody watched belongs in neither. What may be logged, what may
