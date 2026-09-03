@@ -1,0 +1,233 @@
+# The watcher of #121.
+#
+# WHAT IT IS FOR. A run that is not a required pull-request check is shown to nobody. The
+# publish runs on a tag push, a scan runs on a schedule, and the mainline's own runs report
+# to no pull request, so any of them can go red and stay red while every pull request on
+# the board is green. The failure this exists for happened on a neighbouring board: a
+# release was created, the step after it failed, and a green looking publish shipped
+# nothing anybody could install.
+#
+# WHAT IT EXAMINES. Every run on the default branch and every run on a tag, whatever
+# workflow produced it. No workflow is named outside these comments: strip the comment
+# lines and no name of another workflow is left, which `PublishFailureAlertTests` refuses,
+# so a workflow added to this repository is watched the day it lands and nothing has to be
+# registered. The board this is modelled on watched an enumerated list of six and missed
+# the seventh for fifteen hours. A run on any other branch is somebody's work in progress
+# and is not examined, and a pull request's runs are that pull request's to show.
+#
+# WHAT IT FILES. One open issue, labelled `release-alert`. Its body is rewritten on every
+# tick to the current state, one section per red workflow with the step that failed and
+# the end of that step's log; a comment marks a change in the set of red workflows and
+# nothing else, so a failure that stands for a week is one issue rather than one comment
+# per tick. When nothing is red any more the watcher closes the issue itself. Which repair
+# applies is decided by which workflow the body names, and the repairs are written once,
+# in docs/RELEASING.md under the heading the body points at, so that the same test can
+# refuse the two drifting apart.
+#
+# WHY A SWEEP AND NOT A `workflow_run` TRIGGER. Watching every workflow by event needs a
+# `workflow_run` trigger with no `workflows:` filter, and the workflow audit refuses to
+# parse one. The sweep asks the runs API the same question. What it costs is latency: a
+# failure is reported at the next tick rather than within a minute of the run ending.
+#
+# Only the gh CLI with the run's own token. No third-party action, so nothing to pin.
+
+name: Publish failure alert
+
+on:
+  schedule:
+    # Every half hour. The incident this exists for went unseen for fifteen hours, so the
+    # tick length is the worst-case delay on a signal that used to never arrive at all.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report what would be filed to the run log, and open, update or close no issue."
+        type: boolean
+        default: true
+
+# Deny everything at the workflow level; the job grants itself the two scopes it needs.
+permissions: {}
+
+# Never two sweeps at once, and never one cancelled part way, because it may be filing or
+# closing an issue when the next starts. Serialising them is also what stops two sweeps
+# filing two issues for one failure: the second sees what the first filed.
+concurrency:
+  group: publish-failure-alert
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: Report any run on the default branch or on a tag that concluded other than success
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read # the run list and the failed step's log
+      issues: write # the one tracking issue, and the label it is found by
+    steps:
+      - name: Sweep the runs and file, update or close the alert issue
+        # Every value reaching the shell arrives through env and is never spliced into the
+        # script, so nothing a run or an issue carries is evaluated as shell.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SELF: ${{ github.workflow }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+          # Only failures this recent are reported. The window is what keeps a long-dead red
+          # run from reopening the issue every time it is closed: once the cause is fixed and
+          # the issue closed, nothing older than this can resurrect it.
+          WINDOW_HOURS: "24"
+          LABEL: release-alert
+          # The heading in docs/RELEASING.md the issue body sends a reader to. It is declared
+          # here so that the suite can hold the two files to one heading.
+          REPAIR_HEADING: "When the watcher files an issue"
+        run: |
+          set -euo pipefail
+
+          branch=$(gh repo view "$REPO" --json defaultBranchRef --jq '.defaultBranchRef.name')
+          cutoff=$(date -u -d "-${WINDOW_HOURS} hours" +%Y-%m-%dT%H:%M:%SZ)
+
+          # The tags this repository holds, so that a run on one can be told from a run on
+          # somebody's branch without this file knowing what a release tag looks like. That
+          # pattern has one home, in the publish route, and a copy here would be a second one.
+          gh api --paginate "repos/${REPO}/git/matching-refs/tags/" \
+            --jq '.[].ref | sub("^refs/tags/"; "")' > tags.txt
+
+          # THE DERIVED SET. No workflow is named; the branch, the tag list and the conclusion
+          # decide. The conclusion test is a denylist so that a conclusion class this file has
+          # never heard of alerts rather than passes: `failure`, `timed_out`, `startup_failure`,
+          # `action_required`, `neutral` and `stale` all reach the issue. Only `success` and
+          # `skipped` are quiet, `cancelled` is read as somebody's own act, and an empty
+          # conclusion is a run still going. This workflow leaves its own runs out so that a
+          # red sweep does not sweep itself up, and both sides of that test are its own name.
+          gh run list --repo "$REPO" --limit 300 \
+            --json workflowName,conclusion,url,event,updatedAt,headBranch > runs.json
+          jq -r --arg self "$SELF" --arg cutoff "$cutoff" --arg branch "$branch" --rawfile tags tags.txt '
+            ($tags | split("\n") | map(select(length > 0))) as $tagged
+            | .[]
+            | select(.workflowName != $self)
+            | select(.updatedAt >= $cutoff)
+            | select(.event != "pull_request" and .event != "pull_request_target")
+            | .headBranch as $ref
+            | select($ref == $branch or (.event == "push" and ($tagged | any(. == $ref))))
+            | select((.conclusion // "") as $c
+                     | $c != "success" and $c != "skipped" and $c != "cancelled" and $c != "")
+            | [.url, .conclusion, .event, .workflowName, $ref] | @tsv
+          ' runs.json > red.tsv
+
+          echo "Examined $(jq length runs.json) run(s); $(wc -l < red.tsv) on ${branch} or on a tag concluded other than success since ${cutoff}."
+
+          open_issue=$(gh issue list --repo "$REPO" --state open --label "$LABEL" \
+            --json number --jq '.[0].number // empty')
+
+          if [ ! -s red.tsv ]; then
+            echo "Nothing red."
+            # NOTHING RED MEANS CLOSE, AND THE WATCHER DOES THE CLOSING. A reporter that only
+            # ever opens leaves an issue standing after the cause is gone, and the hand that
+            # closes it late is what makes the next tick file a fresh one for a failure that
+            # no longer exists.
+            if [ -n "${open_issue:-}" ]; then
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "DRY RUN: would close #${open_issue}."
+              else
+                gh issue comment "$open_issue" --repo "$REPO" \
+                  --body "Nothing on \`${branch}\` or on a tag is red any more, so this closes. Examined $(jq length runs.json) run(s) since ${cutoff}."
+                gh issue close "$open_issue" --repo "$REPO" --reason completed
+                echo "Closed #${open_issue}."
+              fi
+            else
+              echo "No open alert issue to close."
+            fi
+            exit 0
+          fi
+
+          # The label is the key one open issue is found by, and it is provisioned here rather
+          # than assumed so that a label deleted or never created cannot stop the first filing.
+          # The monthly label sync may remove it again; the next tick puts it back.
+          if [ "$DRY_RUN" != "true" ]; then
+            gh label create "$LABEL" --repo "$REPO" --color B60205 \
+              --description "A run on the default branch or on a tag concluded other than success; the watcher files and closes this" \
+              --force >/dev/null 2>&1 || true
+          fi
+
+          reported=""
+          if [ -n "${open_issue:-}" ]; then
+            reported=$(gh issue view "$open_issue" --repo "$REPO" --json body,comments \
+              --jq '.body, (.comments[].body)')
+          fi
+
+          # ONE SECTION PER WORKFLOW AND NOT PER RUN, with the reason from the log. A fixed
+          # template says that something is red and never what; the failed step's last lines
+          # before the runner's own error marker are what a reader looks at first, and the
+          # teardown after that marker is what a plain tail returns instead.
+          : > state.md
+          : > key.txt
+          awk -F'\t' '!seen[$4]++' red.tsv > per-workflow.tsv
+          tab=$(printf '\t')
+          while IFS="$tab" read -r url conclusion event wf_name ref; do
+            run_id="${url##*/}"
+            step=$(gh run view "$run_id" --repo "$REPO" --json jobs \
+              --jq '[.jobs[] | select(.conclusion=="failure") | .steps[]
+                     | select(.conclusion=="failure") | .name][0] // "unknown"' 2>/dev/null || echo "unknown")
+            log_excerpt=$(gh run view "$run_id" --repo "$REPO" --log-failed 2>/dev/null \
+              | sed 's/\r$//' \
+              | sed 's/^[^\t]*\t[^\t]*\t//' | sed 's/^[0-9TZ:.-]\{20,\} //' \
+              | grep -vE '^\s*$' | grep -vE '^##\[(group|endgroup)\]' \
+              | awk '/##\[error\]/ { found=1; for (i=1;i<=n;i++) print buffer[i]; print; exit }
+                     { buffer[++n]=$0; if (n>12) { for (i=1;i<n;i++) buffer[i]=buffer[i+1]; n-- } }
+                     END { if (!found) for (i=1;i<=n;i++) print buffer[i] }' \
+              | cut -c1-200 || true)
+            [ -n "$log_excerpt" ] || log_excerpt="(no log available)"
+            printf '%s\t%s\n' "$wf_name" "$step" >> key.txt
+            count=$(cut -f4 red.tsv | grep -cxF "$wf_name" || echo 1)
+            since=$(jq -r --arg w "$wf_name" '[.[] | select(.workflowName==$w)
+                     | select((.conclusion // "") as $c
+                              | $c != "success" and $c != "skipped" and $c != "cancelled" and $c != "")
+                     | .updatedAt] | sort | .[0] // ""' runs.json)
+            {
+              printf '### %s\n\n' "$wf_name"
+              printf 'Failing step: **%s** (conclusion `%s`, trigger `%s`, on `%s`)\n\n' \
+                "$step" "$conclusion" "$event" "$ref"
+              printf '```\n%s\n```\n\n' "$log_excerpt"
+              printf 'Red since `%s`, %s run(s) in this window. Latest: %s\n\n' \
+                "${since:-unknown}" "$count" "$url"
+            } >> state.md
+          done < per-workflow.tsv
+
+          # THE BODY HOLDS THE STATE AND THE COMMENTS HOLD THE TRANSITIONS. The key is the
+          # workflow and its failed step; while that does not change only the body is
+          # refreshed and nothing is said, and a new step or a new workflow is news.
+          new_key=$(sort -u key.txt | tr '\t' ':' | tr '\n' ';')
+          {
+            printf 'Runs on `%s` or on a tag are red. This body is rewritten on every tick and shows the current state; the comments below mark a change in the set of red workflows and nothing else.\n\n' "$branch"
+            printf 'A run that is not a required pull-request check is shown to nobody, so it can stay red while every pull request is green. Which repair applies is decided by which workflow is named below, and the repairs are in `docs/RELEASING.md` under `## %s`: the publish route going red and the freshness check going red are different failures with different repairs, and a green publish that shipped one server line is a third this watcher cannot see.\n\n' "$REPAIR_HEADING"
+            printf 'The watcher closes this issue itself once nothing is red. #121 is where it is argued.\n\n'
+            cat state.md
+            printf '<!-- key: %s -->\n' "$new_key"
+          } > body.md
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "DRY RUN, filing nothing. Would report: ${new_key}"
+            echo "--- body ---"
+            cat body.md
+            exit 0
+          fi
+
+          if [ -n "${open_issue:-}" ]; then
+            old_key=$(printf '%s' "$reported" | sed -n 's/.*<!-- key: \(.*\) -->.*/\1/p' | head -1)
+            gh issue edit "$open_issue" --repo "$REPO" --body-file body.md
+            if [ "$old_key" != "$new_key" ]; then
+              echo "The failing set changed; commenting."
+              {
+                printf 'The set of red workflows changed.\n\nNow: %s\nBefore: %s\n\n' "$new_key" "${old_key:-(nothing recorded)}"
+                printf 'The body above carries the current state and each failing step'"'"'s log.\n'
+              } > comment.md
+              gh issue comment "$open_issue" --repo "$REPO" --body-file comment.md
+            else
+              echo "Same failing set as before; body refreshed, no comment."
+            fi
+          else
+            echo "No open alert issue; creating one."
+            gh issue create --repo "$REPO" --label "$LABEL" \
+              --title "A run on ${branch} or on a tag is red" \
+              --body-file body.md
+          fi
