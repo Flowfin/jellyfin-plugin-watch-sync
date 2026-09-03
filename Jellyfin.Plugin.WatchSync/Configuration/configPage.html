@@ -171,6 +171,12 @@
                     person's identifier is the one this server gives the account. Neither is a
                     setting and nothing here is saved.
                 </p>
+                <p id="WatchSyncStatusNamesTheEnvelopeVersions">
+                    The status also names the envelope versions this server speaks, read from the
+                    one place they are declared. A server refusing a peer's envelope names its
+                    own set the same way, so an operator holding two servers that refuse each
+                    other can read both and see which of them to move.
+                </p>
                 <p id="WatchSyncStatusSweepIsTheServers">
                     What the last sweep did is this server's run and not the pairing's, because a
                     sweep walks every record this plugin holds at once. It is kept in memory, so

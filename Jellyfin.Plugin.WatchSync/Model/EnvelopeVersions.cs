@@ -9,10 +9,10 @@ namespace Jellyfin.Plugin.WatchSync.Model;
 ///
 /// This is the one place the set is declared, which is the last of the five rules in #18.
 /// <see cref="Supported"/> is the declaration and everything else is derived from it: the
-/// version this code sends is the newest entry, the refusal names the whole set, and the
-/// required members are looked up per entry rather than kept beside the set. A version added
-/// here without its required members is refused by <see cref="Requires"/> rather than
-/// accepted with nothing to check.
+/// version this code sends is the newest entry, the refusal names the whole set, the status
+/// hands the declaration itself to the dashboard, and the required members are looked up per
+/// entry rather than kept beside the set. A version added here without its required members
+/// is refused by <see cref="Requires"/> rather than accepted with nothing to check.
 ///
 /// The envelope's version is not the pairing plugin's. Two paired servers do not upgrade at
 /// the same moment and the two numbers move independently, which is the sentence #18 opens
