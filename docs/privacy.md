@@ -15,16 +15,32 @@ a person is handed, so where they disagree the other three are right.
 
 ## What is true of this plugin today, before anything below is read
 
-Nothing in this plugin runs on its own. There is no scheduled task, no background
-service and no event handler in it, so nothing transfers anything on a schedule or
-off a playback, and nothing writes a log line:
+One thing in this plugin runs on its own: the scheduled sweep, a task the server runs
+at the interval `SweepIntervalMinutes` sets, which an operator sees, runs and sees the
+last run of in the dashboard's task list. What a run does is trim this plugin's own
+records of conflicts and of provenance to the retention each setting below carries,
+and record what it examined. It reads nobody's watch record, transfers nothing and
+contacts no peer, because the pairing adapter it would need is
+[#40](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/40) and is not in
+this tree, and its own description in the dashboard says so. There is no background
+service and no event handler, so nothing transfers anything off a playback, and
+nothing writes a log line:
 
     grep -rlnE "IScheduledTask|IServerEntryPoint|IHostedService" \
       --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
-    exit=1
+    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs
+    exit=0
 
     grep -rln "ILogger" --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
     exit=1
+
+THIS PARAGRAPH SAID NOTHING IN THIS PLUGIN RUNS ON ITS OWN AND PASTED `exit=1` UNDER
+THE FIRST COMMAND. That held until the sweep landed as a task under
+[#55](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/55), and the
+command is re-run above rather than carried. What the task may not do is held by the
+same guards as the rest of this plugin: it takes its moments from the injected clock,
+it reaches no user data interface and no pairing type, and the invariant register
+refuses each of those by name.
 
 CORRECTED BY RE-RUNNING IT. THIS PARAGRAPH ASKED FOR `IPluginServiceRegistrator` IN
 THE SAME COMMAND AND PASTED `exit=1` UNDER IT. That reading stopped reproducing when
@@ -40,8 +56,8 @@ outside, so what the sentence above says about this plugin running is unchanged.
 term is split out rather than dropped, because somebody checking whether this plugin
 has a way in is owed the answer that it has a registrar and what a registrar is.
 
-The two endpoints described below are the one thing here that runs at all, and they run
-when an administrator calls them rather than on their own.
+The two endpoints described below run when an administrator calls them rather than on
+their own, and the sweep above is the one thing here that runs unasked.
 
 Everything below is therefore a rule that exists as a value or a function a caller
 hands its inputs to, and the caller is what has not been built. Where a rule is
@@ -155,18 +171,26 @@ The two retentions are settings an operator sets, bounded by
 `PrivacyNoteTests` holds the numbers above to the ones the sources declare, so a
 default that moves in the source and not here reddens the suite.
 
-**What applies a retention is not built.** `ConflictRecords.Retaining` and
+**What applies a retention is the scheduled sweep.** `ConflictRecords.Retaining` and
 `ProvenanceRecords.Retaining` drop what is older than a moment handed to them, and
-nothing calls either:
+every run of the sweep hands each record the moment its own retention setting puts
+before now:
 
     grep -rn "Retaining(" --include=*.cs Jellyfin.Plugin.WatchSync/ | grep -v "public " ; echo "exit=$?"
-    exit=1
+    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:272:                : conflicts.Records!.Count - conflicts.Records.Retaining(from).Count;
+    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:279:            : provenance.Records!.Count - provenance.Records.Retaining(from).Count;
+    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:304:            var retained = conflicts.Records!.Retaining(from);
+    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:320:        var kept = provenance.Records!.Retaining(from);
+    exit=0
 
-So the number an operator sets is the number the rule takes, and the sweep that
-would run that rule on a schedule is
-[#55](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/55). The entry
-caps are a different case and do hold today, because each document trims itself as
-rows are added to it rather than waiting for a sweep.
+So an entry older than its retention leaves the record at the first sweep run after it
+crosses that age, and not before one: a server whose sweep an operator disabled in the
+dashboard keeps every entry up to the cap, and the retention is then a number nothing
+applies. THIS PARAGRAPH SAID NOTHING CALLED EITHER RULE AND PASTED `exit=1`, which held
+until the task landed under
+[#55](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/55); the command is
+re-run above. The entry caps are a different case: each document trims itself as rows
+are added to it, with or without a sweep.
 
 Two of the five hold something about a person on the other server. `provenance-`
 carries the account a value came from, which is somebody on a machine the same
