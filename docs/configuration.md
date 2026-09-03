@@ -279,13 +279,22 @@ let an operator claim this plugin writes a version it does not write.
 
 ## What this document does not yet do
 
-Nothing consumes the settings. `ServerWideSettings` turns the document into the values the
-rules take and no caller asks it to, because the things that would - the event this plugin
-classifies, the walk that decides what to send, the sweep that trims a record - are #15, the
-transfer plane in #47 and #55, and none of them exists. So an operator can change what the
-table above carries and save it, and what a changed value alters today is what the next
-caller is handed rather than any behaviour that runs. That is stated here rather than left to
-be discovered from a page that saves.
+One caller consumes the settings. `StoredSettings` reads the configuration off the plugin
+instance the server holds and hands it to `ServerWideSettings`, and the scheduled sweep is
+what asks it to: the two retentions are applied by every run, and the interval is the
+schedule the server files for the task where an operator has not set one. THIS PARAGRAPH
+SAID NOTHING CONSUMED THEM, which held until the sweep landed under #55, and the reading
+is one command rather than a sentence:
+
+    grep -rn 'ServerWideSettings\.Read' --include=*.cs Jellyfin.Plugin.WatchSync/
+    Jellyfin.Plugin.WatchSync/Configuration/StoredSettings.cs:50:    /// exactly as <see cref="ServerWideSettings.Read"/> answers it.
+    Jellyfin.Plugin.WatchSync/Configuration/StoredSettings.cs:61:                return ServerWideSettings.Read(plugin.Configuration);
+
+What the other callers would take is still unconsumed. The event this plugin classifies
+and the walk that decides what to send are #15 and the transfer plane in #47, and neither
+exists, so the position thresholds, the echo window and the failure share alter today what
+the next caller is handed rather than any behaviour that runs. That is stated here rather
+than left to be discovered from a page that saves.
 
 THIS SENTENCE CARRIED A COUNT AND SAID SIX. It was written when six settings sat on the
 configuration type, and the failure share and the sweep interval have joined them since. It
@@ -319,15 +328,27 @@ NEITHER. #55 landed the interval, and the closure took its row with it:
     grep -E '^\| `SweepIntervalMinutes`' docs/configuration.md
     | `SweepIntervalMinutes` | minutes | 15 | `SweepSchedule.DefaultInterval` | 1 | `SweepSchedule.LongestInterval` |
 
-What that leaves is an interval and not a sweep. Nothing reads the number on a schedule,
-because the pass it would drive is the rest of #55, and the two settings members that name it
-are the document's own default and bound:
+THIS PARAGRAPH WENT ON TO SAY THAT NOTHING READ THE NUMBER ON A SCHEDULE, AND THE SWEEP
+READS IT NOW. `ScheduledSweep.GetDefaultTriggers` answers the server with one interval
+trigger at the value the setting holds, read at the moment the server asks, and at the
+rule's own default where the configuration is refused:
 
     grep -rn 'SweepSchedule\.' --include=*.cs Jellyfin.Plugin.WatchSync/ | grep -v 'Transfer/SweepSchedule.cs'
     Jellyfin.Plugin.WatchSync/Configuration/PluginConfiguration.cs:124:    /// Defaults to <see cref="SweepSchedule.DefaultInterval"/>, bounded by
     Jellyfin.Plugin.WatchSync/Configuration/PluginConfiguration.cs:125:    /// <see cref="SweepSchedule.LongestInterval"/>. It is the only member here stored in minutes,
     Jellyfin.Plugin.WatchSync/Configuration/PluginConfiguration.cs:132:        (int)SweepSchedule.DefaultInterval.TotalMinutes;
     Jellyfin.Plugin.WatchSync/Configuration/ServerWideSettings.cs:84:            SweepSchedule.LongestInterval);
+    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:108:        var interval = reading.IsRead ? reading.SweepInterval!.Value : SweepSchedule.DefaultInterval;
+
+What the server does with that answer is the bound to read before trusting the setting. It
+asks once, when it first meets the task, and it keeps a schedule an operator sets in the
+dashboard in preference to the default. So a changed setting reaches the schedule at the
+next server start, and on a server whose operator edited the task's schedule in the
+dashboard it does not reach it at all: the dashboard is then the interval's home for that
+server, and this setting says what the default was. That is one number with two homes and
+it is stated rather than repaired, because the repair is the task rewriting the server's
+saved schedule from the setting after every run, which undoes the operator's dashboard edit
+in silence, and which of the two homes wins is decided on #55 rather than here.
 
 The cap on what one run may change was the third of those and has its numbers now, in
 `RunCap`. Both of its settings are per pairing rather than server-wide, and that is the

@@ -217,6 +217,11 @@ public class ConfigurationSettingsTests
     /// there say a number will live in the plugin configuration, and without it the only way to
     /// find out that none of the four is a setting yet is to notice it is absent from the table
     /// above.
+    ///
+    /// The second passage is held by the phrase its first sentence keeps rather than by the
+    /// sentence, because the sentence moved with the tree: it said nothing consumed the
+    /// settings until the sweep in #55 did, and a fact holding the old sentence would have
+    /// held the document to a claim that had stopped being true.
     /// </summary>
     [Fact]
     public void TheDocumentSaysWhichHomedNumbersAreStillNotSettings()
@@ -224,7 +229,7 @@ public class ConfigurationSettingsTests
         var text = Text();
 
         Assert.Contains("What is not a setting yet", text, StringComparison.Ordinal);
-        Assert.Contains("Nothing consumes the settings", text, StringComparison.Ordinal);
+        Assert.Contains("consumes the settings", text, StringComparison.Ordinal);
     }
 
     /// <summary>

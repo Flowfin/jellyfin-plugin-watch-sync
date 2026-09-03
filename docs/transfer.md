@@ -276,6 +276,32 @@ operator and nothing takes an approval from one; the status page is #62 and the 
 action is #64. The bounds and the matched count arrive at `CappedApply` as parameters,
 because the bounds are per pairing and nothing holds a pairing yet to keep them beside.
 
+## What the sweep does today
+
+The scheduled sweep in #55 is a task the server runs, at the interval
+`docs/configuration.md` carries, and an operator sees it, runs it and sees when it
+last ran in the dashboard's task list. What one run converges is what can be
+converged without a peer: no exchange starts, because the pairing adapter in #40 is
+not in this tree, and no watch state moves. A run walks every record of conflicts and
+of provenance the store holds, trims each to the retention its setting carries, and
+records the run the way `SweepRun` fixes it, over the set declared before the walk,
+one result per record, and covered or stopped short derived from the counts when it
+ends. A cancellation from the dashboard ends the run where it stands and it is
+recorded as one that stopped short.
+
+A configuration the rules refuse runs nothing: the task fails naming the setting, the
+dashboard shows the failure, and no record is trimmed against a retention nobody
+chose. A write the store refuses fails the run the same way rather than reporting the
+record as examined, because the run record has one word for a record examined with no
+change and no word for one whose trim was refused, and reporting the second as the
+first is the reading that record exists to refuse.
+
+The last run is kept in memory for the status page in #62 to read, and a restart
+loses it; the server's own history keeps when the task last ran and whether it
+failed. When the exchange arrives it takes its place in the same walk under the same
+record, one subject per pairing and mapped user, which is the set `SweepRun` was
+written for.
+
 ## The wait after a failure
 
 An attempt on a peer that failed is retried, and the interval between attempts

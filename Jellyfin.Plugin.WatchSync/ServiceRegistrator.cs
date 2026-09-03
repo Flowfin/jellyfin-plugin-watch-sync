@@ -1,6 +1,8 @@
 using System;
+using Jellyfin.Plugin.WatchSync.Configuration;
 using Jellyfin.Plugin.WatchSync.Matching;
 using Jellyfin.Plugin.WatchSync.Storage;
+using Jellyfin.Plugin.WatchSync.Transfer;
 using Jellyfin.Plugin.WatchSync.UserData;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
@@ -48,6 +50,17 @@ public class ServiceRegistrator : IPluginServiceRegistrator
         // than Add, because the host may already have registered a clock, and two clocks in
         // one container are two answers to what time it is.
         serviceCollection.TryAddSingleton(TimeProvider.System);
+
+        // The settings as the server holds them, read at the moment a rule needs them. It takes
+        // the plugin manager rather than the plugin's static instance, which the invariant
+        // register refuses, and it reads the configuration afresh rather than copying it at
+        // start, which would be the setting an operator changes to no effect.
+        serviceCollection.AddSingleton<StoredSettings>();
+
+        // Where the last run of the scheduled sweep is kept. The server constructs a task for
+        // its own worker and hands it to nobody, so the run is written here for the status page
+        // to read; one instance, or the task and the page would be looking at two records.
+        serviceCollection.AddSingleton<SweepRuns>();
 
         // Where the index reads the library from. It is a singleton because it holds the
         // snapshot of identifiers one walk pages through, and two of them over one library
