@@ -32,12 +32,24 @@ internal sealed class RecordedWrites : IUserDataGateway
 
     private readonly List<RecordedWrite> _writes = new List<RecordedWrite>();
 
+    private readonly List<Guid> _reads = new List<Guid>();
+
     private Action? _afterEachWrite;
 
     /// <summary>
     /// Gets every write this side was asked for, in the order it arrived, refused ones included.
     /// </summary>
     internal IReadOnlyList<RecordedWrite> Writes => _writes;
+
+    /// <summary>
+    /// Gets every item this side was asked to read, in the order it was asked, refused ones
+    /// included.
+    ///
+    /// The facts about the cap compare the reads a capped run makes against the reads the walk
+    /// makes on its own, because a cap that read every item before judging would be a cost an
+    /// ordinary evening pays for having been judged, and the count is the only place that shows.
+    /// </summary>
+    internal IReadOnlyList<Guid> Reads => _reads;
 
     /// <summary>
     /// Puts a state on this side without going through the write path, so a case can say what the
@@ -51,6 +63,13 @@ internal sealed class RecordedWrites : IUserDataGateway
     /// <param name="itemId">The item.</param>
     /// <param name="state">What this side holds for it.</param>
     internal void Hold(Guid itemId, SyncedState state) => _held[itemId] = state;
+
+    /// <summary>
+    /// Takes a state off this side without going through the write path, so a case can say the
+    /// record a plan was made against is gone by the time the plan is approved.
+    /// </summary>
+    /// <param name="itemId">The item.</param>
+    internal void Forget(Guid itemId) => _held.Remove(itemId);
 
     /// <summary>
     /// Refuses the next read of one item, with the failure the server would raise.
@@ -89,6 +108,8 @@ internal sealed class RecordedWrites : IUserDataGateway
     public UserDataReading Read(User user, BaseItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
+
+        _reads.Add(item.Id);
 
         if (_refusedReads.TryGetValue(item.Id, out var failure))
         {

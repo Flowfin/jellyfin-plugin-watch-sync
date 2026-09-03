@@ -231,9 +231,12 @@ that stopped after the eighth and a walk of eight that finished leave the same t
 and this document's rule that a run covering less than everything is never reported as one
 that covered it all has nowhere else to live.
 
-Nothing calls this yet, for the reason the rest of the walk is not called: there is no
-exchange, and #47 is where one is defined. The share in force is a parameter of the walk
-rather than a number it reads, so where the value comes from is the caller's question.
+What calls the walk is the cap, and only the cap: `CappedApply` judges `RunCap` before a
+decided set reaches the walk, and it is the one route a decided set takes to a write, which
+is the section below. Nothing calls the cap in turn, for the reason the rest of the plane is
+not called: there is no exchange, and #47 is where one is defined. The share in force is a
+parameter of the walk rather than a number it reads, so where the value comes from is the
+caller's question.
 
 The answer to that question is a setting an operator chooses, on the configuration page and
 in the plugin configuration document. It was going to be per pairing and it is server-wide,
@@ -242,6 +245,36 @@ cause this rule exists to catch is on the side doing the writing, so the same nu
 the same thing on a server it was not written for. `ServerWideSettings` reads it and refuses
 a value outside what the rule accepts rather than repairing one, which is the only place
 between the document and this rule.
+
+## The cap is judged before anything is written
+
+One run has a cap, which is #38, and it is judged before the first write rather than while
+the walk is running. `RunCap` is the rule and carries both bounds with the reason for each;
+`CappedApply` is where it is asked, and a decided set reaches the walk through it and
+through nothing else. So the ordering rule #38 carries, that nothing which applies changes
+to a server lands ahead of the cap, is kept by there being one route rather than by care.
+
+A run within the cap walks exactly as it would have without one, and pays nothing visible
+for having been judged: the same writes, the same reads, no document. A cap that cost an
+ordinary evening anything is the cap an operator turns off.
+
+A run the cap stops writes nothing and records what it would have done, item by item, in a
+`stopped-` document under the pairing and the person. Every item carries the state the
+table decided and what this server held at that moment, and the second half is what makes
+an approval safe. An operator approves the plan, and the approval writes exactly what the
+plan recorded: for every item it reads what this server holds now and sets the item aside
+where that is not what the plan recorded, where the library no longer holds the item, and
+where the plan had no baseline for it because the read was refused when the run stopped.
+What is set aside is named with its reason and is offered again by the next run, which
+judges it afresh. What is not set aside is handed to the walk as the plan wrote it. The
+approval does not ask the cap again, because the operator's approval is the answer to the
+cap's question, and it does not recompute the plan, because a plan recomputed at approval is
+a second run the operator never read.
+
+What this does not do, said rather than left to be found. Nothing shows a stopped run to an
+operator and nothing takes an approval from one; the status page is #62 and the manual
+action is #64. The bounds and the matched count arrive at `CappedApply` as parameters,
+because the bounds are per pairing and nothing holds a pairing yet to keep them beside.
 
 ## The wait after a failure
 

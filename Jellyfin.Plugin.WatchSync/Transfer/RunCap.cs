@@ -29,8 +29,10 @@ namespace Jellyfin.Plugin.WatchSync.Transfer;
 /// matched count also softens the share, so the bound that does not read the matcher's output
 /// is the one that still binds when the matcher is the problem.
 ///
-/// Nothing calls this yet. There is no run, and both numbers below are what a setting defaults
-/// to rather than a setting: where those live is <c>docs/configuration.md</c>.
+/// <c>CappedApply</c> is what asks this, before a decided set reaches the walk, and it is the
+/// only route a decided set takes to a write. Both numbers below are what a setting defaults
+/// to rather than a setting: where those live is <c>docs/configuration.md</c>, and nothing holds
+/// a pairing yet to keep them beside, so they arrive at the caller as parameters.
 /// </summary>
 public sealed class RunCap
 {
