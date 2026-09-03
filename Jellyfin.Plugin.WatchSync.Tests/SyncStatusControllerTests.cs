@@ -223,6 +223,26 @@ public sealed class SyncStatusControllerTests : IDisposable
     }
 
     /// <summary>
+    /// The third condition of #18, from the dashboard's end. The supported set has one definition,
+    /// and the status hands out that definition itself, so what the dashboard reads and what a
+    /// refusal names are one object rather than two lists that happen to agree today. A copy
+    /// made on the way out would pass an equality and is what this refuses.
+    /// </summary>
+    [Fact]
+    public void TheStatusNamesTheEnvelopeVersionsFromTheOneDeclaration()
+    {
+        var status = Answer(new SyncStatusController(Store(), new SweepRuns()).Status(_pairing, _person));
+        var refusal = Envelope.Read(
+            $$"""{"version":{{EnvelopeVersions.Current + 1}},"changes":[]}""",
+            EnvelopeVersions.Supported);
+
+        Assert.Same(EnvelopeVersions.Supported, status.EnvelopeVersionsSpoken);
+        Assert.Equal(EnvelopeAnswer.VersionNotSupported, refusal.Answer);
+        Assert.Same(status.EnvelopeVersionsSpoken, refusal.SupportedVersions);
+        Assert.NotEmpty(status.EnvelopeVersionsSpoken);
+    }
+
+    /// <summary>
     /// On the page, the banner that shows a stopped run is filled from the sweep that stopped
     /// short as well, so a page cannot show the counts and miss the sweep. It reads that the
     /// script names the member and nothing about what a browser renders.

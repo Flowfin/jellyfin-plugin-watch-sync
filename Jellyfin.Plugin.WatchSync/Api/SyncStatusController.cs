@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Jellyfin.Plugin.WatchSync.Agreement;
 using Jellyfin.Plugin.WatchSync.Document;
+using Jellyfin.Plugin.WatchSync.Model;
 using Jellyfin.Plugin.WatchSync.Records;
 using Jellyfin.Plugin.WatchSync.Storage;
 using Jellyfin.Plugin.WatchSync.Transfer;
@@ -22,7 +23,9 @@ namespace Jellyfin.Plugin.WatchSync.Api;
 /// and a shape a caller can read. The rule #62 turns on, that no number is counted separately
 /// for display, is kept by there being no count in this file: each is the record's <c>Count</c>.
 /// The one record that is not a document is the sweep's last run, which the task keeps in
-/// memory because the server hands the task to nobody, and it is read from there.
+/// memory because the server hands the task to nobody, and it is read from there. The one
+/// member that is not a record is the set of envelope versions this server speaks, which is
+/// handed out as the declaration itself so that the dashboard cannot hold a copy of it.
 ///
 /// <para>
 /// Both are elevated, for the reason the record endpoints are: every number here is about one
@@ -98,7 +101,8 @@ public class SyncStatusController : ControllerBase
             LastExchangeOf(pairingId, mappedUserId),
             LastSweepOf(),
             UnmatchedOf(pairingId, mappedUserId),
-            ConflictsOf(pairingId, mappedUserId));
+            ConflictsOf(pairingId, mappedUserId),
+            EnvelopeVersions.Supported);
     }
 
     /// <summary>

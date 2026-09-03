@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Jellyfin.Plugin.WatchSync.Model;
 using Xunit;
 
@@ -336,5 +338,31 @@ public class EnvelopeVersionTests
 
         Assert.Throws<ArgumentNullException>(
             () => Envelope.Read("{}", (IReadOnlyList<int>)null!));
+    }
+
+    /// <summary>
+    /// The third condition of #18, from the declaration's end. The plugin's sources declare the
+    /// supported set once, and this reads the declaration by its shape and its name, so a second
+    /// declaration under the same name anywhere in the plugin is refused. A set typed under
+    /// another name is not seen here, and that is what the identity check on the status is for:
+    /// what the dashboard hands out is this one object, so a second set would have to be a
+    /// copy, and a copy is refused there.
+    /// </summary>
+    [Fact]
+    public void TheSupportedSetIsDeclaredOnceInThePluginsSources()
+    {
+        var root = HeadlessGuardTests.HeadlessGuard.RepositoryRoot();
+        var plugin = Path.Combine(root, "Jellyfin.Plugin.WatchSync");
+        var separator = Path.DirectorySeparatorChar;
+
+        var declaring = Directory.EnumerateFiles(plugin, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains($"{separator}bin{separator}", StringComparison.Ordinal)
+                && !path.Contains($"{separator}obj{separator}", StringComparison.Ordinal))
+            .Where(path => Regex.IsMatch(File.ReadAllText(path), @"IReadOnlyList<int>\s+Supported\b"))
+            .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.Equal(new[] { "Jellyfin.Plugin.WatchSync/Model/EnvelopeVersions.cs" }, declaring);
     }
 }

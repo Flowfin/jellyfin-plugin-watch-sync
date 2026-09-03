@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Jellyfin.Plugin.WatchSync.Api;
 
@@ -28,6 +29,15 @@ namespace Jellyfin.Plugin.WatchSync.Api;
 /// </para>
 ///
 /// <para>
+/// The envelope versions this server speaks are the other server-wide member, and they are the
+/// end of a closure #18 asks for: the supported set is declared in one place, and the refusal,
+/// the negotiation and the dashboard read that one place. This is what the dashboard reads, and
+/// it is the declaration itself rather than a copy of it, so a test can hold the two to be one
+/// object. An operator holding two servers that refuse each other's envelopes reads it on both
+/// to learn which of them to move.
+/// </para>
+///
+/// <para>
 /// It carries no title, no path and no text that arrived from a peer. Identifiers, counts,
 /// moments and the names of enumerations, which is what makes it safe to show beside a person
 /// and to write into a log.
@@ -45,6 +55,7 @@ public sealed class SyncStatus
     /// <param name="lastSweep">What the last sweep did.</param>
     /// <param name="unmatched">How many items produced no match, and why.</param>
     /// <param name="conflicts">How many conflicts are recorded.</param>
+    /// <param name="envelopeVersionsSpoken">The envelope versions this server speaks, as declared.</param>
     public SyncStatus(
         Guid pairingId,
         Guid mappedUserId,
@@ -52,7 +63,8 @@ public sealed class SyncStatus
         LastExchangeStatus lastExchange,
         LastSweepStatus lastSweep,
         UnmatchedStatus unmatched,
-        ConflictStatus conflicts)
+        ConflictStatus conflicts,
+        IReadOnlyList<int> envelopeVersionsSpoken)
     {
         PairingId = pairingId;
         MappedUserId = mappedUserId;
@@ -61,6 +73,7 @@ public sealed class SyncStatus
         LastSweep = lastSweep;
         Unmatched = unmatched;
         Conflicts = conflicts;
+        EnvelopeVersionsSpoken = envelopeVersionsSpoken;
     }
 
     /// <summary>
@@ -116,4 +129,11 @@ public sealed class SyncStatus
     /// Gets how many conflicts are recorded, from the conflict record.
     /// </summary>
     public ConflictStatus Conflicts { get; }
+
+    /// <summary>
+    /// Gets the envelope versions this server speaks, oldest first, from the one place they are
+    /// declared. It is this server's and not the pairing's, and a peer refusing an envelope names
+    /// its own set the same way, so the two can be compared.
+    /// </summary>
+    public IReadOnlyList<int> EnvelopeVersionsSpoken { get; }
 }
