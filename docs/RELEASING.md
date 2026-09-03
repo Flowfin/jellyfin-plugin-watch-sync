@@ -218,6 +218,15 @@ change in the set of red workflows and nothing else, and the watcher closes the 
 itself once nothing is red. It can be started from the Actions page with `dry_run` left
 on, which writes what it would file into the run log and files nothing.
 
+What decides that a workflow is red is that workflow's own latest concluded run, and never
+how long ago it ran. So an alert stands until the workflow produces a better run: a weekly
+scan that goes red stays reported for the week rather than for a day, and a publish that
+failed on a tag stays reported until a publish succeeds or somebody starts one from the
+Actions page. A cancelled run is read as somebody's own act and decides nothing, so the run
+before it is the one judged. This is not what shipped first: a 24 hour window stood here,
+and against six scheduled workflows that run weekly or monthly it filed the alert and
+closed it again the next day with the failure still standing.
+
 Which repair applies is decided by which workflow the body names, because the two
 failures this is about look alike from the release page and are not:
 

@@ -8,7 +8,7 @@ using Xunit;
 namespace Jellyfin.Plugin.WatchSync.Tests;
 
 /// <summary>
-/// Holds the watcher of #121 to the three properties that decide whether it is worth having.
+/// Holds the watcher of #121 to the four properties that decide whether it is worth having.
 ///
 /// It names no other workflow, so what it examines is derived from the runs rather than from a
 /// list that goes stale the day a workflow is added. The board it is modelled on watched six
@@ -22,6 +22,12 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// It grants itself nothing but the two scopes filing needs. A job that reads a failed run's
 /// log and edits an issue has no business writing the tree, and the grant that would let it is
 /// one line somebody adds to make a step work.
+///
+/// It judges a workflow by that workflow's own latest run rather than by a clock, so a failure
+/// stops being reported because a better run replaced it and never because it got old. The
+/// window this replaces was 24 hours against six scheduled workflows that run weekly or
+/// monthly, so on all six the alert was filed and closed again the next day with the failure
+/// still standing.
 ///
 /// What this cannot judge is whether the sweep is right about a run. It reads two files. Whether
 /// the filter it holds selects what it says is proven by a dry run against the runs API, and the
@@ -113,6 +119,37 @@ public class PublishFailureAlertTests
     }
 
     /// <summary>
+    /// The fourth property, in both halves. Nothing drops a run for being old, and the sweep
+    /// groups the runs by workflow and judges each by the head of its own list, which is what
+    /// makes the first half a rule rather than a gap somebody has not filled yet.
+    /// </summary>
+    [Fact]
+    public void TheWatcherJudgesAWorkflowByItsLatestRunAndNotByAClock()
+    {
+        var text = Watcher.OfThisRepository();
+
+        Assert.Empty(Watcher.RecencyCutoffs(text));
+        Assert.True(
+            Watcher.JudgesEachWorkflowByItsOwnLatestRun(text),
+            "The sweep does not group the runs by workflow and take the head of each group, so nothing here holds it to judging a workflow by its latest run.");
+    }
+
+    /// <summary>
+    /// The fourth guard proven on the window this repository actually shipped, which is the
+    /// sharpest near-miss available: it was the code on the mainline, it reads as prudence, and
+    /// it silenced the six workflows whose schedule is longer than it.
+    /// </summary>
+    [Fact]
+    public void TheGuardRefusesARecencyWindowAndPassesItsRepair()
+    {
+        Assert.Equal(
+            new[] { "a run's age compared against a cutoff", "a window counted in hours" },
+            Watcher.RecencyCutoffs(Watcher.Fixture("watcher-window-near-miss.txt")));
+
+        Assert.Empty(Watcher.RecencyCutoffs(Watcher.Fixture("watcher-window-near-miss-repaired.txt")));
+    }
+
+    /// <summary>
     /// Reads the watcher and the runbook out of the tracked tree rather than out of copies,
     /// because a copy proves the state of the file on the day it was copied. Every read that
     /// anchors on a shape fails loudly on finding nothing, so a file whose shape moved cannot
@@ -186,14 +223,66 @@ public class PublishFailureAlertTests
         /// <returns>Those of the names the code names, in the order given.</returns>
         internal static IReadOnlyList<string> NamedOutsideComments(string text, IReadOnlyList<string> names)
         {
-            var code = string.Join(
-                "\n",
-                text.Split('\n').Where(line => !Regex.IsMatch(line, @"^\s*#")));
+            var code = CodeOf(text);
 
             return names
                 .Where(name => Regex.IsMatch(code, @"(?<![\p{L}\p{N}])" + Regex.Escape(name) + @"(?![\p{L}\p{N}])"))
                 .ToList();
         }
+
+        /// <summary>
+        /// The ways the sweep could drop a red run for being old, as they appear outside the
+        /// comments. A comment may say what the window was and why it went; the code may not
+        /// carry one. A run's moment is still read - the runs are ordered by it and the streak
+        /// is dated from it - so what is looked for is a COMPARISON of that moment, not a
+        /// mention of it.
+        /// </summary>
+        /// <param name="text">The workflow text.</param>
+        /// <returns>The probes that hit, in a fixed order.</returns>
+        internal static IReadOnlyList<string> RecencyCutoffs(string text)
+        {
+            var code = CodeOf(text);
+            var found = new List<string>();
+
+            if (Regex.IsMatch(code, @"\.updatedAt\s*(>=|<=|>|<)")
+                || Regex.IsMatch(code, @"(>=|<=|>|<)\s*\$?\{?cutoff"))
+            {
+                found.Add("a run's age compared against a cutoff");
+            }
+
+            if (Regex.IsMatch(code, @"WINDOW_HOURS") || Regex.IsMatch(code, @"date\s+-u\s+-d"))
+            {
+                found.Add("a window counted in hours");
+            }
+
+            return found;
+        }
+
+        /// <summary>
+        /// Whether the sweep groups the runs by workflow and orders each group newest first, so
+        /// that the run it judges a workflow by is that workflow's own latest one.
+        /// </summary>
+        /// <param name="text">The workflow text.</param>
+        /// <returns>True where it does.</returns>
+        internal static bool JudgesEachWorkflowByItsOwnLatestRun(string text)
+        {
+            var code = CodeOf(text);
+
+            return Regex.IsMatch(code, @"group_by\(\.workflowName\)")
+                && Regex.IsMatch(code, @"sort_by\(\.updatedAt\)\s*\|\s*reverse");
+        }
+
+        /// <summary>
+        /// The workflow with every comment line removed, which is what every property here is
+        /// read from: the comments carry what the file is for and what it once got wrong, and
+        /// only the code is held to anything.
+        /// </summary>
+        /// <param name="text">The workflow text.</param>
+        /// <returns>The text without its comment lines.</returns>
+        private static string CodeOf(string text) =>
+            string.Join(
+                "\n",
+                text.Split('\n').Where(line => !Regex.IsMatch(line, @"^\s*#")));
 
         /// <summary>
         /// The heading the watcher's issue body sends a reader to, read out of the one place the
