@@ -15,6 +15,33 @@
 # the seventh for fifteen hours. A run on any other branch is somebody's work in progress
 # and is not examined, and a pull request's runs are that pull request's to show.
 #
+# WHAT DECIDES THAT A WORKFLOW IS RED. Its LATEST concluded run, and never a clock. A red
+# run is reported until that workflow produces a better one, so a failure stops being
+# reported because it was fixed rather than because it aged out.
+#
+# THIS REPLACES A RECENCY WINDOW AND THE REPLACEMENT IS THE POINT. What shipped first
+# reported only runs updated within the last 24 hours, to stop a long-dead red run
+# reopening the issue after it was closed. Every scheduled workflow in this repository but
+# this one fires weekly or monthly, so on all of them the alert was filed and then closed
+# again by the next day's tick, saying nothing was red any more, while the failure stood
+# until its workflow next ran - six more days, or a month. Which workflows those are is
+# derived rather than listed here, because a list in this comment goes stale the day one
+# is added:
+#
+#     grep -rn 'cron:' .github/workflows/
+#
+# A fixed window cannot serve both ends at once: to cover a weekly schedule it has to be
+# longer than a week, and a window that long is exactly what lets a fixed failure be
+# reported for a week after it was repaired. The latest run serves both, because a repair
+# produces a newer run and an unrepaired failure does not. `PublishFailureAlertTests`
+# refuses the reintroduction of a cutoff.
+#
+# WHAT IT COSTS is worth having beside the rule. A workflow whose latest run is red and
+# which is not scheduled to run again keeps its alert until somebody runs it; every
+# workflow here carries `workflow_dispatch`, so that is a button rather than a wait. A
+# cancelled run says somebody stopped it rather than anything about the workflow, so it is
+# left out before the latest is picked, and the run before it decides.
+#
 # WHAT IT FILES. One open issue, labelled `release-alert`. Its body is rewritten on every
 # tick to the current state, one section per red workflow with the step that failed and
 # the end of that step's log; a comment marks a change in the set of red workflows and
@@ -72,10 +99,6 @@ jobs:
           REPO: ${{ github.repository }}
           SELF: ${{ github.workflow }}
           DRY_RUN: ${{ inputs.dry_run || false }}
-          # Only failures this recent are reported. The window is what keeps a long-dead red
-          # run from reopening the issue every time it is closed: once the cause is fixed and
-          # the issue closed, nothing older than this can resurrect it.
-          WINDOW_HOURS: "24"
           LABEL: release-alert
           # The heading in docs/RELEASING.md the issue body sends a reader to. It is declared
           # here so that the suite can hold the two files to one heading.
@@ -84,7 +107,6 @@ jobs:
           set -euo pipefail
 
           branch=$(gh repo view "$REPO" --json defaultBranchRef --jq '.defaultBranchRef.name')
-          cutoff=$(date -u -d "-${WINDOW_HOURS} hours" +%Y-%m-%dT%H:%M:%SZ)
 
           # The tags this repository holds, so that a run on one can be told from a run on
           # somebody's branch without this file knowing what a release tag looks like. That
@@ -101,20 +123,47 @@ jobs:
           # red sweep does not sweep itself up, and both sides of that test are its own name.
           gh run list --repo "$REPO" --limit 300 \
             --json workflowName,conclusion,url,event,updatedAt,headBranch > runs.json
-          jq -r --arg self "$SELF" --arg cutoff "$cutoff" --arg branch "$branch" --rawfile tags tags.txt '
+
+          # ONE ROW PER RED WORKFLOW, and the row is that workflow's latest concluded run.
+          # The runs are reduced to the watched population first, then grouped by workflow and
+          # sorted newest first, and a workflow is red when the run at the head of its own list
+          # is. The streak beneath that head - every run back to the last one that was not red -
+          # is what `since` and the count are taken from, so the body says how long this has
+          # been broken rather than how much of it fits in a window.
+          #
+          # The conclusion test is a denylist so that a conclusion class this file has never
+          # heard of alerts rather than passes: `failure`, `timed_out`, `startup_failure`,
+          # `action_required`, `neutral` and `stale` all reach the issue. Only `success` and
+          # `skipped` are quiet. A run still going carries no conclusion and is not one to judge
+          # by; a `cancelled` run is somebody's own act and says nothing either way, so both are
+          # dropped before the latest is picked rather than being allowed to mask the run under
+          # them. This workflow leaves its own runs out so that a red sweep does not sweep
+          # itself up, and both sides of that test are its own name.
+          jq -r --arg self "$SELF" --arg branch "$branch" --rawfile tags tags.txt '
+            def isred: (.conclusion // "") | (. != "success" and . != "skipped");
             ($tags | split("\n") | map(select(length > 0))) as $tagged
+            | [ .[]
+                | select(.workflowName != $self)
+                | select(.event != "pull_request" and .event != "pull_request_target")
+                | select(.headBranch as $ref
+                         | $ref == $branch or (.event == "push" and ($tagged | any(. == $ref))))
+                | select((.conclusion // "") != "" and .conclusion != "cancelled")
+              ]
+            | group_by(.workflowName)
+            | map(sort_by(.updatedAt) | reverse)
+            | map(select(.[0] | isred))
+            | map(. as $runs
+                  | ([ $runs | to_entries[] | select(.value | isred | not) | .key ] | first) as $stop
+                  | (if $stop == null then $runs else $runs[0:$stop] end) as $streak
+                  | [ $runs[0].url, $runs[0].conclusion, $runs[0].event, $runs[0].workflowName,
+                      $runs[0].headBranch, ($streak | last | .updatedAt),
+                      ($streak | length | tostring) ])
+            | sort_by(.[3])
             | .[]
-            | select(.workflowName != $self)
-            | select(.updatedAt >= $cutoff)
-            | select(.event != "pull_request" and .event != "pull_request_target")
-            | .headBranch as $ref
-            | select($ref == $branch or (.event == "push" and ($tagged | any(. == $ref))))
-            | select((.conclusion // "") as $c
-                     | $c != "success" and $c != "skipped" and $c != "cancelled" and $c != "")
-            | [.url, .conclusion, .event, .workflowName, $ref] | @tsv
+            | @tsv
           ' runs.json > red.tsv
 
-          echo "Examined $(jq length runs.json) run(s); $(wc -l < red.tsv) on ${branch} or on a tag concluded other than success since ${cutoff}."
+          echo "Examined $(jq length runs.json) run(s); $(wc -l < red.tsv) workflow(s) on ${branch} or on a tag have a latest run that concluded other than success."
 
           open_issue=$(gh issue list --repo "$REPO" --state open --label "$LABEL" \
             --json number --jq '.[0].number // empty')
@@ -130,7 +179,7 @@ jobs:
                 echo "DRY RUN: would close #${open_issue}."
               else
                 gh issue comment "$open_issue" --repo "$REPO" \
-                  --body "Nothing on \`${branch}\` or on a tag is red any more, so this closes. Examined $(jq length runs.json) run(s) since ${cutoff}."
+                  --body "Every workflow's latest run on \`${branch}\` or on a tag concluded success or skipped, so this closes. Examined $(jq length runs.json) run(s)."
                 gh issue close "$open_issue" --repo "$REPO" --reason completed
                 echo "Closed #${open_issue}."
               fi
@@ -161,9 +210,8 @@ jobs:
           # teardown after that marker is what a plain tail returns instead.
           : > state.md
           : > key.txt
-          awk -F'\t' '!seen[$4]++' red.tsv > per-workflow.tsv
           tab=$(printf '\t')
-          while IFS="$tab" read -r url conclusion event wf_name ref; do
+          while IFS="$tab" read -r url conclusion event wf_name ref since count; do
             run_id="${url##*/}"
             step=$(gh run view "$run_id" --repo "$REPO" --json jobs \
               --jq '[.jobs[] | select(.conclusion=="failure") | .steps[]
@@ -178,20 +226,15 @@ jobs:
               | cut -c1-200 || true)
             [ -n "$log_excerpt" ] || log_excerpt="(no log available)"
             printf '%s\t%s\n' "$wf_name" "$step" >> key.txt
-            count=$(cut -f4 red.tsv | grep -cxF "$wf_name" || echo 1)
-            since=$(jq -r --arg w "$wf_name" '[.[] | select(.workflowName==$w)
-                     | select((.conclusion // "") as $c
-                              | $c != "success" and $c != "skipped" and $c != "cancelled" and $c != "")
-                     | .updatedAt] | sort | .[0] // ""' runs.json)
             {
               printf '### %s\n\n' "$wf_name"
               printf 'Failing step: **%s** (conclusion `%s`, trigger `%s`, on `%s`)\n\n' \
                 "$step" "$conclusion" "$event" "$ref"
               printf '```\n%s\n```\n\n' "$log_excerpt"
-              printf 'Red since `%s`, %s run(s) in this window. Latest: %s\n\n' \
+              printf 'Red since `%s`, %s consecutive run(s) of this workflow. Latest: %s\n\n' \
                 "${since:-unknown}" "$count" "$url"
             } >> state.md
-          done < per-workflow.tsv
+          done < red.tsv
 
           # THE BODY HOLDS THE STATE AND THE COMMENTS HOLD THE TRANSITIONS. The key is the
           # workflow and its failed step; while that does not change only the body is
