@@ -1,0 +1,9 @@
+A slice of the release runbook after an edit that tidied the heading. The section is still
+there, every sentence in it still holds, and the issue the watcher files sends a reader to
+a heading that is no longer on the page.
+
+## When the watcher opens an issue
+
+A run that is not a required pull-request check is shown to nobody.
+
+## Repository settings this expects

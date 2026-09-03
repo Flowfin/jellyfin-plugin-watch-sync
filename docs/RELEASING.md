@@ -199,6 +199,48 @@ on the repository settings below. Without immutable releases you can delete the
 incomplete release, delete the tag, and push it again. With immutable releases you
 cannot, and the version has to be raised.
 
+## When the watcher files an issue
+
+A run that is not a required pull-request check is shown to nobody. The publish runs on a
+tag push, a scan runs on a schedule, and the mainline's own runs report to no pull
+request, so any of them can go red and stay red while every pull request on the board is
+green. The failure #121 exists for has happened on a neighbouring board: a release was
+created, the step after it failed, and a green looking publish shipped nothing anybody
+could install.
+
+`.github/workflows/publish-failure-alert.yml` sweeps every run on the default branch and
+every run on a tag, once every half hour, and files one issue labelled `release-alert`
+when any of them concluded other than success. What it sweeps is derived from the runs
+rather than from a list of workflow names, so a workflow added later is watched the day
+it lands. The body names the workflow and the step that failed and carries the end of
+that step's log; it is rewritten on every tick to the current state, a comment marks a
+change in the set of red workflows and nothing else, and the watcher closes the issue
+itself once nothing is red. It can be started from the Actions page with `dry_run` left
+on, which writes what it would file into the run log and files nothing.
+
+Which repair applies is decided by which workflow the body names, because the two
+failures this is about look alike from the release page and are not:
+
+- **The publish route is named.** The publish failed. Whether the release exists decides
+  everything, and `## Re-running` above is the whole of the repair: a run that failed
+  before the release was created leaves the tag clean, and one that failed after leaves
+  an incomplete release that a re-run refuses.
+- **The freshness check is named.** The publish succeeded and what is served is stale: a
+  release exists whose version the published manifest does not list. The repair is to
+  regenerate the manifest from the release history and publish it again, which
+  `docs/publication-route.md` fixes. THE FRESHNESS CHECK IS NOT IN THIS TREE. It is #120,
+  and until it lands nothing produces this second failure, so the body can name it only
+  on the day it exists.
+
+What the watcher cannot see is written here so that its silence is not read as a clean
+publish. A run that created a release, attached one archive and wrote the manifest has
+shipped one server line where `build.yaml` declares two; that run is green, and the gap
+is #117's. And the watcher has not been exercised against a real failure: the rehearsal
+is a publish deliberately failed on the pre-release channel, which spends a version and
+a tag and is not a step to take on the way to a first release. Until that rehearsal is
+linked from #121, what holds the watcher is the file, `PublishFailureAlertTests`, the
+workflow audit and a dry run.
+
 ## Repository settings this expects
 
 - Default workflow permissions set to read only.

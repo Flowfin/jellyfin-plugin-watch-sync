@@ -1,0 +1,11 @@
+The same slice with the set derived rather than named. The only workflow the filter knows
+is itself, and it knows that by the name the runner hands it rather than by a literal.
+
+          jq -r --arg self "$SELF" --arg cutoff "$cutoff" --arg branch "$branch" '
+            .[]
+            | select(.workflowName != $self)
+            | select(.updatedAt >= $cutoff)
+            | select((.conclusion // "") as $c
+                     | $c != "success" and $c != "skipped" and $c != "cancelled" and $c != "")
+            | [.url, .conclusion, .event, .workflowName] | @tsv
+          ' runs.json > red.tsv

@@ -1,0 +1,15 @@
+A slice of the watcher's sweep with the set it examines narrowed to the one workflow the
+issue is titled for. It is the shape a reader arrives at on their own: the issue is about a
+publish that ships nothing, so watching the publish reads as precision rather than as a
+list. What it costs is the seventh workflow. The board this is modelled on watched six by
+name and the one that went red for fifteen hours was not among them.
+
+          jq -r --arg self "$SELF" --arg cutoff "$cutoff" --arg branch "$branch" '
+            .[]
+            | select(.workflowName != $self)
+            | select(.workflowName == "Publish Release")
+            | select(.updatedAt >= $cutoff)
+            | select((.conclusion // "") as $c
+                     | $c != "success" and $c != "skipped" and $c != "cancelled" and $c != "")
+            | [.url, .conclusion, .event, .workflowName] | @tsv
+          ' runs.json > red.tsv

@@ -1,0 +1,14 @@
+The same slice with the two grants filing needs and nothing else.
+
+permissions: {}
+
+jobs:
+  sweep:
+    name: Report any run on the default branch or on a tag that concluded other than success
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read # the run list and the failed step's log
+      issues: write # the one tracking issue, and the label it is found by
+    steps:
+      - name: Sweep the runs and file, update or close the alert issue
