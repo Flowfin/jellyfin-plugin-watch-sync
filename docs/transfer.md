@@ -296,9 +296,13 @@ record as examined, because the run record has one word for a record examined wi
 change and no word for one whose trim was refused, and reporting the second as the
 first is the reading that record exists to refuse.
 
-The last run is kept in memory for the status page in #62 to read, and a restart
-loses it; the server's own history keeps when the task last ran and whether it
-failed. When the exchange arrives it takes its place in the same walk under the same
+The last run is kept in memory and the status in #62 reads it: its two moments, what
+it was over, what it examined, what it changed, and whether it covered its set or
+stopped short, with a run that stopped short shown above the rest of the status. It
+is the server's run rather than any pairing's, because the walk is over records
+rather than pairs. A restart loses it, and the status then says no sweep has ended
+since the server started; the server's own history keeps when the task last ran and
+whether it failed. When the exchange arrives it takes its place in the same walk under the same
 record, one subject per pairing and mapped user, which is the set `SweepRun` was
 written for.
 

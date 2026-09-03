@@ -12,12 +12,19 @@ namespace Jellyfin.Plugin.WatchSync.Api;
 ///
 /// <para>
 /// What is shown is what has a record. The moment of the last exchange is the point the peer
-/// last confirmed; the unmatched count and its reasons are the unmatched record; the conflicts
-/// are the conflict record; and whether a run was stopped by the cap is the plan the stop
-/// recorded. What the last exchange did, whether the peer is unreachable, and the last refusal
-/// with its reason have no record yet, and no member here pretends to one: a number invented for
-/// display is the thing #62's own rule refuses. The queue depth is not here because there is no
-/// queue, which was decided on #47 and #48.
+/// last confirmed; what the last run did is the run record the scheduled sweep keeps; the
+/// unmatched count and its reasons are the unmatched record; the conflicts are the conflict
+/// record; and whether a run was stopped by the cap is the plan the stop recorded. Whether the
+/// peer is unreachable and the last refusal with its reason have no record yet, and no member
+/// here pretends to one: a number invented for display is the thing #62's own rule refuses. The
+/// queue depth is not here because there is no queue, which was decided on #47 and #48.
+/// </para>
+///
+/// <para>
+/// The sweep run is the one member that is the server's rather than the pairing's. The sweep
+/// walks the records the store holds rather than pairs today, so one run is over every pairing
+/// and every person at once and every status answers the same run; <see cref="LastSweepStatus"/>
+/// says so and says what a restart does to it.
 /// </para>
 ///
 /// <para>
@@ -35,6 +42,7 @@ public sealed class SyncStatus
     /// <param name="mappedUserId">The person, as this server names them.</param>
     /// <param name="stoppedRun">Whether a run was stopped by the cap.</param>
     /// <param name="lastExchange">When the last exchange ran.</param>
+    /// <param name="lastSweep">What the last sweep did.</param>
     /// <param name="unmatched">How many items produced no match, and why.</param>
     /// <param name="conflicts">How many conflicts are recorded.</param>
     public SyncStatus(
@@ -42,6 +50,7 @@ public sealed class SyncStatus
         Guid mappedUserId,
         StoppedRunStatus stoppedRun,
         LastExchangeStatus lastExchange,
+        LastSweepStatus lastSweep,
         UnmatchedStatus unmatched,
         ConflictStatus conflicts)
     {
@@ -49,20 +58,25 @@ public sealed class SyncStatus
         MappedUserId = mappedUserId;
         StoppedRun = stoppedRun;
         LastExchange = lastExchange;
+        LastSweep = lastSweep;
         Unmatched = unmatched;
         Conflicts = conflicts;
     }
 
     /// <summary>
     /// Gets a value indicating whether something on this status needs an operator rather than
-    /// being a line among others: a run the cap stopped, or a record that could not be read.
+    /// being a line among others: a run the cap stopped, a sweep that stopped short, or a record
+    /// that could not be read.
     ///
     /// It is first and it is derived, so a page reads one member before anything else and
     /// cannot show a stopped run as a row somewhere below the counts. That is #62's second
-    /// condition and #38's fifth.
+    /// condition and #38's fifth. A sweep that stopped short is in it for the reason
+    /// <c>SweepRun</c> was written: its counts look like a run that finished, and an operator
+    /// reading them alone concludes that everything was looked at.
     /// </summary>
     public bool NeedsAttention =>
         StoppedRun.Reading != RecordReading.Absent
+        || LastSweep.StoppedShort
         || LastExchange.Reading == RecordReading.Unreadable
         || Unmatched.Reading == RecordReading.Unreadable
         || Conflicts.Reading == RecordReading.Unreadable;
@@ -86,6 +100,12 @@ public sealed class SyncStatus
     /// Gets when the last exchange ran, from the point the peer last confirmed.
     /// </summary>
     public LastExchangeStatus LastExchange { get; }
+
+    /// <summary>
+    /// Gets what the last sweep did, from the run record the sweep keeps. It is the server's run
+    /// and not this pairing's.
+    /// </summary>
+    public LastSweepStatus LastSweep { get; }
 
     /// <summary>
     /// Gets how many items produced no match and why, from the unmatched record.
