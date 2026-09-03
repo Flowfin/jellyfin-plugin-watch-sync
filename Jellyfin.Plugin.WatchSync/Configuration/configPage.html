@@ -171,6 +171,13 @@
                     person's identifier is the one this server gives the account. Neither is a
                     setting and nothing here is saved.
                 </p>
+                <p id="WatchSyncStatusSweepIsTheServers">
+                    What the last sweep did is this server's run and not the pairing's, because a
+                    sweep walks every record this plugin holds at once. It is kept in memory, so
+                    after a restart the status says no sweep has ended since the server started,
+                    and the dashboard's task list is where the last run and its failure survive
+                    one.
+                </p>
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="WatchSyncStatusPairingId">
                         The pairing's identifier
@@ -327,7 +334,9 @@
             // counts, because a cap nobody sees is a sync that stopped working silently. The
             // banner is filled from the first member of the answer, which is what says whether
             // anything needs an operator, so a page cannot show the counts and miss the stop.
-            // Everything goes in as text, for the reason given above the person section.
+            // A sweep that stopped short is shown the same way, because its counts look like a
+            // run that finished and what it did not reach was not trimmed. Everything goes in as
+            // text, for the reason given above the person section.
             WatchSyncConfig.showStatus = function (status) {
                 var banner = document.querySelector('#WatchSyncStoppedRun');
                 var text = '';
@@ -339,6 +348,12 @@
                             + ' item(s) and the bound allowed ' + status.StoppedRun.Allowed
                             + ' (' + status.StoppedRun.Answer + '). Nothing was written, and the '
                             + 'plan is waiting for an operator.';
+                    } else if (status.LastSweep.StoppedShort) {
+                        text = 'The last sweep stopped short on ' + status.LastSweep.EndedAt
+                            + ': it was over ' + status.LastSweep.Subjects
+                            + ' record(s) and examined ' + status.LastSweep.Examined
+                            + ' before it stopped, so what it did not reach was not trimmed. '
+                            + 'The dashboard\'s task list says whether it was cancelled or failed.';
                     } else {
                         text = 'A record of this pairing and person could not be read, so the '
                             + 'numbers below say less than they seem to. The status says which one.';

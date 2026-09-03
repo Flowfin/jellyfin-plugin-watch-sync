@@ -5,6 +5,7 @@ using Jellyfin.Plugin.WatchSync.Agreement;
 using Jellyfin.Plugin.WatchSync.Document;
 using Jellyfin.Plugin.WatchSync.Records;
 using Jellyfin.Plugin.WatchSync.Storage;
+using Jellyfin.Plugin.WatchSync.Transfer;
 using MediaBrowser.Common.Api;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -20,6 +21,8 @@ namespace Jellyfin.Plugin.WatchSync.Api;
 /// the record type's own reader, and the surface adds a route, the server's own authorisation
 /// and a shape a caller can read. The rule #62 turns on, that no number is counted separately
 /// for display, is kept by there being no count in this file: each is the record's <c>Count</c>.
+/// The one record that is not a document is the sweep's last run, which the task keeps in
+/// memory because the server hands the task to nobody, and it is read from there.
 ///
 /// <para>
 /// Both are elevated, for the reason the record endpoints are: every number here is about one
@@ -59,14 +62,17 @@ public class SyncStatusController : ControllerBase
     public const int ReasonsShown = 3;
 
     private readonly DocumentStore _store;
+    private readonly SweepRuns _sweeps;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SyncStatusController"/> class.
     /// </summary>
     /// <param name="store">The store this plugin keeps its documents in.</param>
-    public SyncStatusController(DocumentStore store)
+    /// <param name="sweeps">Where the scheduled sweep keeps its last run.</param>
+    public SyncStatusController(DocumentStore store, SweepRuns sweeps)
     {
         _store = store;
+        _sweeps = sweeps;
     }
 
     /// <summary>
@@ -90,6 +96,7 @@ public class SyncStatusController : ControllerBase
             mappedUserId,
             StoppedRunOf(pairingId, mappedUserId),
             LastExchangeOf(pairingId, mappedUserId),
+            LastSweepOf(),
             UnmatchedOf(pairingId, mappedUserId),
             ConflictsOf(pairingId, mappedUserId));
     }
@@ -188,6 +195,22 @@ public class SyncStatusController : ControllerBase
             !records.Watermark.IsNoneYet,
             records.Watermark.IsNoneYet ? null : records.Watermark.ConfirmedAt,
             records.Count);
+    }
+
+    /// <summary>
+    /// What the last sweep did, from the run record the sweep keeps.
+    ///
+    /// It takes no pairing and no person because the run is the server's: the sweep walks the
+    /// records the store holds rather than pairs today, so one run is over every pairing and
+    /// every person at once. Where no run has ended since the server started, the status says
+    /// so rather than answering zeros a reader would take for a run that examined nothing.
+    /// </summary>
+    /// <returns>The status of the last run.</returns>
+    private LastSweepStatus LastSweepOf()
+    {
+        var run = _sweeps.Last;
+
+        return run is null ? LastSweepStatus.NoneSinceTheServerStarted : LastSweepStatus.Of(run);
     }
 
     private UnmatchedStatus UnmatchedOf(Guid pairingId, Guid mappedUserId)

@@ -31,7 +31,8 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// that no title is anywhere in the shape.
 ///
 /// Nothing here starts a server or a request. The controller is constructed with the store and
-/// called, and the routing is held by the comparisons in <c>EndpointPolicyTests</c>,
+/// the record the sweep keeps its last run in, and called, and the routing is held by the
+/// comparisons in <c>EndpointPolicyTests</c>,
 /// <c>EndpointDocumentTests</c> and <c>ConfigurationPageActionsTests</c> against the attributes.
 /// </summary>
 public sealed class SyncStatusControllerTests : IDisposable
@@ -64,12 +65,22 @@ public sealed class SyncStatusControllerTests : IDisposable
     /// The first condition. Each item is read from the record that produces it: the count of
     /// unmatched items is the unmatched record's own count and the reasons are grouped out of its
     /// entries, the conflicts are the conflict record's count and newest moment, the last exchange
-    /// is the watermark, and the stopped run is the plan.
+    /// is the watermark, the stopped run is the plan, and the last sweep is the run the task
+    /// recorded, member for member.
     /// </summary>
     [Fact]
     public void EveryNumberIsReadFromTheRecordThatProducesIt()
     {
         var store = Store();
+        var sweeps = new SweepRuns();
+        var run = SweepRun.Over(_evening.AddHours(3), 4)
+            .HavingExamined(1)
+            .HavingExamined(0)
+            .HavingExamined(2)
+            .HavingExamined(0)
+            .Ended(_evening.AddHours(3).AddMinutes(2));
+
+        sweeps.Record(run);
 
         var unmatched = UnmatchedRecords.NoneYet(_pairing, _person)
             .With(Unmatched(Film(1), MatchKeyRefusal.NoIdentifierAtAll, null))
@@ -91,7 +102,7 @@ public sealed class SyncStatusControllerTests : IDisposable
         store.Write(AgreedRecords.DocumentName(_pairing, _person), _ => agreed.ToDocument());
         store.Write(StoppedRun.DocumentName(_pairing, _person), _ => Plan().ToDocument());
 
-        var status = Answer(new SyncStatusController(store).Status(_pairing, _person));
+        var status = Answer(new SyncStatusController(store, sweeps).Status(_pairing, _person));
 
         Assert.Equal(_pairing, status.PairingId);
         Assert.Equal(_person, status.MappedUserId);
@@ -118,6 +129,114 @@ public sealed class SyncStatusControllerTests : IDisposable
         Assert.Equal(2, status.StoppedRun.Allowed);
         Assert.Equal(20, status.StoppedRun.Matched);
         Assert.Equal(_evening, status.StoppedRun.StoppedAt);
+
+        Assert.True(status.LastSweep.IsRecorded);
+        Assert.False(status.LastSweep.StoppedShort);
+        Assert.Equal(run.StartedAt, status.LastSweep.StartedAt);
+        Assert.Equal(run.EndedAt, status.LastSweep.EndedAt);
+        Assert.Equal(SweepRunOutcome.Covered, status.LastSweep.Outcome);
+        Assert.Equal(run.Subjects, status.LastSweep.Subjects);
+        Assert.Equal(run.Examined, status.LastSweep.Examined);
+        Assert.Equal(run.Changed, status.LastSweep.Changed);
+        Assert.Equal(3, status.LastSweep.Changed);
+    }
+
+    /// <summary>
+    /// The last sweep is the server's run rather than the pairing's. The sweep walks the records
+    /// the store holds rather than pairs today, so one run is over every pairing and every person
+    /// at once, and a status about another pairing and another person answers the same run.
+    /// </summary>
+    [Fact]
+    public void TheLastSweepIsTheServersAndIsAnsweredOnEveryStatus()
+    {
+        var sweeps = new SweepRuns();
+        var run = SweepRun.Over(_evening, 2).HavingExamined(1).HavingExamined(0).Ended(_evening.AddMinutes(1));
+
+        sweeps.Record(run);
+
+        var controller = new SyncStatusController(Store(), sweeps);
+        var here = Answer(controller.Status(_pairing, _person));
+        var elsewhere = Answer(controller.Status(_otherPairing, _somebodyElse));
+
+        foreach (var status in new[] { here, elsewhere })
+        {
+            Assert.True(status.LastSweep.IsRecorded);
+            Assert.Equal(run.StartedAt, status.LastSweep.StartedAt);
+            Assert.Equal(run.EndedAt, status.LastSweep.EndedAt);
+            Assert.Equal(run.Subjects, status.LastSweep.Subjects);
+            Assert.Equal(run.Examined, status.LastSweep.Examined);
+            Assert.Equal(run.Changed, status.LastSweep.Changed);
+        }
+    }
+
+    /// <summary>
+    /// No sweep since the server started is said rather than shown as a run over nothing. The
+    /// record is held in memory and a restart loses it, so the absence means the task has not run
+    /// to its end since the server started, and zeros would read as a run that examined nothing
+    /// and changed nothing.
+    /// </summary>
+    [Fact]
+    public void NoSweepSinceTheServerStartedIsSaidRatherThanShownAsZeros()
+    {
+        var status = Answer(new SyncStatusController(Store(), new SweepRuns()).Status(_pairing, _person));
+
+        Assert.False(status.LastSweep.IsRecorded);
+        Assert.False(status.LastSweep.StoppedShort);
+        Assert.Null(status.LastSweep.Outcome);
+        Assert.Null(status.LastSweep.StartedAt);
+        Assert.Null(status.LastSweep.EndedAt);
+        Assert.Null(status.LastSweep.Subjects);
+        Assert.Null(status.LastSweep.Examined);
+        Assert.Null(status.LastSweep.Changed);
+        Assert.False(status.NeedsAttention);
+    }
+
+    /// <summary>
+    /// The second condition, for the sweep. A run that stopped short needs attention, because its
+    /// counts look like a run that finished and what it did not reach was not trimmed; a run that
+    /// covered its set does not, and the last run to end is the one that decides.
+    /// </summary>
+    [Fact]
+    public void ASweepThatStoppedShortMakesTheStatusNeedAttentionAndACoveredOneDoesNot()
+    {
+        var sweeps = new SweepRuns();
+        var controller = new SyncStatusController(Store(), sweeps);
+
+        sweeps.Record(SweepRun.Over(_evening, 2).HavingExamined(0).HavingExamined(0).Ended(_evening.AddMinutes(1)));
+
+        var covered = Answer(controller.Status(_pairing, _person));
+
+        Assert.False(covered.NeedsAttention);
+        Assert.False(covered.LastSweep.StoppedShort);
+        Assert.Equal(SweepRunOutcome.Covered, covered.LastSweep.Outcome);
+
+        sweeps.Record(SweepRun.Over(_evening.AddHours(1), 2).HavingExamined(1).Ended(_evening.AddHours(1).AddMinutes(1)));
+
+        var stopped = Answer(controller.Status(_pairing, _person));
+
+        Assert.True(stopped.NeedsAttention);
+        Assert.True(stopped.LastSweep.StoppedShort);
+        Assert.Equal(SweepRunOutcome.StoppedShort, stopped.LastSweep.Outcome);
+        Assert.Equal(2, stopped.LastSweep.Subjects);
+        Assert.Equal(1, stopped.LastSweep.Examined);
+        Assert.Equal(RecordReading.Absent, stopped.StoppedRun.Reading);
+    }
+
+    /// <summary>
+    /// On the page, the banner that shows a stopped run is filled from the sweep that stopped
+    /// short as well, so a page cannot show the counts and miss the sweep. It reads that the
+    /// script names the member and nothing about what a browser renders.
+    /// </summary>
+    [Fact]
+    public void ThePageFillsTheBannerFromASweepThatStoppedShort()
+    {
+        var page = File.ReadAllText(Path.Combine(
+            HeadlessGuardTests.HeadlessGuard.RepositoryRoot(),
+            "Jellyfin.Plugin.WatchSync",
+            "Configuration",
+            "configPage.html"));
+
+        Assert.Contains("status.LastSweep.StoppedShort", page, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -138,7 +257,7 @@ public sealed class SyncStatusControllerTests : IDisposable
 
         store.Write(UnmatchedRecords.DocumentName(_pairing, _person), _ => unmatched.ToDocument());
 
-        var controller = new SyncStatusController(store);
+        var controller = new SyncStatusController(store, new SweepRuns());
         var status = Answer(controller.Status(_pairing, _person));
         var export = Answer(controller.Unmatched(_pairing, _person));
 
@@ -168,14 +287,14 @@ public sealed class SyncStatusControllerTests : IDisposable
     {
         var store = Store();
 
-        var quiet = Answer(new SyncStatusController(store).Status(_pairing, _person));
+        var quiet = Answer(new SyncStatusController(store, new SweepRuns()).Status(_pairing, _person));
 
         Assert.False(quiet.NeedsAttention);
         Assert.False(quiet.StoppedRun.IsStopped);
 
         store.Write(StoppedRun.DocumentName(_pairing, _person), _ => Plan().ToDocument());
 
-        var stopped = Answer(new SyncStatusController(store).Status(_pairing, _person));
+        var stopped = Answer(new SyncStatusController(store, new SweepRuns()).Status(_pairing, _person));
 
         Assert.True(stopped.NeedsAttention);
         Assert.True(stopped.StoppedRun.IsStopped);
@@ -193,7 +312,7 @@ public sealed class SyncStatusControllerTests : IDisposable
 
         store.Write(UnmatchedRecords.DocumentName(_pairing, _person), _ => NotARecord());
 
-        var controller = new SyncStatusController(store);
+        var controller = new SyncStatusController(store, new SweepRuns());
         var status = Answer(controller.Status(_pairing, _person));
         var export = Answer(controller.Unmatched(_pairing, _person));
 
@@ -222,7 +341,7 @@ public sealed class SyncStatusControllerTests : IDisposable
         store.Write(AgreedRecords.DocumentName(_pairing, _person), _ => NotARecord());
         store.Write(ConflictRecords.DocumentName(_pairing, _person), _ => NotARecord());
 
-        var status = Answer(new SyncStatusController(store).Status(_pairing, _person));
+        var status = Answer(new SyncStatusController(store, new SweepRuns()).Status(_pairing, _person));
 
         Assert.Equal(RecordReading.Unreadable, status.StoppedRun.Reading);
         Assert.False(status.StoppedRun.IsStopped);
@@ -250,7 +369,7 @@ public sealed class SyncStatusControllerTests : IDisposable
                 new JsonObject { ["version"] = DocumentVersions.Current + 1 }.ToJsonString(),
                 DocumentVersions.Current + 2).Document!);
 
-        var status = Answer(new SyncStatusController(store).Status(_pairing, _person));
+        var status = Answer(new SyncStatusController(store, new SweepRuns()).Status(_pairing, _person));
 
         Assert.Equal(RecordReading.Unreadable, status.Conflicts.Reading);
         Assert.True(status.NeedsAttention);
@@ -269,7 +388,7 @@ public sealed class SyncStatusControllerTests : IDisposable
 
         store.Write(UnmatchedRecords.DocumentName(_pairing, _person), _ => UnmatchedRecords.NoneYet(_pairing, _person).ToDocument());
 
-        var controller = new SyncStatusController(store);
+        var controller = new SyncStatusController(store, new SweepRuns());
         var never = Answer(controller.Status(_otherPairing, _person));
         var none = Answer(controller.Status(new Guid("99999999-9999-9999-9999-999999999999"), _person));
 
@@ -304,7 +423,7 @@ public sealed class SyncStatusControllerTests : IDisposable
         store.Write(UnmatchedRecords.DocumentName(_otherPairing, _person), _ => elsewhere.ToDocument());
         store.Write(StoppedRun.DocumentName(_pairing, _somebodyElse), _ => Plan(_somebodyElse).ToDocument());
 
-        var controller = new SyncStatusController(store);
+        var controller = new SyncStatusController(store, new SweepRuns());
         var status = Answer(controller.Status(_pairing, _person));
         var export = Answer(controller.Unmatched(_pairing, _person));
 
@@ -346,7 +465,7 @@ public sealed class SyncStatusControllerTests : IDisposable
     [Fact]
     public void AnIdentifierNamingNobodyOrNoPairingIsRefusedByBoth()
     {
-        var controller = new SyncStatusController(Store());
+        var controller = new SyncStatusController(Store(), new SweepRuns());
 
         Assert.IsType<BadRequestResult>(controller.Status(Guid.Empty, _person).Result);
         Assert.IsType<BadRequestResult>(controller.Status(_pairing, Guid.Empty).Result);
