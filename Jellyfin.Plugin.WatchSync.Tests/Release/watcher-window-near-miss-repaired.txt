@@ -1,0 +1,20 @@
+The same slice with the window gone. The runs are grouped by workflow and each group is
+sorted newest first, and a workflow is red when the run at the head of its own list is. A
+failure therefore stops being reported when a better run replaces it rather than when it
+ages out, and a weekly scan stays reported until the next week's scan says otherwise.
+
+        run: |
+          jq -r --arg self "$SELF" --arg branch "$branch" --rawfile tags tags.txt '
+            def isred: (.conclusion // "") | (. != "success" and . != "skipped");
+            [ .[]
+              | select(.workflowName != $self)
+              | select(.event != "pull_request" and .event != "pull_request_target")
+              | select((.conclusion // "") != "" and .conclusion != "cancelled")
+            ]
+            | group_by(.workflowName)
+            | map(sort_by(.updatedAt) | reverse)
+            | map(select(.[0] | isred))
+            | map([ .[0].url, .[0].conclusion, .[0].event, .[0].workflowName ])
+            | .[]
+            | @tsv
+          ' runs.json > red.tsv
