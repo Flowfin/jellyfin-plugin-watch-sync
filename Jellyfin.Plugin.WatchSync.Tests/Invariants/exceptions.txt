@@ -19,6 +19,15 @@
 # files name the manager, one of them calls the two members the newer line adds, and no
 # other source in this plugin reaches any of it. A carve-out by directory would have
 # said only that the calls were somewhere inside one.
+#
+# The entry under injected-clock is the one place a real clock enters this plugin, which is
+# the answer taken on #32. A clock has to enter somewhere, because a sweep has a start and
+# an end and a handler receiving a real event has to stamp it with a real moment, and the
+# composition root is where a dependency is chosen rather than used. Everything it hands
+# the clock to takes it as a constructor argument or takes its moments as parameters, so a
+# test replaces it by constructing the type it is testing. ClockEntryTests refuses a second
+# departure from that rule, so the next file that wants a clock takes one rather than
+# naming the runtime's own beside a second line here.
 
 Jellyfin.Plugin.WatchSync/UserData/ServerUserData.cs :: user-data-manager-interface :: the adapter holds the manager and is the only type in this plugin that does, which is what the invariant is for
 Jellyfin.Plugin.WatchSync/UserData/OlderLineUserData.cs :: user-data-manager-interface :: the older line's implementation takes the manager in its constructor and hands it to the type above
@@ -27,3 +36,4 @@ Jellyfin.Plugin.WatchSync/UserData/NewerLineUserData.cs :: user-data-batch-read 
 Jellyfin.Plugin.WatchSync/UserData/NewerLineUserData.cs :: user-data-resume-version :: naming the version that drives a resume point is the other reason, and these are the two members that do it
 Jellyfin.Plugin.WatchSync/Matching/MatchLookup.cs :: second-chance-on-a-non-match :: the type that declares the three answers builds two of them here and explains in its own comment why a caller may not test for one, and it is the only file in this plugin that names them
 Jellyfin.Plugin.WatchSync/Api/HeldAboutOnePersonController.cs :: endpoint-user-from-the-request :: both endpoints are deliberately about another person, which is the case that rule names elevation for, and the server's own elevation policy is on the controller
+Jellyfin.Plugin.WatchSync/ServiceRegistrator.cs :: clock-time-provider-system :: the composition root is where a dependency is chosen rather than used, so this is the one file that names the runtime's clock and hands it to everything that takes one; ClockEntryTests refuses a second departure from this rule

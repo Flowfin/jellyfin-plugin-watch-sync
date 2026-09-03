@@ -10,6 +10,12 @@
 #
 # Blank lines and lines beginning with # are ignored.
 #
-# There are no entries today. The tracked test sources need nothing this vocabulary
-# refuses, which is the state the rule exists to keep rather than a claim that it
-# cannot change.
+# One entry today, and it reads no time. The fact that holds the composition root to
+# handing out the runtime's own clock has to name that clock to compare identity with
+# what was resolved, which is the whole of what it does with it: no moment is read, no
+# outcome depends on when the suite ran, and the rule that keeps the machine clock out
+# of the suite is the rule that fact exists to close from the plugin's side. It is
+# retired by the day the composition root hands out something else, which is the day
+# the invariant register's own departure for that file goes dangling too.
+
+Jellyfin.Plugin.WatchSync.Tests/ClockEntryTests.cs :: clock-time-provider-system :: the fact compares the clock the composition root hands out against the runtime's own by identity and reads no time from either; it is the suite's side of the one declared departure in Invariants/exceptions.txt
