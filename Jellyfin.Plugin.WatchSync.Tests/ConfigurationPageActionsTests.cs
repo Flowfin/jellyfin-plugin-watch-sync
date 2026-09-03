@@ -60,14 +60,23 @@ public class ConfigurationPageActionsTests
     {
         const string Page = "ApiClient.getUrl('Plugins/WatchSync/People/' + person + '/Records')";
 
-        var findings = Findings(EndpointReflection.Discovered(EndpointReflection.ThePlugin()), Page)
+        var endpoints = EndpointReflection.Discovered(EndpointReflection.ThePlugin());
+        var parts = endpoints.SelectMany(endpoint => LiteralParts(endpoint.Route)).ToList();
+
+        var findings = Findings(endpoints, Page)
             .Where(finding => finding.StartsWith("the page does not name", StringComparison.Ordinal))
             .ToList();
 
-        Assert.NotEmpty(findings);
+        // The misspelt part is the one the near miss is about, and every other finding names a
+        // literal part of a route this plugin serves. The routes no longer share one part, so the
+        // second half is held against the routes rather than against the one part the first
+        // controller happened to have.
+        Assert.Contains(
+            findings,
+            finding => finding.Contains("Plugins/WatchSync/Persons/", StringComparison.Ordinal));
         Assert.All(
             findings,
-            finding => Assert.Contains("Plugins/WatchSync/Persons/", finding, StringComparison.Ordinal));
+            finding => Assert.Contains(parts, part => finding.Contains($"name {part},", StringComparison.Ordinal)));
     }
 
     /// <summary>

@@ -5,15 +5,16 @@ trusted. So this one is held against the routes by a comparison that fails in bo
 directions rather than by somebody remembering to update it, and what that comparison
 cannot see is written down here beside what it can.
 
-**This plugin serves two endpoints and the table below has a row for each.** That is a
+**This plugin serves four endpoints and the table below has a row for each.** That is a
 reading rather than a claim:
 
     git grep -l 'ControllerBase' -- Jellyfin.Plugin.WatchSync/
     Jellyfin.Plugin.WatchSync/Api/HeldAboutOnePersonController.cs
+    Jellyfin.Plugin.WatchSync/Api/SyncStatusController.cs
 
-Both are #74's, and they are the whole of the surface. The status in #62 and the manual
-actions in #64 are still ahead of it, and each adds its own rows here in the change that
-adds it, because the comparison below fails on the day a route exists without one. Their
+Two are #74's and two are #62's, and they are the whole of the surface. The manual actions
+in #64 are still ahead of it, and each adds its own rows here in the change that adds it,
+because the comparison below fails on the day a route exists without one. Their
 authorisation is #66.
 
 ## What counts as an endpoint
@@ -37,8 +38,10 @@ the first controller lands, which is the day both are believed.
 | --- | --- | --- | --- | --- | --- | --- |
 | `HeldAboutOnePersonController.Report` | GET | Plugins/WatchSync/Persons/{mappedUserId}/Records | RequiresElevation | The person, in the route. No body. | `200` with the person, a count, and one entry per document: its name in the store, the prefix of the kind that wrote it, the pairing it is about, the version it was written at, and the document itself as the store holds it. | `400` where the identifier names nobody, which is the all-zero one. `401` where the caller has not signed in and `403` where they are signed in and not elevated, both from the server's own policy rather than from anything here. |
 | `HeldAboutOnePersonController.Remove` | DELETE | Plugins/WatchSync/Persons/{mappedUserId}/Records | RequiresElevation | The person, in the route. No body. | `200` with the person and how many documents were removed, which is the count of documents that went rather than of documents that were found. | `400` where the identifier names nobody, which is the all-zero one. `401` and `403` as above. |
+| `SyncStatusController.Status` | GET | Plugins/WatchSync/Pairings/{pairingId}/Persons/{mappedUserId}/Status | RequiresElevation | The pairing and the person, in the route. No body. | `200` with the status: first whether anything needs attention, then the stopped run, the last exchange, the unmatched count with its top three reasons, and the conflicts, each section saying whether its record was read, is absent, or could not be read. Every number is the record's own. No title, no path, and no text that came from a peer. | `400` where either identifier is the all-zero one. `401` and `403` as above. A store the filesystem refuses to read answers the server's own `500`, and nothing here turns that into an empty status. |
+| `SyncStatusController.Unmatched` | GET | Plugins/WatchSync/Pairings/{pairingId}/Persons/{mappedUserId}/Unmatched | RequiresElevation | The pairing and the person, in the route. No body. | `200` with every unmatched item of that pairing and person, in the record's order: the item's identifier, its kind, the refusal or the lookup's answer, and when it was last attempted, and whether the record was read. This is the export, and it is the record read out entry by entry. | `400` where either identifier is the all-zero one. `401` and `403` as above. `500` as above. |
 
-The two rows are the whole surface rather than the start of a list somebody fills in
+The four rows are the whole surface rather than the start of a list somebody fills in
 when they notice: the comparison below fails on the day a route exists without a row
 here, so the next controller cannot land without one either.
 
@@ -67,9 +70,12 @@ deliberate. This plugin holds no list of users, so it could not separate them wi
 asking the server, and an answer that did separate them would tell a caller which
 accounts exist on a server they were authorised to ask one question of.
 
-The case still ahead of this one has the same shape: a request naming a pairing that
-does not exist, and a request naming a pairing the caller may not see, which answer
-identically for the same reason. The same applies to an item.
+The two status rows meet the same case with a pairing: a request naming a pairing this
+plugin has never exchanged on, and a request naming a pairing that does not exist, both
+answer `200` with every record absent, and neither says which of the two it was. That is
+deliberate for the same reason: this plugin holds no pairing and could not separate them
+without asking the pairing plugin, which is #40, and an answer that did would tell a
+caller which pairings exist. The same applies to an item.
 
 **A refusal never carries a peer's own text.** What arrived from another machine is
 bounded and stripped before anything is built out of it, which is #63, and a refusal

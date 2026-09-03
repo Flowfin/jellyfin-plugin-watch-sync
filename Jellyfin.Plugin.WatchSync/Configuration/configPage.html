@@ -158,6 +158,39 @@
                     <span>Remove what is held</span>
                 </button>
                 <pre id="WatchSyncHeldOutput"></pre>
+                <h2>The sync status of one pairing for one person</h2>
+                <p id="WatchSyncStatusIsReadFromTheRecords">
+                    Every number shown here is read from the record this plugin's own behaviour
+                    wrote, and never counted for display, so what this says cannot disagree with
+                    what happened. A record that could not be read is shown as unreadable rather
+                    than as zero. Both actions need an administrator account.
+                </p>
+                <p id="WatchSyncStatusNamesThePairing">
+                    This plugin cannot list pairings yet, so the pairing's identifier is typed
+                    here. It is the identifier the pairing plugin shows for the pairing, and the
+                    person's identifier is the one this server gives the account. Neither is a
+                    setting and nothing here is saved.
+                </p>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="WatchSyncStatusPairingId">
+                        The pairing's identifier
+                    </label>
+                    <input is="emby-input" type="text" id="WatchSyncStatusPairingId" />
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="WatchSyncStatusPersonId">
+                        The person's identifier
+                    </label>
+                    <input is="emby-input" type="text" id="WatchSyncStatusPersonId" />
+                </div>
+                <button is="emby-button" type="button" id="WatchSyncStatus" class="raised block">
+                    <span>Show the status</span>
+                </button>
+                <button is="emby-button" type="button" id="WatchSyncUnmatched" class="raised block">
+                    <span>Show the unmatched items for export</span>
+                </button>
+                <div id="WatchSyncStoppedRun" class="fieldDescription" hidden></div>
+                <pre id="WatchSyncStatusOutput"></pre>
             </div>
         </div>
         <script type="text/javascript">
@@ -285,6 +318,98 @@
                                 + 'an administrator account.');
                             Dashboard.hideLoadingMsg();
                         });
+                });
+
+            // The sync status of one pairing for one person, and the export of its unmatched
+            // items. Both are reads of this plugin's own endpoints, elevated like the two above.
+            //
+            // A stopped run is shown above the rest of the status and never as a line among the
+            // counts, because a cap nobody sees is a sync that stopped working silently. The
+            // banner is filled from the first member of the answer, which is what says whether
+            // anything needs an operator, so a page cannot show the counts and miss the stop.
+            // Everything goes in as text, for the reason given above the person section.
+            WatchSyncConfig.showStatus = function (status) {
+                var banner = document.querySelector('#WatchSyncStoppedRun');
+                var text = '';
+
+                if (status.NeedsAttention) {
+                    if (status.StoppedRun.IsStopped) {
+                        text = 'A run was stopped by the cap on ' + status.StoppedRun.StoppedAt
+                            + ': it would have changed ' + status.StoppedRun.Changes
+                            + ' item(s) and the bound allowed ' + status.StoppedRun.Allowed
+                            + ' (' + status.StoppedRun.Answer + '). Nothing was written, and the '
+                            + 'plan is waiting for an operator.';
+                    } else {
+                        text = 'A record of this pairing and person could not be read, so the '
+                            + 'numbers below say less than they seem to. The status says which one.';
+                    }
+                }
+
+                banner.textContent = text;
+                banner.hidden = text.length === 0;
+                document.querySelector('#WatchSyncStatusOutput').textContent =
+                    JSON.stringify(status, null, 2);
+            };
+
+            WatchSyncConfig.statusUrl = function (tail) {
+                var pairing = document.querySelector('#WatchSyncStatusPairingId').value.trim();
+                var person = document.querySelector('#WatchSyncStatusPersonId').value.trim();
+
+                if (!pairing || !person) {
+                    document.querySelector('#WatchSyncStatusOutput').textContent =
+                        'Type the identifiers of the pairing and of the person first.';
+
+                    return null;
+                }
+
+                return ApiClient.getUrl(
+                    'Plugins/WatchSync/Pairings/' + encodeURIComponent(pairing)
+                    + '/Persons/' + encodeURIComponent(person) + tail);
+            };
+
+            WatchSyncConfig.statusFailed = function () {
+                document.querySelector('#WatchSyncStoppedRun').hidden = true;
+                document.querySelector('#WatchSyncStatusOutput').textContent =
+                    'That did not work. Both identifiers have to be the ones the two servers '
+                    + 'give the pairing and the account, and this page needs an administrator '
+                    + 'account.';
+                Dashboard.hideLoadingMsg();
+            };
+
+            document.querySelector('#WatchSyncStatus')
+                .addEventListener('click', function () {
+                    var url = WatchSyncConfig.statusUrl('/Status');
+
+                    if (!url) {
+                        return;
+                    }
+
+                    Dashboard.showLoadingMsg();
+                    ApiClient.ajax({ type: 'GET', url: url, dataType: 'json' })
+                        .then(function (status) {
+                            WatchSyncConfig.showStatus(status);
+                            Dashboard.hideLoadingMsg();
+                        }, WatchSyncConfig.statusFailed);
+                });
+
+            // The export is shown for copying rather than offered as a file, because a call to
+            // this plugin's endpoints carries the signed-in session and a plain link would not.
+            document.querySelector('#WatchSyncUnmatched')
+                .addEventListener('click', function () {
+                    var url = WatchSyncConfig.statusUrl('/Unmatched');
+
+                    if (!url) {
+                        return;
+                    }
+
+                    Dashboard.showLoadingMsg();
+                    ApiClient.ajax({ type: 'GET', url: url, dataType: 'json' })
+                        .then(function (unmatched) {
+                            document.querySelector('#WatchSyncStoppedRun').hidden = true;
+                            document.querySelector('#WatchSyncStatusOutput').textContent =
+                                JSON.stringify(unmatched, null, 2);
+                            Dashboard.hideLoadingMsg();
+                        }, WatchSyncConfig.statusFailed);
                 });
         </script>
     </div>

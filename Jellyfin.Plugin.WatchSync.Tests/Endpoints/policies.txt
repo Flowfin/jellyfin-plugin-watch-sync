@@ -29,3 +29,5 @@
 
 HeldAboutOnePersonController.Report :: GET :: Plugins/WatchSync/Persons/{mappedUserId}/Records :: RequiresElevation
 HeldAboutOnePersonController.Remove :: DELETE :: Plugins/WatchSync/Persons/{mappedUserId}/Records :: RequiresElevation
+SyncStatusController.Status :: GET :: Plugins/WatchSync/Pairings/{pairingId}/Persons/{mappedUserId}/Status :: RequiresElevation
+SyncStatusController.Unmatched :: GET :: Plugins/WatchSync/Pairings/{pairingId}/Persons/{mappedUserId}/Unmatched :: RequiresElevation

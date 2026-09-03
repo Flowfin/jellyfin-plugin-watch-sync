@@ -12,10 +12,13 @@ and the refusals in it are the reason a wrong match is not offered as an option.
 
 ## What this guide cannot tell you yet
 
-Where an operator reads these reasons is the status page, and there is no status
-page. #62 holds it. So this document names the reasons and what to do about each one,
-and it does not say which screen to look at or what a repaired item looks like there.
-That half arrives with that issue.
+Where an operator reads these reasons is the status on the configuration page, which
+#62 holds and which reads the unmatched record now: the count and the three most
+frequent reasons under the status, and every item with its reason under the export,
+each reason spelled as the sections below are headed. What this document still does not
+say is what a repaired item looks like there afterwards, because nothing yet puts an
+item into the record or takes one out, so the reading after a repair has no subject.
+That half arrives with the sweep in #55.
 
 CORRECTED BY LISTING THE TREE. THIS PARAGRAPH SAID THE RECORD THE PAGE WOULD COUNT DID
 NOT EXIST EITHER, AND IT HAS SINCE 2026-08-27:
