@@ -52,7 +52,10 @@ namespace Jellyfin.Plugin.WatchSync.Apply;
 /// <para>
 /// The approval does not ask the cap again. The operator's approval is the answer to the cap's
 /// question, and a plan that was stopped for exceeding a bound would be stopped again by the
-/// same bound forever.
+/// same bound forever. Nor does it ask which peer user the values came from or which envelope
+/// version carried them: both are in the plan, because both are part of what the run would
+/// have done, and an approval handed either afresh could stamp the writes under an account the
+/// values never came from.
 /// </para>
 ///
 /// <para>
@@ -168,7 +171,15 @@ public static class CappedApply
 
         return CappedApplyAnswer.StoppedWith(
             verdict,
-            StoppedRun.Of(agreed.PairingId, user.Id, verdict, matched, planned, now));
+            StoppedRun.Of(
+                agreed.PairingId,
+                user.Id,
+                peerUserId,
+                envelopeVersion,
+                verdict,
+                matched,
+                planned,
+                now));
     }
 
     /// <summary>
@@ -186,8 +197,6 @@ public static class CappedApply
     /// <param name="gateway">The one interface this plugin reads and writes a record through.</param>
     /// <param name="agreed">The agreed record as it stands before this approval.</param>
     /// <param name="provenance">What this plugin has written under this pairing so far.</param>
-    /// <param name="peerUserId">The peer user the decided values came from, as the peer names them.</param>
-    /// <param name="envelopeVersion">The version of the envelope the changes arrived under.</param>
     /// <param name="maximumFailureShare">The share of attempted items the walk may fail before it stops.</param>
     /// <param name="approvedAt">The moment of the approval, by this server's clock.</param>
     /// <param name="cancellationToken">Stops the walk between two items.</param>
@@ -202,8 +211,7 @@ public static class CappedApply
     /// would look wrong.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">
-    /// The envelope version is not a whole number above zero, or the failure share is outside
-    /// what <see cref="FailureShare"/> accepts.
+    /// The failure share is outside what <see cref="FailureShare"/> accepts.
     /// </exception>
     public static ApprovalAnswer Approve(
         StoppedRun plan,
@@ -212,8 +220,6 @@ public static class CappedApply
         IUserDataGateway gateway,
         AgreedRecords agreed,
         ProvenanceRecords provenance,
-        Guid peerUserId,
-        int envelopeVersion,
         double maximumFailureShare,
         DateTimeOffset approvedAt,
         CancellationToken cancellationToken)
@@ -224,7 +230,6 @@ public static class CappedApply
         ArgumentNullException.ThrowIfNull(gateway);
         ArgumentNullException.ThrowIfNull(agreed);
         ArgumentNullException.ThrowIfNull(provenance);
-        ArgumentOutOfRangeException.ThrowIfLessThan(envelopeVersion, 1);
 
         if (plan.MappedUserId != user.Id)
         {
@@ -283,8 +288,8 @@ public static class CappedApply
                 gateway,
                 agreed,
                 provenance,
-                peerUserId,
-                envelopeVersion,
+                plan.PeerUserId,
+                plan.EnvelopeVersion,
                 maximumFailureShare,
                 approvedAt,
                 cancellationToken),

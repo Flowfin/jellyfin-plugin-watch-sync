@@ -200,7 +200,8 @@ public sealed class CappedApplyTests : IDisposable
     /// store, read back as an operator's approval would read it, and approved, and what reaches
     /// the server is exactly what the plan recorded, in the order it recorded it. The approval
     /// does not ask the cap again: six changes against a count of five were stopped once, and the
-    /// operator's approval is the answer to that question.
+    /// operator's approval is the answer to that question. Nor does it ask which peer user the
+    /// values came from or which envelope version carried them, because the plan is what knows.
     /// </summary>
     [Fact]
     public void ARecordedPlanSurvivesTheStoreAndIsApprovedAsRecorded()
@@ -220,10 +221,13 @@ public sealed class CappedApplyTests : IDisposable
             AgreedRecords.NoneYet(_pairing, user.Id),
             ProvenanceRecords.NoneYet(_pairing, user.Id),
             _peerUser,
-            1,
+            3,
             FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None).Stopped!;
+
+        Assert.Equal(_peerUser, stopped.PeerUserId);
+        Assert.Equal(3, stopped.EnvelopeVersion);
 
         var name = StoppedRun.DocumentName(_pairing, user.Id);
 
@@ -240,8 +244,6 @@ public sealed class CappedApplyTests : IDisposable
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
             ProvenanceRecords.NoneYet(_pairing, user.Id),
-            _peerUser,
-            1,
             FailureShare.DefaultMaximumShare,
             _evening.AddDays(1),
             CancellationToken.None);
@@ -250,6 +252,12 @@ public sealed class CappedApplyTests : IDisposable
         Assert.Equal(films, approval.Applied.Select(subject => subject.ItemId).ToArray());
         Assert.Equal(films, server.Writes.Select(write => write.ItemId).ToArray());
         Assert.Equal(6, approval.Walk.Agreed.Count);
+
+        // The peer user and the envelope version the approval stamps and agrees are the plan's
+        // and nobody else's, because the plan is the only thing that still knows them.
+        Assert.NotEmpty(approval.Walk.Provenance.All);
+        Assert.All(approval.Walk.Provenance.All, entry => Assert.Equal(_peerUser, entry.PeerUserId));
+        Assert.All(films, film => Assert.Equal(3, approval.Walk.Agreed.For(film)!.EnvelopeVersion));
 
         foreach (var film in films)
         {
@@ -340,8 +348,6 @@ public sealed class CappedApplyTests : IDisposable
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
             ProvenanceRecords.NoneYet(_pairing, user.Id),
-            _peerUser,
-            1,
             FailureShare.DefaultMaximumShare,
             _evening.AddDays(1),
             CancellationToken.None);
@@ -510,8 +516,6 @@ public sealed class CappedApplyTests : IDisposable
             server,
             AgreedRecords.NoneYet(otherPairing, user.Id),
             ProvenanceRecords.NoneYet(otherPairing, user.Id),
-            _peerUser,
-            1,
             FailureShare.DefaultMaximumShare,
             _evening,
             CancellationToken.None));
@@ -612,8 +616,6 @@ public sealed class CappedApplyTests : IDisposable
             server,
             AgreedRecords.NoneYet(_pairing, user.Id),
             ProvenanceRecords.NoneYet(_pairing, user.Id),
-            _peerUser,
-            1,
             FailureShare.DefaultMaximumShare,
             _evening.AddDays(1),
             CancellationToken.None);

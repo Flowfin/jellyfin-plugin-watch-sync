@@ -147,7 +147,7 @@ somebody is answerable without opening a document to find out what it is about.
 | `conflicts-` | One row per disagreement resolved: the item, the field, the rule that decided, the two values, and which side lost. | 14 days by default, and at most 90. | `ConflictRetentionDays` |
 | `provenance-` | One row per value this plugin wrote into the server: the item, the field, what was there before, what was written, and which pairing and which account on the peer it came from. | 90 days by default, and at most 365. | `ProvenanceRetentionDays` |
 | `unmatched-` | One row per item that produced no match key: the item, its kind, and the reason. It names items rather than what anybody watched. | No time limit. The document holds at most 1000 rows and the oldest go first. | none |
-| `stopped-` | The plan of one run the cap stopped, waiting for an operator to approve it: one row per item the run was about to write, holding the state the conflict table decided and the state this server held at that moment, and which bound stopped the run. | Until the next run for the same pairing and person stops, which replaces it, or until the records are removed. Nothing expires it, because an operator who has not approved it yet is still owed the reading of what stopped. Its size is the size of the run that was stopped, and nothing here bounds that further. | none |
+| `stopped-` | The plan of one run the cap stopped, waiting for an operator to approve it: one row per item the run was about to write, holding the state the conflict table decided and the state this server held at that moment, which bound stopped the run, and which account on the peer the values came from. | Until the next run for the same pairing and person stops, which replaces it, or until the records are removed. Nothing expires it, because an operator who has not approved it yet is still owed the reading of what stopped. Its size is the size of the run that was stopped, and nothing here bounds that further. | none |
 
 The two retentions are settings an operator sets, bounded by
 `ConflictRecords.MaximumRetention` and `ProvenanceRecords.MaximumRetention`, and
@@ -168,10 +168,13 @@ would run that rule on a schedule is
 caps are a different case and do hold today, because each document trims itself as
 rows are added to it rather than waiting for a sweep.
 
-One of the five holds something about a person on the other server. `provenance-`
+Two of the five hold something about a person on the other server. `provenance-`
 carries the account a value came from, which is somebody on a machine the same
 operator owns, and it is there so that a revoked pairing can be undone. Shortening
-`ProvenanceRetentionDays` shortens how far back that undo reaches.
+`ProvenanceRetentionDays` shortens how far back that undo reaches. `stopped-` carries
+the same account for the same reason one step earlier: an approved plan stamps what
+it writes with the account the values came from, and the plan is where that has to
+be read from days after the run that knew it.
 
 ## What is in a log, and what is never in one
 

@@ -28,6 +28,7 @@ public class StoppedRunTests
     private static readonly Guid _film = new("33333333-3333-3333-3333-333333333333");
     private static readonly Guid _episode = new("44444444-4444-4444-4444-444444444444");
     private static readonly Guid _other = new("55555555-5555-5555-5555-555555555555");
+    private static readonly Guid _peer = new("77777777-7777-7777-7777-777777777777");
     private static readonly DateTimeOffset _evening = new(2026, 9, 3, 21, 0, 0, TimeSpan.Zero);
     private static readonly DateTime _watchedAt = new(2026, 9, 3, 20, 0, 0, DateTimeKind.Utc);
 
@@ -65,6 +66,8 @@ public class StoppedRunTests
 
         Assert.Equal(_pairing, read.PairingId);
         Assert.Equal(_user, read.MappedUserId);
+        Assert.Equal(_peer, read.PeerUserId);
+        Assert.Equal(3, read.EnvelopeVersion);
         Assert.Equal(RunCapAnswer.ExceedsShare, read.Answer);
         Assert.Equal(3, read.Changes);
         Assert.Equal(2, read.Allowed);
@@ -109,6 +112,8 @@ public class StoppedRunTests
         Assert.Throws<ArgumentException>(() => StoppedRun.Of(
             _pairing,
             _user,
+            _peer,
+            1,
             within,
             100,
             new[] { StoppedRunItem.Read(Subject(_film, BaseItemKind.Movie), Decided(), null) },
@@ -136,7 +141,7 @@ public class StoppedRunTests
                 null))
             .ToList();
 
-        Assert.Throws<ArgumentException>(() => StoppedRun.Of(_pairing, _user, stopped, 20, items, _evening));
+        Assert.Throws<ArgumentException>(() => StoppedRun.Of(_pairing, _user, _peer, 1, stopped, 20, items, _evening));
     }
 
     /// <summary>
@@ -152,6 +157,8 @@ public class StoppedRunTests
         Assert.Throws<ArgumentException>(() => StoppedRun.Of(
             _pairing,
             _user,
+            _peer,
+            1,
             stopped,
             0,
             new[] { StoppedRunItem.Read(theirs, Decided(), null) },
@@ -174,8 +181,22 @@ public class StoppedRunTests
         var share = RunCap.Judge(changes: 1, matched: 0, maximumChanges: 100, maximumShare: 0.10);
         var items = new[] { StoppedRunItem.Read(Subject(_film, BaseItemKind.Movie), Decided(), null) };
 
-        Assert.Throws<ArgumentException>(() => StoppedRun.Of(Guid.Empty, _user, share, 0, items, _evening));
-        Assert.Throws<ArgumentException>(() => StoppedRun.Of(_pairing, Guid.Empty, share, 0, items, _evening));
+        Assert.Throws<ArgumentException>(() => StoppedRun.Of(Guid.Empty, _user, _peer, 1, share, 0, items, _evening));
+        Assert.Throws<ArgumentException>(() => StoppedRun.Of(_pairing, Guid.Empty, _peer, 1, share, 0, items, _evening));
+        Assert.Throws<ArgumentException>(() => StoppedRun.Of(_pairing, _user, Guid.Empty, 1, share, 0, items, _evening));
+    }
+
+    /// <summary>
+    /// The envelope version the plan carries is written into every agreement an approval
+    /// records, so a version below one is refused at the plan rather than at the approval.
+    /// </summary>
+    [Fact]
+    public void AnEnvelopeVersionBelowOneIsRefused()
+    {
+        var share = RunCap.Judge(changes: 1, matched: 0, maximumChanges: 100, maximumShare: 0.10);
+        var items = new[] { StoppedRunItem.Read(Subject(_film, BaseItemKind.Movie), Decided(), null) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => StoppedRun.Of(_pairing, _user, _peer, 0, share, 0, items, _evening));
     }
 
     /// <summary>
@@ -221,6 +242,8 @@ public class StoppedRunTests
     public static IEnumerable<object[]> Damages() => new[]
     {
         new object[] { "no-pairing" },
+        new object[] { "no-peer-user" },
+        new object[] { "envelope-version-zero" },
         new object[] { "answer-within" },
         new object[] { "answer-by-number" },
         new object[] { "changes-disagree-with-items" },
@@ -242,6 +265,12 @@ public class StoppedRunTests
         {
             case "no-pairing":
                 members.Remove("pairing");
+                break;
+            case "no-peer-user":
+                members.Remove("peerUser");
+                break;
+            case "envelope-version-zero":
+                members["envelopeVersion"] = 0;
                 break;
             case "answer-within":
                 members["answer"] = "Within";
@@ -290,6 +319,8 @@ public class StoppedRunTests
         return StoppedRun.Of(
             _pairing,
             _user,
+            _peer,
+            3,
             verdict,
             20,
             new[]

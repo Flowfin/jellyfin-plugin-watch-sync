@@ -82,6 +82,16 @@ public sealed class StoppedRun
     internal const string MatchedMember = "matched";
 
     /// <summary>
+    /// The member naming the peer user the decided values came from, as the peer names them.
+    /// </summary>
+    internal const string PeerUserMember = "peerUser";
+
+    /// <summary>
+    /// The member holding the version of the envelope the changes arrived under.
+    /// </summary>
+    internal const string EnvelopeVersionMember = "envelopeVersion";
+
+    /// <summary>
     /// The member holding the moment the run stopped.
     /// </summary>
     internal const string StoppedAtMember = "stoppedAt";
@@ -106,6 +116,8 @@ public sealed class StoppedRun
     private StoppedRun(
         Guid pairingId,
         Guid mappedUserId,
+        Guid peerUserId,
+        int envelopeVersion,
         RunCapAnswer answer,
         int changes,
         int allowed,
@@ -115,6 +127,8 @@ public sealed class StoppedRun
     {
         PairingId = pairingId;
         MappedUserId = mappedUserId;
+        PeerUserId = peerUserId;
+        EnvelopeVersion = envelopeVersion;
         Answer = answer;
         Changes = changes;
         Allowed = allowed;
@@ -132,6 +146,22 @@ public sealed class StoppedRun
     /// Gets the mapped user the run was about, as this server names them.
     /// </summary>
     public Guid MappedUserId { get; }
+
+    /// <summary>
+    /// Gets the peer user the decided values came from, as the peer names them.
+    ///
+    /// It is in the plan rather than handed to the approval, because it is part of what the run
+    /// would have done: every value the walk writes is stamped with the peer user it came from,
+    /// so that a revoked pairing can be undone, and an approval handed a different one would
+    /// file the writes under an account the values never came from.
+    /// </summary>
+    public Guid PeerUserId { get; }
+
+    /// <summary>
+    /// Gets the version of the envelope the changes arrived under, which every agreement the
+    /// approval records carries, for the same reason the peer user is here.
+    /// </summary>
+    public int EnvelopeVersion { get; }
 
     /// <summary>
     /// Gets which bound stopped the run. It is never <see cref="RunCapAnswer.Within"/>, because
@@ -186,6 +216,8 @@ public sealed class StoppedRun
     /// </summary>
     /// <param name="pairingId">The pairing the run was for.</param>
     /// <param name="mappedUserId">The mapped user the run was about.</param>
+    /// <param name="peerUserId">The peer user the decided values came from, as the peer names them.</param>
+    /// <param name="envelopeVersion">The version of the envelope the changes arrived under.</param>
     /// <param name="verdict">What the cap answered, which stopped the run.</param>
     /// <param name="matched">How many items this person had matched when the run was judged.</param>
     /// <param name="items">What the run was about to write, in order.</param>
@@ -193,15 +225,20 @@ public sealed class StoppedRun
     /// <returns>The record.</returns>
     /// <exception cref="ArgumentNullException">The verdict or the items are null.</exception>
     /// <exception cref="ArgumentException">
-    /// Either identifier is empty, the verdict is one that did not stop the run, an item is
+    /// Any identifier is empty, the verdict is one that did not stop the run, an item is
     /// about another mapped user, or the number of items is not the number of changes the
     /// verdict was about. The last is refused because the plan is the run: a record saying
     /// eighty changes were stopped and listing seventy of them would be approved as eighty.
     /// </exception>
-    /// <exception cref="ArgumentOutOfRangeException">The matched count is below zero.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The matched count is below zero, or the envelope version is not a whole number above
+    /// zero.
+    /// </exception>
     public static StoppedRun Of(
         Guid pairingId,
         Guid mappedUserId,
+        Guid peerUserId,
+        int envelopeVersion,
         RunCap verdict,
         int matched,
         IReadOnlyList<StoppedRunItem> items,
@@ -210,8 +247,10 @@ public sealed class StoppedRun
         ArgumentNullException.ThrowIfNull(verdict);
         ArgumentNullException.ThrowIfNull(items);
         ArgumentOutOfRangeException.ThrowIfNegative(matched);
+        ArgumentOutOfRangeException.ThrowIfLessThan(envelopeVersion, 1);
         RefuseAnEmptyIdentifier(pairingId, nameof(pairingId));
         RefuseAnEmptyIdentifier(mappedUserId, nameof(mappedUserId));
+        RefuseAnEmptyIdentifier(peerUserId, nameof(peerUserId));
 
         if (verdict.Answer == RunCapAnswer.Within)
         {
@@ -248,6 +287,8 @@ public sealed class StoppedRun
         return new StoppedRun(
             pairingId,
             mappedUserId,
+            peerUserId,
+            envelopeVersion,
             verdict.Answer,
             verdict.Changes,
             verdict.Allowed,
@@ -272,6 +313,10 @@ public sealed class StoppedRun
 
         if (!TryReadIdentifier(document.Fields, PairingMember, out var pairingId)
             || !TryReadIdentifier(document.Fields, UserMember, out var mappedUserId)
+            || !TryReadIdentifier(document.Fields, PeerUserMember, out var peerUserId)
+            || !TryReadWholeNumber(document.Fields, EnvelopeVersionMember, out var envelopeVersion)
+            || envelopeVersion < 1
+            || envelopeVersion > int.MaxValue
             || !TryReadAnswer(document.Fields, out var answer)
             || !TryReadWholeNumber(document.Fields, ChangesMember, out var changes)
             || changes > int.MaxValue
@@ -301,6 +346,8 @@ public sealed class StoppedRun
         return StoppedRunReading.Readable(new StoppedRun(
             pairingId,
             mappedUserId,
+            peerUserId,
+            (int)envelopeVersion,
             answer,
             (int)changes,
             (int)allowed,
@@ -328,6 +375,9 @@ public sealed class StoppedRun
                 JsonValue.Create(PairingId.ToString("n", CultureInfo.InvariantCulture)),
             [UserMember] =
                 JsonValue.Create(MappedUserId.ToString("n", CultureInfo.InvariantCulture)),
+            [PeerUserMember] =
+                JsonValue.Create(PeerUserId.ToString("n", CultureInfo.InvariantCulture)),
+            [EnvelopeVersionMember] = JsonValue.Create(EnvelopeVersion),
             [AnswerMember] = JsonValue.Create(Answer.ToString()),
             [ChangesMember] = JsonValue.Create(Changes),
             [AllowedMember] = JsonValue.Create(Allowed),
