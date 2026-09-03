@@ -1,0 +1,26 @@
+The same slice asking each workflow for its own runs. The ids are derived from the API, so
+no workflow is named here either, and how far back the population reaches stops being a
+function of how busy the board is. A workflow that fires monthly is asked about on the same
+tick as one that fires on every push.
+
+        run: |
+          gh api --paginate "repos/${REPO}/actions/workflows" \
+            --jq '.workflows[] | select(.state == "active") | .id' > workflow-ids.txt
+
+          mkdir -p runs.d
+          while read -r workflow_id; do
+            [ -n "$workflow_id" ] || continue
+            gh api "repos/${REPO}/actions/workflows/${workflow_id}/runs?per_page=${RUNS_PER_WORKFLOW}" \
+              --jq '[.workflow_runs[] | {workflowName: .name, conclusion: .conclusion,
+                     url: .html_url, event: .event, updatedAt: .updated_at,
+                     headBranch: .head_branch}]' > "runs.d/${workflow_id}.json" \
+              || echo '[]' > "runs.d/${workflow_id}.json"
+          done < workflow-ids.txt
+
+          if ls runs.d/*.json >/dev/null 2>&1; then
+            jq -s 'add // []' runs.d/*.json > runs.json
+          else
+            echo '[]' > runs.json
+          fi
+
+          echo "Examined $(jq length runs.json) run(s)."
