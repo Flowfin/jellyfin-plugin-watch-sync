@@ -1,0 +1,11 @@
+A slice of the watcher's sweep as it first shipped. The population is one listing of the
+repository's most recent runs, capped at three hundred. On a board busy enough to fill that
+cap with pull-request runs the listing reaches back a day and a half, so a workflow that
+fires weekly has no run inside it and is not judged at all - which reads from the outside
+exactly like a workflow that is green.
+
+        run: |
+          gh run list --repo "$REPO" --limit 300 \
+            --json workflowName,conclusion,url,event,updatedAt,headBranch > runs.json
+
+          echo "Examined $(jq length runs.json) run(s)."

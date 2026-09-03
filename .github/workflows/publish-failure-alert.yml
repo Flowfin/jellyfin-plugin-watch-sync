@@ -19,6 +19,20 @@
 # run is reported until that workflow produces a better one, so a failure stops being
 # reported because it was fixed rather than because it aged out.
 #
+# WHERE THE RUNS COME FROM, AND WHY NOT FROM ONE LIST. Each workflow is asked for its own
+# runs. One listing of the repository's most recent runs cannot answer this question: the
+# listing is capped, a busy board fills the cap with pull-request runs, and a workflow that
+# fires weekly falls off the end of it. Measured on this repository, the 300 most recent
+# runs reached back 33 hours, and three of the scheduled workflows had no run inside it at
+# all - so a red weekly scan was not judged late, it was not judged at all. Raising the cap
+# does not fix it, because the reach is a function of how busy the board is and the schedule
+# it has to cover is a month at the longest.
+#
+# The workflow list is DERIVED from the API rather than written here, so this file still
+# names no workflow and one added tomorrow is asked about on the next tick. A workflow the
+# repository has disabled is left out: its last run is not something anybody is going to
+# repair, and alerting on it forever is noise rather than a signal.
+#
 # THIS REPLACES A RECENCY WINDOW AND THE REPLACEMENT IS THE POINT. What shipped first
 # reported only runs updated within the last 24 hours, to stop a long-dead red run
 # reopening the issue after it was closed. Every scheduled workflow in this repository but
@@ -100,6 +114,11 @@ jobs:
           SELF: ${{ github.workflow }}
           DRY_RUN: ${{ inputs.dry_run || false }}
           LABEL: release-alert
+          # How far back each workflow is asked. It bounds the streak the body reports rather
+          # than what is judged: the verdict is the first run in the list, so one is enough to
+          # decide red, and the rest only say how long it has been red. A workflow red for more
+          # consecutive runs than this reports this number and is red for longer.
+          RUNS_PER_WORKFLOW: "30"
           # The heading in docs/RELEASING.md the issue body sends a reader to. It is declared
           # here so that the suite can hold the two files to one heading.
           REPAIR_HEADING: "When the watcher files an issue"
@@ -121,8 +140,32 @@ jobs:
           # `skipped` are quiet, `cancelled` is read as somebody's own act, and an empty
           # conclusion is a run still going. This workflow leaves its own runs out so that a
           # red sweep does not sweep itself up, and both sides of that test are its own name.
-          gh run list --repo "$REPO" --limit 300 \
-            --json workflowName,conclusion,url,event,updatedAt,headBranch > runs.json
+          # THE POPULATION, ASKED FOR ONE WORKFLOW AT A TIME. The ids are derived; no name is
+          # read and none is written here. Each workflow's runs are normalised to the field
+          # names the judgement below uses, so what changes here is the reach and not the rule.
+          gh api --paginate "repos/${REPO}/actions/workflows" \
+            --jq '.workflows[] | select(.state == "active") | .id' > workflow-ids.txt
+
+          echo "Asking $(wc -l < workflow-ids.txt) active workflow(s) for their own runs."
+
+          mkdir -p runs.d
+          while read -r workflow_id; do
+            [ -n "$workflow_id" ] || continue
+            gh api "repos/${REPO}/actions/workflows/${workflow_id}/runs?per_page=${RUNS_PER_WORKFLOW}" \
+              --jq '[.workflow_runs[] | {workflowName: .name, conclusion: .conclusion,
+                     url: .html_url, event: .event, updatedAt: .updated_at,
+                     headBranch: .head_branch}]' > "runs.d/${workflow_id}.json" \
+              || echo '[]' > "runs.d/${workflow_id}.json"
+          done < workflow-ids.txt
+
+          # A workflow that has never run answers with an empty list, and a repository whose
+          # every workflow is disabled leaves no file at all; both have to come out as no runs
+          # rather than as a parse error that reads like a clean board.
+          if ls runs.d/*.json >/dev/null 2>&1; then
+            jq -s 'add // []' runs.d/*.json > runs.json
+          else
+            echo '[]' > runs.json
+          fi
 
           # ONE ROW PER RED WORKFLOW, and the row is that workflow's latest concluded run.
           # The runs are reduced to the watched population first, then grouped by workflow and

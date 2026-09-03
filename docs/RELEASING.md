@@ -227,6 +227,14 @@ before it is the one judged. This is not what shipped first: a 24 hour window st
 and against six scheduled workflows that run weekly or monthly it filed the alert and
 closed it again the next day with the failure still standing.
 
+Each workflow is asked for its own runs rather than one listing of the repository's most
+recent ones, because a single listing is capped and a busy board fills that cap with
+pull-request runs. Measured here, the 300 most recent runs reached back 33 hours and three
+of the scheduled workflows had no run inside them at all, so those three were not judged
+late, they were not judged. The workflow list is read from the API on every tick, so one
+added later is asked about without anybody registering it, and one the repository has
+disabled is left out.
+
 Which repair applies is decided by which workflow the body names, because the two
 failures this is about look alike from the release page and are not:
 

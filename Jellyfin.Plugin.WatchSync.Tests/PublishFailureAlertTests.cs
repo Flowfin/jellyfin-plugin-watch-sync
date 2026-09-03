@@ -8,7 +8,7 @@ using Xunit;
 namespace Jellyfin.Plugin.WatchSync.Tests;
 
 /// <summary>
-/// Holds the watcher of #121 to the four properties that decide whether it is worth having.
+/// Holds the watcher of #121 to the five properties that decide whether it is worth having.
 ///
 /// It names no other workflow, so what it examines is derived from the runs rather than from a
 /// list that goes stale the day a workflow is added. The board it is modelled on watched six
@@ -28,6 +28,12 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// window this replaces was 24 hours against six scheduled workflows that run weekly or
 /// monthly, so on all six the alert was filed and closed again the next day with the failure
 /// still standing.
+///
+/// It asks each workflow for its own runs rather than reading one listing of the repository's
+/// most recent ones. A single listing is capped, and on a board busy enough to fill the cap
+/// with pull-request runs it reached back 33 hours, which left three weekly workflows with no
+/// run in the population at all. That failure is worse than judging them late, because a
+/// workflow nothing asked about is indistinguishable from a green one.
 ///
 /// What this cannot judge is whether the sweep is right about a run. It reads two files. Whether
 /// the filter it holds selects what it says is proven by a dry run against the runs API, and the
@@ -147,6 +153,39 @@ public class PublishFailureAlertTests
             Watcher.RecencyCutoffs(Watcher.Fixture("watcher-window-near-miss.txt")));
 
         Assert.Empty(Watcher.RecencyCutoffs(Watcher.Fixture("watcher-window-near-miss-repaired.txt")));
+    }
+
+    /// <summary>
+    /// The fifth property. How far back the population reaches may not be a function of how
+    /// busy the board is, so the runs are asked for one workflow at a time and the workflow
+    /// list is derived rather than written down.
+    /// </summary>
+    [Fact]
+    public void TheWatcherAsksEachWorkflowForItsOwnRuns()
+    {
+        var text = Watcher.OfThisRepository();
+
+        Assert.Empty(Watcher.FlatRunListings(text));
+        Assert.True(
+            Watcher.AsksEachWorkflowForItsOwnRuns(text),
+            "The sweep does not enumerate the repository's workflows and ask each one for its runs, so nothing here holds its reach to something other than the recent-run cap.");
+    }
+
+    /// <summary>
+    /// The fifth guard, proven on the listing this repository actually shipped. It is the
+    /// cheaper thing to write, it reads as sufficient, and it silenced every workflow whose
+    /// schedule is longer than the cap happens to reach.
+    /// </summary>
+    [Fact]
+    public void TheGuardRefusesOneFlatRunListingAndPassesItsRepair()
+    {
+        Assert.Equal(
+            new[] { "one listing of the repository's recent runs" },
+            Watcher.FlatRunListings(Watcher.Fixture("watcher-reach-near-miss.txt")));
+
+        Assert.Empty(Watcher.FlatRunListings(Watcher.Fixture("watcher-reach-near-miss-repaired.txt")));
+        Assert.True(Watcher.AsksEachWorkflowForItsOwnRuns(Watcher.Fixture("watcher-reach-near-miss-repaired.txt")));
+        Assert.False(Watcher.AsksEachWorkflowForItsOwnRuns(Watcher.Fixture("watcher-reach-near-miss.txt")));
     }
 
     /// <summary>
@@ -270,6 +309,40 @@ public class PublishFailureAlertTests
 
             return Regex.IsMatch(code, @"group_by\(\.workflowName\)")
                 && Regex.IsMatch(code, @"sort_by\(\.updatedAt\)\s*\|\s*reverse");
+        }
+
+        /// <summary>
+        /// The ways the sweep could take its population from one capped listing of the
+        /// repository's recent runs, as they appear outside the comments. A comment may say
+        /// what that listing was and what it missed; the code may not read one.
+        /// </summary>
+        /// <param name="text">The workflow text.</param>
+        /// <returns>The probes that hit, in a fixed order.</returns>
+        internal static IReadOnlyList<string> FlatRunListings(string text)
+        {
+            var code = CodeOf(text);
+            var found = new List<string>();
+
+            if (Regex.IsMatch(code, @"gh\s+run\s+list") || Regex.IsMatch(code, @"repos/\$\{?REPO\}?/actions/runs"))
+            {
+                found.Add("one listing of the repository's recent runs");
+            }
+
+            return found;
+        }
+
+        /// <summary>
+        /// Whether the sweep derives the repository's workflows and asks each one for its own
+        /// runs, which is what makes the absence above a rule rather than a gap.
+        /// </summary>
+        /// <param name="text">The workflow text.</param>
+        /// <returns>True where it does.</returns>
+        internal static bool AsksEachWorkflowForItsOwnRuns(string text)
+        {
+            var code = CodeOf(text);
+
+            return Regex.IsMatch(code, @"\.workflows\[\]")
+                && Regex.IsMatch(code, @"actions/workflows/\$\{?workflow_id\}?/runs");
         }
 
         /// <summary>
