@@ -11,17 +11,16 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// Holds every call to the packaging tool in this repository to one commit and to the one
 /// framework the manifest declares at its top level.
 ///
-/// Three routes call it, and the third is the one a reader of this tree misses. The merge gate
-/// and the release name the packager in a file here. The shared plugin workflow that
-/// `.github/workflows/build.yaml` calls on every pull request runs the same packager inside a
-/// tree this repository pins but does not hold, so a grep for the tool over these workflows
-/// finds two of the three. The failure this refuses is them drifting apart: a route packaging
-/// bytes another never builds proves nothing about that other one, and it is the same defect
-/// whichever pin moves.
+/// Two routes call it and both are files here: the merge gate packages on every pull request,
+/// and the release packages what it ships. The failure this refuses is them drifting apart: a
+/// route packaging bytes another never builds proves nothing about that other one, and it is
+/// the same defect whichever pin moves.
 ///
-/// The bound is that the shared workflow's own steps are not in this tree. What is held here is
-/// that the call is pinned and that this repository does not hand it the other server line; what
-/// that workflow then does with the input is read at review.
+/// There were three until #90. `.github/workflows/build.yaml` called a shared workflow in
+/// another organisation's tree, that workflow ran the same packager, and a grep for the tool
+/// over these files found two of the three. That call is gone, so every call this rule is
+/// about is now a call it can read, and the bound this comment carried - that the third
+/// route's own steps were not in this tree - has gone with it.
 ///
 /// The framework rule is the sharper of the two and it is not tidiness. The packager writes
 /// the metadata that travels with the archive out of the manifest's top level `targetAbi`
@@ -77,42 +76,6 @@ public class PackagingGateTests
             call => Assert.True(
                 string.Equals(call.Framework, declared, StringComparison.Ordinal),
                 $"{call.Workflow} packages {call.Framework} while build.yaml declares {declared} beside the ABI the packager stamps, so that archive would claim a server line it was not built for."));
-    }
-
-    /// <summary>
-    /// The shared plugin workflow packages too, and it defaults to one server line. Handing it
-    /// the other one would produce an archive compiled for that line and stamped with this one,
-    /// for the same reason as every call named in this file, and nothing else here would see it.
-    /// </summary>
-    [Fact]
-    public void TheSharedBuildCallIsPinnedAndIsNotHandedTheOtherLine()
-    {
-        var path = Path.Combine(HeadlessGuardTests.HeadlessGuard.RepositoryRoot(), ".github", "workflows", "build.yaml");
-        var lines = File.ReadAllLines(path);
-
-        var call = lines.FirstOrDefault(line => line.TrimStart().StartsWith("uses: ", StringComparison.Ordinal));
-
-        Assert.True(call is not null, "The build workflow names no shared workflow, so this rule reads nothing.");
-
-        var pinned = Regex.Match(call!, "uses: (?<workflow>[^@]+)@(?<commit>[^ ]+)");
-
-        Assert.True(pinned.Success, $"The shared workflow call is not written as a reference at a version: {call}");
-        Assert.Matches("^[0-9a-fA-F]{40}$", pinned.Groups["commit"].Value);
-
-        var handed = lines.FirstOrDefault(line => line.TrimStart().StartsWith("dotnet-target:", StringComparison.Ordinal));
-
-        if (handed is not null)
-        {
-            var parts = handed.Split('"');
-
-            Assert.True(parts.Length >= 2, $"The shared build call names a target framework this rule cannot read: {handed}");
-
-            var declared = BuildTargetsTests.BuildFacts.ScalarAtColumnZero(BuildTargetsTests.BuildFacts.ManifestText(), "framework");
-
-            Assert.True(
-                string.Equals(parts[1], declared, StringComparison.Ordinal),
-                $"The shared build call is handed {parts[1]} while build.yaml declares {declared} beside the ABI the packager stamps, so that archive would claim a server line it was not built for.");
-        }
     }
 
     /// <summary>
