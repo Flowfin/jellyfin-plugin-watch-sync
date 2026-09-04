@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.WatchSync.Configuration;
 using Jellyfin.Plugin.WatchSync.Document;
+using Jellyfin.Plugin.WatchSync.Matching;
 using Jellyfin.Plugin.WatchSync.Records;
 using Jellyfin.Plugin.WatchSync.Storage;
 using MediaBrowser.Model.Tasks;
@@ -27,6 +28,16 @@ namespace Jellyfin.Plugin.WatchSync.Transfer;
 /// retention an operator set. Until this task those two settings were read by nothing, so the
 /// number an operator typed was the number the rule would take and no rule ran. The exchange
 /// arrives with the adapter and takes its place in the same walk, under the same record.
+/// </para>
+///
+/// <para>
+/// Before the records are walked, the match index is rebuilt from the library, which is #29's
+/// first condition: the index is built on start and rebuilt by the sweep, so a change to the
+/// library that no event reached is in the index by the next run rather than for ever absent
+/// from it. The rebuild walks the library one page at a time and swaps a finished map in whole,
+/// so a lookup during it is answered from the map before rather than from an empty one, and
+/// the task runs at server start as well as at the interval, which is what makes the first half
+/// of that condition true through the one thing in this plugin the server runs unasked.
 /// </para>
 ///
 /// <para>
@@ -55,6 +66,7 @@ public sealed class ScheduledSweep : IScheduledTask
     private readonly DocumentStore _store;
     private readonly StoredSettings _settings;
     private readonly SweepRuns _runs;
+    private readonly MatchIndex _index;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ScheduledSweep"/> class.
@@ -63,17 +75,20 @@ public sealed class ScheduledSweep : IScheduledTask
     /// <param name="store">The store this plugin's records are in.</param>
     /// <param name="settings">The settings as the server holds them.</param>
     /// <param name="runs">Where the last run is kept for a reader other than this task.</param>
-    public ScheduledSweep(TimeProvider clock, DocumentStore store, StoredSettings settings, SweepRuns runs)
+    /// <param name="index">The match index this run rebuilds from the library.</param>
+    public ScheduledSweep(TimeProvider clock, DocumentStore store, StoredSettings settings, SweepRuns runs, MatchIndex index)
     {
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(runs);
+        ArgumentNullException.ThrowIfNull(index);
 
         _clock = clock;
         _store = store;
         _settings = settings;
         _runs = runs;
+        _index = index;
     }
 
     /// <inheritdoc />
@@ -84,7 +99,7 @@ public sealed class ScheduledSweep : IScheduledTask
 
     /// <inheritdoc />
     public string Description =>
-        "Trims this plugin's conflict and provenance records past their retention, and records what the run examined. Nothing is exchanged with a peer yet.";
+        "Rebuilds the match index from the library, trims this plugin's conflict and provenance records past their retention, and records what the run examined. Nothing is exchanged with a peer yet.";
 
     /// <inheritdoc />
     public string Category => "Watch Sync";
@@ -92,15 +107,18 @@ public sealed class ScheduledSweep : IScheduledTask
     /// <summary>
     /// The schedule the server files for this task where an operator has not set one.
     ///
-    /// The interval is the setting `docs/configuration.md` carries, read at the moment the
-    /// server asks, and the rule's own default where the configuration is refused. What the
-    /// server does with it is the bound to read carefully: it asks once, when it first meets
-    /// the task, and keeps what an operator later sets in the dashboard in preference. So a
-    /// change to the setting reaches the schedule at the next server start, and not at all on
-    /// a server whose operator edited the schedule in the dashboard, which is then the home of
-    /// the interval for that server.
+    /// Two triggers. One run at server start, because the index has to be built on start and
+    /// what the events missed while the server was down is exactly what a sweep is for, and
+    /// then one at the interval. The interval is the setting `docs/configuration.md` carries,
+    /// read at the moment the server asks, and the rule's own default where the configuration
+    /// is refused. What the server does with the pair is the bound to read carefully: it asks
+    /// once, when it first meets the task, and keeps what an operator later sets in the
+    /// dashboard in preference. So a change to the setting reaches the schedule at the next
+    /// server start, and not at all on a server whose operator edited the schedule in the
+    /// dashboard, which is then the home of the interval for that server, and an operator who
+    /// removes the startup run there has removed it.
     /// </summary>
-    /// <returns>One interval trigger.</returns>
+    /// <returns>A startup trigger and one interval trigger.</returns>
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
     {
         var reading = _settings.Read();
@@ -109,6 +127,10 @@ public sealed class ScheduledSweep : IScheduledTask
 
         return new[]
         {
+            new TaskTriggerInfo
+            {
+                Type = TaskTriggerInfoType.StartupTrigger,
+            },
             new TaskTriggerInfo
             {
                 Type = TaskTriggerInfoType.IntervalTrigger,
@@ -128,6 +150,12 @@ public sealed class ScheduledSweep : IScheduledTask
         {
             throw new InvalidOperationException(RefusedConfiguration(settings.Refusals));
         }
+
+        // The index first, so that a lookup made by anything the walk below will one day do is
+        // answered from a map that has seen the library as it is now rather than as it was at
+        // the last event. The rebuild swaps a finished map in whole, so nothing reading the
+        // index while it runs sees an empty one.
+        _index.Rebuild();
 
         var subjects = Subjects();
         var run = SweepRun.Over(_clock.GetUtcNow(), subjects.Count);

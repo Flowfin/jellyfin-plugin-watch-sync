@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -8,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.WatchSync.Configuration;
 using Jellyfin.Plugin.WatchSync.Document;
+using Jellyfin.Plugin.WatchSync.Matching;
 using Jellyfin.Plugin.WatchSync.Model;
 using Jellyfin.Plugin.WatchSync.Records;
 using Jellyfin.Plugin.WatchSync.Storage;
@@ -37,6 +39,11 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// what is past its retention leaves, what is not stays, a store with nothing to trim is not
 /// written to, a cancelled run is recorded as one that stopped short, and a configuration the
 /// rules refuse runs nothing and says which setting.
+///
+/// The run also rebuilds the match index, which is #29's first condition arriving through the
+/// sweep: an item the library gained that no event carried to the index is found after a run,
+/// and the task runs at server start so the index is built there rather than by whichever
+/// lookup comes first.
 /// </summary>
 public sealed class ScheduledSweepTests : IDisposable
 {
@@ -125,17 +132,35 @@ public sealed class ScheduledSweepTests : IDisposable
 
     /// <summary>
     /// The schedule is the setting, which is #55's second condition reaching the task that
-    /// reads it. One interval trigger, at the interval the configuration carries.
+    /// reads it. One interval trigger, at the interval the configuration carries, and it is the
+    /// only interval trigger, because two intervals would be two schedules for one number.
     /// </summary>
     [Fact]
     public void TheDefaultTriggerIsTheConfiguredInterval()
     {
         var sweep = Sweep(Configured(configuration => configuration.SweepIntervalMinutes = 45), Store(), new SweepRuns());
 
-        var trigger = Assert.Single(sweep.GetDefaultTriggers());
+        var trigger = Assert.Single(sweep.GetDefaultTriggers(), each => each.Type == TaskTriggerInfoType.IntervalTrigger);
 
-        Assert.Equal(TaskTriggerInfoType.IntervalTrigger, trigger.Type);
         Assert.Equal(TimeSpan.FromMinutes(45).Ticks, trigger.IntervalTicks);
+    }
+
+    /// <summary>
+    /// The task runs at server start, which is how the index is built on start rather than by
+    /// whichever lookup comes first, and how what the events missed while the server was down
+    /// is picked up before the first interval elapses. One startup trigger beside the interval,
+    /// and nothing else: a third trigger would be a schedule no setting describes.
+    /// </summary>
+    [Fact]
+    public void TheSweepRunsAtServerStartAndThenAtTheInterval()
+    {
+        var sweep = Sweep(Configured(), Store(), new SweepRuns());
+
+        var triggers = sweep.GetDefaultTriggers().ToList();
+
+        Assert.Equal(2, triggers.Count);
+        Assert.Single(triggers, each => each.Type == TaskTriggerInfoType.StartupTrigger);
+        Assert.Single(triggers, each => each.Type == TaskTriggerInfoType.IntervalTrigger);
     }
 
     /// <summary>
@@ -148,9 +173,43 @@ public sealed class ScheduledSweepTests : IDisposable
     {
         var sweep = Sweep(Configured(configuration => configuration.SweepIntervalMinutes = 0), Store(), new SweepRuns());
 
-        var trigger = Assert.Single(sweep.GetDefaultTriggers());
+        var trigger = Assert.Single(sweep.GetDefaultTriggers(), each => each.Type == TaskTriggerInfoType.IntervalTrigger);
 
         Assert.Equal(SweepSchedule.DefaultInterval.Ticks, trigger.IntervalTicks);
+    }
+
+    /// <summary>
+    /// The whole of what the rebuild is for. The index was built while the library held one
+    /// film, a second film arrived and no event carried it to the index, and after a run the
+    /// index answers the second film's key with the item. Nothing else in this suite touches
+    /// the index between the two lookups, so the run is the only thing that could have moved
+    /// the answer. The second run rebuilds again rather than finding the index built and
+    /// stopping, which is what "rebuilt by the sweep" means as against "built once".
+    /// </summary>
+    [Fact]
+    public async Task ARunRebuildsTheIndexSoAnItemNoEventReachedIsFoundAfterIt()
+    {
+        var library = new Library(new KeyedItem(_film, MatchKey.Of(Identifier(1))));
+        var index = new MatchIndex(library);
+        var runs = new SweepRuns();
+
+        Assert.False(index.Lookup(MatchKey.Of(Identifier(2))).IsMatched);
+
+        library.Add(new KeyedItem(_episode, MatchKey.Of(Identifier(2))));
+
+        Assert.False(index.Lookup(MatchKey.Of(Identifier(2))).IsMatched);
+
+        var walksBefore = library.Walks;
+
+        await Sweep(Configured(), Store(), runs, index).ExecuteAsync(new Progress<double>(), CancellationToken.None);
+
+        Assert.Equal(walksBefore + 1, library.Walks);
+        Assert.Equal(_episode, index.Lookup(MatchKey.Of(Identifier(2))).Item);
+        Assert.Equal(SweepRunOutcome.Covered, runs.Last!.Outcome);
+
+        await Sweep(Configured(), Store(), runs, index).ExecuteAsync(new Progress<double>(), CancellationToken.None);
+
+        Assert.Equal(walksBefore + 2, library.Walks);
     }
 
     /// <summary>
@@ -250,7 +309,7 @@ public sealed class ScheduledSweepTests : IDisposable
     {
         var clock = new Clock(_night);
         var runs = new SweepRuns();
-        var sweep = new ScheduledSweep(clock, Store(), Configured(), runs);
+        var sweep = new ScheduledSweep(clock, Store(), Configured(), runs, new MatchIndex(new Library()));
         var reported = new List<double>();
 
         await sweep.ExecuteAsync(new Reporter(reported), CancellationToken.None);
@@ -306,19 +365,22 @@ public sealed class ScheduledSweepTests : IDisposable
     /// <summary>
     /// A configuration the rules refuse runs nothing. The task fails with the refusal, naming
     /// the setting, what was found and what it had to satisfy, and the record it would have
-    /// trimmed is untouched. No run is recorded, because none happened.
+    /// trimmed is untouched. No run is recorded, because none happened, and the library is not
+    /// walked either: nothing means nothing, and a rebuild before the refusal would be a run
+    /// that did half its work and then reported it did none.
     /// </summary>
     [Fact]
     public async Task ARefusedConfigurationRunsNothingAndNamesTheSetting()
     {
         var store = Store();
         var runs = new SweepRuns();
+        var library = new Library();
 
         store.Write(ConflictRecords.DocumentName(_pairing, _user), _ => ConflictRecords.NoneYet(_pairing, _user)
             .With(Conflict(_film, _night.AddDays(-400)))
             .ToDocument());
 
-        var sweep = Sweep(Configured(configuration => configuration.ConflictRetentionDays = 0), store, runs);
+        var sweep = Sweep(Configured(configuration => configuration.ConflictRetentionDays = 0), store, runs, new MatchIndex(library));
 
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sweep.ExecuteAsync(new Progress<double>(), CancellationToken.None));
@@ -326,6 +388,7 @@ public sealed class ScheduledSweepTests : IDisposable
         Assert.Contains(nameof(PluginConfiguration.ConflictRetentionDays), refused.Message, StringComparison.Ordinal);
         Assert.Contains(" is 0 ", refused.Message, StringComparison.Ordinal);
         Assert.Null(runs.Last);
+        Assert.Equal(0, library.Walks);
         Assert.Equal(1, ConflictRecords.Read(store.Read(ConflictRecords.DocumentName(_pairing, _user))!.Document!).Records!.Count);
     }
 
@@ -403,8 +466,24 @@ public sealed class ScheduledSweepTests : IDisposable
     private static ProvenanceRecord Write(Guid item, DateTimeOffset writtenAt, Guid? user = null) =>
         new ProvenanceRecord(_pairing, user ?? _user, _peerUser, item, SyncedField.Played, 0, 1, writtenAt);
 
-    private static ScheduledSweep Sweep(StoredSettings settings, DocumentStore store, SweepRuns runs) =>
-        new ScheduledSweep(new Clock(_night), store, settings, runs);
+    private static ScheduledSweep Sweep(StoredSettings settings, DocumentStore store, SweepRuns runs, MatchIndex? index = null) =>
+        new ScheduledSweep(new Clock(_night), store, settings, runs, index ?? new MatchIndex(new Library()));
+
+    /// <summary>
+    /// An identifier the numbering of a test can produce, in the one spelling a key compares.
+    /// </summary>
+    /// <param name="number">The number, which is never zero because no provider allocates it.</param>
+    /// <returns>The identifier.</returns>
+    private static ProviderIdentifier Identifier(int number)
+    {
+        var reading = ProviderIdentifier.Normalise(
+            IdentifierProvider.Tmdb,
+            number.ToString(CultureInfo.InvariantCulture));
+
+        Assert.True(reading.IsUsable);
+
+        return reading.Identifier!;
+    }
 
     /// <summary>
     /// The settings as a server would hold them, on a plugin instance the server's manager hands
@@ -445,6 +524,36 @@ public sealed class ScheduledSweepTests : IDisposable
         paths.SetupGet(each => each.DataPath).Returns(DataPath);
 
         return new StoreFolder(paths.Object);
+    }
+
+    /// <summary>
+    /// A library the index reads, counting the walks the index makes over it. A walk is a read
+    /// of its first page, because that is the one read every walk makes whatever the library
+    /// holds, so the count says how many times the index was rebuilt and not how large the
+    /// library was.
+    /// </summary>
+    private sealed class Library : IMatchIndexSource
+    {
+        private readonly List<KeyedItem> _items;
+
+        internal Library(params KeyedItem[] items)
+        {
+            _items = items.ToList();
+        }
+
+        internal int Walks { get; private set; }
+
+        internal void Add(KeyedItem item) => _items.Add(item);
+
+        public IReadOnlyList<KeyedItem> ReadPage(int startIndex, int count)
+        {
+            if (startIndex == 0)
+            {
+                Walks++;
+            }
+
+            return _items.Skip(startIndex).Take(count).ToList();
+        }
     }
 
     /// <summary>

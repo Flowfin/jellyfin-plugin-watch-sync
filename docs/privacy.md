@@ -16,10 +16,12 @@ a person is handed, so where they disagree the other three are right.
 ## What is true of this plugin today, before anything below is read
 
 One thing in this plugin runs on its own: the scheduled sweep, a task the server runs
-at the interval `SweepIntervalMinutes` sets, which an operator sees, runs and sees the
-last run of in the dashboard's task list. What a run does is trim this plugin's own
-records of conflicts and of provenance to the retention each setting below carries,
-and record what it examined. It reads nobody's watch record, transfers nothing and
+once at server start and then at the interval `SweepIntervalMinutes` sets, which an
+operator sees, runs and sees the last run of in the dashboard's task list. What a run
+does is rebuild the match index from the library, which reads which local item carries
+which identifier and nothing about who watched it, trim this plugin's own records of
+conflicts and of provenance to the retention each setting below carries, and record
+what it examined. It reads nobody's watch record, transfers nothing and
 contacts no peer, because the pairing adapter it would need is
 [#40](https://github.com/Flowfin/jellyfin-plugin-watch-sync/issues/40) and is not in
 this tree, and its own description in the dashboard says so. There is no background
@@ -177,10 +179,10 @@ every run of the sweep hands each record the moment its own retention setting pu
 before now:
 
     grep -rn "Retaining(" --include=*.cs Jellyfin.Plugin.WatchSync/ | grep -v "public " ; echo "exit=$?"
-    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:272:                : conflicts.Records!.Count - conflicts.Records.Retaining(from).Count;
-    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:279:            : provenance.Records!.Count - provenance.Records.Retaining(from).Count;
-    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:304:            var retained = conflicts.Records!.Retaining(from);
-    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:320:        var kept = provenance.Records!.Retaining(from);
+    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:300:                : conflicts.Records!.Count - conflicts.Records.Retaining(from).Count;
+    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:307:            : provenance.Records!.Count - provenance.Records.Retaining(from).Count;
+    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:332:            var retained = conflicts.Records!.Retaining(from);
+    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:348:        var kept = provenance.Records!.Retaining(from);
     exit=0
 
 So an entry older than its retention leaves the record at the first sweep run after it
