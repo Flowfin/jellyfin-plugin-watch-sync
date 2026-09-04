@@ -129,3 +129,10 @@ endpoint-role-checked-by-hand :: endpoint-authorised-by-the-server :: 66 :: \.Is
 # the second chance is written under. Matched is not among them: a caller has to know that it
 # matched, and MatchLookup offers that as a property rather than as a comparison.
 second-chance-on-a-non-match :: no-second-chance-match :: 26 :: MatchAnswer\s*\.\s*(NoMatch|Ambiguous)\b :: asks which of the two non-matching answers came back, which is the question a weaker comparison is written under :: MatchLookup.IsMatched, and the unmatched record, which is what a non-match produces instead of a second attempt
+
+# The schedule an operator set in the dashboard is theirs. The server asks a task for its
+# triggers once and keeps what an operator later sets in preference, so a task that wrote
+# the saved schedule back from the setting would undo that edit in silence, which is the
+# repair #55 refused when it decided which of the two homes wins.
+schedule-task-manager :: schedule-not-rewritten :: 55 :: \bITaskManager\b :: reaches the server's own record of when each task runs :: GetDefaultTriggers, which the server asks once and an operator may then override
+schedule-triggers-assigned :: schedule-not-rewritten :: 55 :: \.Triggers\s*=(?!=) :: writes the schedule the server saved for a task :: GetDefaultTriggers, which the server asks once and an operator may then override

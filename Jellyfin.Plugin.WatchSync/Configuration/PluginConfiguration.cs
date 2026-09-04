@@ -121,6 +121,13 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>
     /// Gets or sets how often, in minutes, the scheduled sweep runs.
     ///
+    /// It is the default the server is offered the first time it meets the task rather than the
+    /// schedule in force. The server asks once and keeps a schedule an operator later sets in its
+    /// own dashboard in preference, and #55 decided that the operator's edit wins: nothing here
+    /// writes that schedule back, because the only one such a write could overwrite is one
+    /// somebody chose by hand. `schedule-not-rewritten` refuses the write and
+    /// <c>docs/configuration.md</c> carries what the answer costs.
+    ///
     /// Defaults to <see cref="SweepSchedule.DefaultInterval"/>, bounded by
     /// <see cref="SweepSchedule.LongestInterval"/>. It is the only member here stored in minutes,
     /// and the unit is the floor rather than a preference: the smallest value any setting on this

@@ -341,20 +341,40 @@ interval elapses, and the number this setting holds says nothing about it.
     Jellyfin.Plugin.WatchSync/Configuration/PluginConfiguration.cs:125:    /// <see cref="SweepSchedule.LongestInterval"/>. It is the only member here stored in minutes,
     Jellyfin.Plugin.WatchSync/Configuration/PluginConfiguration.cs:132:        (int)SweepSchedule.DefaultInterval.TotalMinutes;
     Jellyfin.Plugin.WatchSync/Configuration/ServerWideSettings.cs:84:            SweepSchedule.LongestInterval);
-    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:108:        var interval = reading.IsRead ? reading.SweepInterval!.Value : SweepSchedule.DefaultInterval;
+    Jellyfin.Plugin.WatchSync/Transfer/ScheduledSweep.cs:126:        var interval = reading.IsRead ? reading.SweepInterval!.Value : SweepSchedule.DefaultInterval;
 
 What the server does with that answer is the bound to read before trusting the setting. It
 asks once, when it first meets the task, and it keeps a schedule an operator sets in the
 dashboard in preference to the default. So a changed setting reaches the schedule at the
 next server start, and on a server whose operator edited the task's schedule in the
-dashboard it does not reach it at all: the dashboard is then the interval's home for that
-server, and this setting says what the default was. That is one number with two homes and
-it is stated rather than repaired, because the repair is the task rewriting the server's
-saved schedule from the setting after every run, which undoes the operator's dashboard edit
-in silence, and which of the two homes wins is decided on #55 rather than here. The startup
-run has the same two homes: an operator who removes it in the dashboard has removed it for
-that server, and the index is then built by the first lookup that needs it rather than at
-start, which is a slower first answer and never a wrong one.
+dashboard it does not reach it at all.
+
+THAT IS ONE NUMBER WITH TWO HOMES AND #55 HAS DECIDED WHICH ONE WINS, AND THIS PARAGRAPH
+SAID THE DECISION WAS OPEN. The dashboard wins. This setting is the default the server is
+offered the first time it meets the task, and the schedule in force is the server's,
+wherever an operator has touched it. Nothing here writes that schedule back.
+
+The alternative was the task rewriting the server's saved schedule from this setting after
+every run, which is what makes the number take effect without a restart. It was refused
+because the only schedule it can overwrite is one an operator chose by hand, and it
+overwrites it in silence on a run that reports nothing unusual. This document already holds
+every setting to `refuse rather than repair silently`; a write there is that rule broken
+from the other side, against the one person whose choice it is.
+
+What the answer costs is the confusion it leaves, and it is not repaired here either. An
+operator who edits this number on a server where the dashboard schedule has been touched
+sees nothing happen and is told nothing. The place that ends that is the status page in
+#62, which is where the schedule in force belongs beside the schedule this setting asks
+for, and it is named here rather than left for a reader to wonder about.
+
+`schedule-not-rewritten` is the refusal that keeps the answer. It refuses the server's own
+task manager and an assignment to a task's triggers anywhere in this plugin's sources, which
+is the shape the rejected repair has to take, and `docs/invariants.md` carries the argument.
+
+The startup run has the same two homes and the same answer: an operator who removes it in
+the dashboard has removed it for that server, and the index is then built by the first
+lookup that needs it rather than at start, which is a slower first answer and never a wrong
+one.
 
 The cap on what one run may change was the third of those and has its numbers now, in
 `RunCap`. Both of its settings are per pairing rather than server-wide, and that is the

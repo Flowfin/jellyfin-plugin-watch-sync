@@ -1,0 +1,32 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// This is the repair #55 refused, written the way somebody writes it. The setting is read
+// correctly, the interval is the one the operator typed into the plugin's own page, and the
+// task puts it where the server keeps schedules so that the number takes effect without
+// waiting for a restart. Every line of it is trying to make the setting work.
+//
+// What it costs is invisible from here and from the page. The server asks a task for its
+// triggers once and keeps what an operator later set in the dashboard in preference, so the
+// only schedule this overwrites is one an operator chose by hand. It is undone in silence,
+// on a run that reports nothing unusual, and the next time they look the number is back to
+// whatever the plugin's page says.
+
+internal sealed class SweepSchedulePush
+{
+    private readonly ITaskManager _tasks;
+
+    private readonly StoredSettings _settings;
+
+    internal SweepSchedulePush(ITaskManager tasks, StoredSettings settings)
+    {
+        _tasks = tasks;
+        _settings = settings;
+    }
+
+    internal void AfterEveryRun()
+    {
+        var worker = _tasks.ScheduledTasks.First(task => task.ScheduledTask is ScheduledSweep);
+
+        worker.Triggers = Triggers(_settings.Read().SweepInterval!.Value);
+    }
+}
