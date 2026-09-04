@@ -1,0 +1,8 @@
+## Installing it
+
+The address this plugin is published at is
+
+    https://flowfin.dev/manifest.json
+
+That address serves finished versions and nothing else. There is no second
+address to subscribe to for a test build.

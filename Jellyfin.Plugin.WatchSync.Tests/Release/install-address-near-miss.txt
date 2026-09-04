@@ -1,0 +1,10 @@
+## Installing it
+
+The address this plugin is published at is
+
+    https://flowfin.dev/manifest.json
+
+An operator who wants to try the next version before it is finished adds the
+pre-release address as well, rather than repointing a running install:
+
+    https://flowfin.dev/prerelease-manifest.json
