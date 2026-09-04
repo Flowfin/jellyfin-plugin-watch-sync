@@ -39,6 +39,7 @@ without covering the rest.
 | `pairing-behind-the-adapter` | #40 | the plugin's own sources | `InvariantGuardTests` |
 | `endpoint-authorised-by-the-server` | #66 | the plugin's own sources | `InvariantGuardTests` |
 | `no-second-chance-match` | #26 | the plugin's own sources | `InvariantGuardTests` |
+| `schedule-not-rewritten` | #55 | the plugin's own sources | `InvariantGuardTests` |
 
 ## What each one is for
 
@@ -214,6 +215,36 @@ It is here before the pass that would call a lookup, for the reason
 line somebody writes at the moment a key comes back with nothing, which is exactly when it
 looks reasonable, and a guard arriving after that line does not prevent it.
 
+**`schedule-not-rewritten`.** No source reaches the server's own record of when a task runs.
+The sweep's interval is a setting on this plugin's page and the server asks the task for its
+triggers once, when it first meets it, keeping what an operator later sets in the dashboard
+in preference. So the setting is the default the server is offered and the dashboard is the
+schedule in force wherever an operator has touched it, which is the answer #55 took: the
+operator's edit wins.
+
+The repair that answer refuses is what these two rules are for. It is one call and it reads
+as making the setting work: find the task among the server's scheduled tasks and assign its
+triggers from the setting after every run. What it actually does is overwrite the only
+schedule an operator can have chosen by hand, in silence, on a run that reports nothing
+unusual, so the failure is not a wrong interval but a plugin that quietly refuses to be
+configured where it is configured from. `refuse rather than repair silently` is the rule
+this plugin already holds settings to, and a write here is that rule broken from the other
+side.
+
+It is here before anything asks for the task manager, for the same reason
+`pairing-behind-the-adapter` is: the line gets written on the day somebody notices the
+setting takes a restart to arrive, which is exactly the day it looks like a bug fix.
+
+Two rules rather than one, and the second is the wider of the two on purpose. The type is
+the only route this plugin has to a task worker on either supported line, so the first rule
+alone would hold today; the second refuses the assignment whatever handed the worker over,
+which is what keeps the rule about the write rather than about one interface's name. What
+it cannot do is tell a task's triggers from any other member spelled `Triggers`, so a type
+of this plugin's own that grew such a property would be refused for a write that has
+nothing to do with the server's schedule. Nothing in the tree carries one today, and the
+answer if one arrives is a departure naming the call rather than a narrower pattern, because
+a pattern narrowed to a type name is the first rule again.
+
 ## What these patterns cannot see
 
 A pattern reads one line of text. That is enough for the mistakes above as they are
@@ -223,13 +254,14 @@ green run.
 
 **A scan is only as wide as its subject.** These rules read the plugin's own sources, so
 what a green run is worth depends on what those sources hold, and that moves under this
-paragraph without anybody editing it. Every reading below was taken at `f9ec69a`.
-Four of the eleven invariants that guard carries scan sources holding nothing of the kind
-the rule is about, and seven scan sources that hold the surface a violation would be
-written on. The eleven are counted from the register rather than from this sentence:
+paragraph without anybody editing it. Every reading below was taken at `79a3a62` except the
+count, which is read after the entry this change adds.
+Four of the twelve invariants that guard carries scan sources holding nothing of the kind
+the rule is about, and eight scan sources that hold the surface a violation would be
+written on. The twelve are counted from the register rather than from this sentence:
 
     grep -c ':: InvariantGuardTests$' Jellyfin.Plugin.WatchSync.Tests/Invariants/register.txt
-    11
+    12
 
 The four are `mapping-not-inferred`, `log-holds-no-viewing`,
 `waiting-is-on-the-injected-clock` and `pairing-behind-the-adapter`. Nothing in this plugin
@@ -245,7 +277,16 @@ and four have swapped ends since, and the command it rested on no longer returns
     grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)|Username|DateTime\.(Now|UtcNow)|\.(PlayCount|PlaybackPositionTicks)\s*(\+\+|\+=)|Thread\.Sleep|Task\.Delay|SpinWait|new (System\.Threading\.)?(Periodic)?Timer\(|Jellyfin\.Plugin\.ServerPairing|IPair(edPeers|ingKeySource|ingKeyStore|ingRecordStore)|Pairing(Record|State|Message)|Peer(Channel|Reply)|KeyMaterial|PairingKeys|OfferedKey|\[AllowAnonymous\]|\[From(Query|Route|Form|Header)\].*[Uu]serId|Policy\s*=\s*"|\.IsInRole\s*\(' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
     Jellyfin.Plugin.WatchSync/Api/HeldAboutOnePersonController.cs:60:    public ActionResult<HeldRecordsReport> Report([FromRoute] Guid mappedUserId)
     Jellyfin.Plugin.WatchSync/Api/HeldAboutOnePersonController.cs:94:    public ActionResult<RecordsRemoved> Remove([FromRoute] Guid mappedUserId)
-    exit=0
+    Jellyfin.Plugin.WatchSync/Api/SyncStatusController.cs:90:    public ActionResult<SyncStatus> Status([FromRoute] Guid pairingId, [FromRoute] Guid mappedUserId)
+    Jellyfin.Plugin.WatchSync/Api/SyncStatusController.cs:117:    public ActionResult<UnmatchedExport> Unmatched([FromRoute] Guid pairingId, [FromRoute] Guid mappedUserId)
+
+CORRECTED BY RE-RUNNING IT AGAIN, AND THE OUTPUT ABOVE CARRIED TWO LINES. A second
+controller landed and the same command returns four. Nothing about the sentence it stands
+under moved: the hits are still the route parameter that names a person, still refused by
+nothing here, and still the reason the endpoint invariant is not in the vacuous four. The
+paste is what went stale, which is the failure the sentence above it exists to make
+checkable, and it was found by re-running the command rather than by anything that reads
+this file.
 
 WHICH CLAUSE MOVED MATTERS MORE THAN THE COUNT. It is "nor exposes an endpoint", and the
 invariant it made vacuous is `endpoint-authorised-by-the-server`, which exists for the
@@ -284,7 +325,13 @@ is not. The names that now return hits are out of the command, the endpoint name
 because that invariant arrived after this paragraph was written and never joined its count,
 and the seven the sentence was about are a different seven from the ones it named.
 
-The seven that are not vacuous. The static that `static-instance-not-read` refuses reaching
+THE COUNT MOVED WITH `schedule-not-rewritten` AND THIS PARAGRAPH SAID ELEVEN AND SEVEN. It
+is the eighth of the not-vacuous ones rather than one more name in the four: this plugin
+holds a scheduled task that answers the server with its own triggers, so the surface a
+write would be added to is in the tree already. That is the ordinary way this number moves,
+and it is why the sentence above hands over the command instead of the figure.
+
+The eight that are not vacuous. The static that `static-instance-not-read` refuses reaching
 for is in `Plugin.cs`, and every source in the project can see it, so that rule has had
 something to be true of since the day the project was created. `store-path-from-the-server`
 arrived with the one type that composes a path:

@@ -116,7 +116,9 @@ public sealed class ScheduledSweep : IScheduledTask
     /// dashboard in preference. So a change to the setting reaches the schedule at the next
     /// server start, and not at all on a server whose operator edited the schedule in the
     /// dashboard, which is then the home of the interval for that server, and an operator who
-    /// removes the startup run there has removed it.
+    /// removes the startup run there has removed it. #55 decided that this is the answer rather
+    /// than a state to repair: the operator's edit wins, nothing here writes the server's saved
+    /// schedule back, and `schedule-not-rewritten` refuses the write that would.
     /// </summary>
     /// <returns>A startup trigger and one interval trigger.</returns>
     public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()

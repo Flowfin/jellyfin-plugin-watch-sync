@@ -1,0 +1,22 @@
+// The repair of the near-miss next to it, and nothing else. The same setting is read and the
+// same interval comes out of it; what goes is the write into the server's own record of when
+// the task runs. The number is offered where the server asks for it and the answer is the
+// server's to keep or to have replaced by an operator.
+//
+// If the guard passes this and refuses its neighbour, what it refused was the write and not
+// the reading, the setting or the interval.
+
+internal sealed class SweepScheduleOffer
+{
+    private readonly StoredSettings _settings;
+
+    internal SweepScheduleOffer(StoredSettings settings)
+    {
+        _settings = settings;
+    }
+
+    internal IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
+    {
+        return Triggers(_settings.Read().SweepInterval!.Value);
+    }
+}
