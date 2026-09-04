@@ -97,17 +97,24 @@ public class ServiceRegistratorTests
     /// nothing registers on purpose: the store takes a way of opening a file so that a full disk
     /// is reachable from a suite, and that constructor is for a caller who has one rather than
     /// for this collection.
+    ///
+    /// A parameter is satisfied by what the collection hands out under that type, which is the
+    /// service type of a registration and not only its implementation. A service registered
+    /// behind an interface of this plugin's own is resolved by the interface, and a reading that
+    /// accepted only implementation types refused the first such registration, the index over
+    /// the library source, while its own sentence said it should pass.
     /// </summary>
     [Fact]
     public void EveryRegisteredServiceHasAConstructorThisCollectionCanSatisfy()
     {
         var registered = Registrations().Select(descriptor => descriptor.ImplementationType).ToList();
+        var handedOut = Registrations().Select(descriptor => descriptor.ServiceType).ToList();
 
         Assert.Empty(registered
             .Where(type => type is not null)
             .Where(type => !type!.GetConstructors(BindingFlags.Public | BindingFlags.Instance)
                 .Any(constructor => constructor.GetParameters()
-                    .All(parameter => registered.Contains(parameter.ParameterType)
+                    .All(parameter => handedOut.Contains(parameter.ParameterType)
                         || IsAServerCollaborator(parameter.ParameterType))))
             .Select(type => type!.Name + " has no constructor whose parameters are all either registered here or handed over by the server, so resolving it fails on a running server at the first caller.")
             .Distinct(StringComparer.Ordinal));

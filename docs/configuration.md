@@ -331,7 +331,10 @@ NEITHER. #55 landed the interval, and the closure took its row with it:
 THIS PARAGRAPH WENT ON TO SAY THAT NOTHING READ THE NUMBER ON A SCHEDULE, AND THE SWEEP
 READS IT NOW. `ScheduledSweep.GetDefaultTriggers` answers the server with one interval
 trigger at the value the setting holds, read at the moment the server asks, and at the
-rule's own default where the configuration is refused:
+rule's own default where the configuration is refused, beside one startup trigger that no
+setting describes: a run at server start is how the match index is built on start under
+#29 and how what the events missed while the server was down is reached before the first
+interval elapses, and the number this setting holds says nothing about it.
 
     grep -rn 'SweepSchedule\.' --include=*.cs Jellyfin.Plugin.WatchSync/ | grep -v 'Transfer/SweepSchedule.cs'
     Jellyfin.Plugin.WatchSync/Configuration/PluginConfiguration.cs:124:    /// Defaults to <see cref="SweepSchedule.DefaultInterval"/>, bounded by
@@ -348,7 +351,10 @@ dashboard it does not reach it at all: the dashboard is then the interval's home
 server, and this setting says what the default was. That is one number with two homes and
 it is stated rather than repaired, because the repair is the task rewriting the server's
 saved schedule from the setting after every run, which undoes the operator's dashboard edit
-in silence, and which of the two homes wins is decided on #55 rather than here.
+in silence, and which of the two homes wins is decided on #55 rather than here. The startup
+run has the same two homes: an operator who removes it in the dashboard has removed it for
+that server, and the index is then built by the first lookup that needs it rather than at
+start, which is a slower first answer and never a wrong one.
 
 The cap on what one run may change was the third of those and has its numbers now, in
 `RunCap`. Both of its settings are per pairing rather than server-wide, and that is the

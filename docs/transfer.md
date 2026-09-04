@@ -278,16 +278,23 @@ because the bounds are per pairing and nothing holds a pairing yet to keep them 
 
 ## What the sweep does today
 
-The scheduled sweep in #55 is a task the server runs, at the interval
-`docs/configuration.md` carries, and an operator sees it, runs it and sees when it
-last ran in the dashboard's task list. What one run converges is what can be
-converged without a peer: no exchange starts, because the pairing adapter in #40 is
-not in this tree, and no watch state moves. A run walks every record of conflicts and
-of provenance the store holds, trims each to the retention its setting carries, and
-records the run the way `SweepRun` fixes it, over the set declared before the walk,
-one result per record, and covered or stopped short derived from the counts when it
-ends. A cancellation from the dashboard ends the run where it stands and it is
-recorded as one that stopped short.
+The scheduled sweep in #55 is a task the server runs, once at server start and then
+at the interval `docs/configuration.md` carries, and an operator sees it, runs it and
+sees when it last ran in the dashboard's task list. What one run converges is what
+can be converged without a peer: no exchange starts, because the pairing adapter in
+#40 is not in this tree, and no watch state moves. A run rebuilds the match index
+from the library first, one page at a time with the finished map swapped in whole,
+which is how the index in #29 is built on start and how an item the library gained
+that no event carried is in the index by the next run. It then walks every record of
+conflicts and of provenance the store holds, trims each to the retention its setting
+carries, and records the run the way `SweepRun` fixes it, over the set declared
+before the walk, one result per record, and covered or stopped short derived from
+the counts when it ends. The rebuild is not a subject of that record: it is a cache
+being refreshed rather than a record being changed, and a run over an empty store is
+still a run over nothing however large the library it walked. A cancellation from
+the dashboard ends the run where it stands and it is recorded as one that stopped
+short; a rebuild already under way finishes its walk first, because the index takes
+no token and a map half built is a map not adopted.
 
 A configuration the rules refuse runs nothing: the task fails naming the setting, the
 dashboard shows the failure, and no record is trimmed against a retention nobody

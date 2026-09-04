@@ -67,6 +67,13 @@ public class ServiceRegistrator : IPluginServiceRegistrator
         // would each be taking a snapshot of their own for the same walk.
         serviceCollection.AddSingleton<IMatchIndexSource, ServerLibrary>();
 
+        // The index over that source, which is #29. One instance, because the index is the
+        // thing a rebuild swaps a new map into and the events keep current, and two of them
+        // would each be rebuilt by the sweep and fed by nothing. It is the first service here
+        // that takes an interface of this plugin's own rather than one of the server's, and
+        // the registration is what makes the sweep's constructor satisfiable.
+        serviceCollection.AddSingleton<MatchIndex>();
+
         // One adapter per supported line, and only the line's own implementation is compiled
         // into the target it is built for, so this is a registration rather than a choice made
         // at run time. A branch asking which line this is would be a branch one of the two
