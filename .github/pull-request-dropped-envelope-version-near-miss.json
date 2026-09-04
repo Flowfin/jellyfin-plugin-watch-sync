@@ -1,7 +1,7 @@
 {
   "_what_this_is": "A pull request that drops an envelope version and writes no changelog entry. Everything else about it is correct, which is the point: the title and the body name the issue, the commit names it, and the manifest version does not move, so the rule about a version bump declines and nothing else in this file would have looked. A peer still speaking version 1 stops being answerable the day this merges, and the only place an operator would read that is an entry nobody wrote. The repository behind it has published, so nothing excuses the drop.",
   "title": "Stop speaking envelope version 1 (#18)",
-  "body": "Version 1 has no peers left that this server has heard from. Closes #18.",
+  "body": "Closes #18.\n\nVersion 1 has no peers left that this server has heard from.",
   "commits": [
     {
       "sha": "3333333333333333333333333333333333333333",

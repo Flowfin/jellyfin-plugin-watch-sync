@@ -1,0 +1,18 @@
+{
+  "_what_this_is": "A body that names its issue, ends nothing, and uses one of the forge's keywords as an ordinary English word with no reference behind it. It has to pass, and it is the other direction proof: a rule matching the keyword wherever it appears, or matching an issue reference wherever it appears, refuses this.",
+  "title": "Build the match index at start and rebuild it on every sweep",
+  "body": "Works on #29. It meets the first condition, and I did not close the issue,\nbecause the fourth one asks for a sweep and there is none.\n",
+  "commits": [
+    {
+      "sha": "3333333333333333333333333333333333333333",
+      "message": "Build the match index at start and rebuild it on every sweep\n\nFor #29."
+    }
+  ],
+  "files": [
+    {
+      "path": "docs/matching.md",
+      "status": "modified"
+    }
+  ],
+  "releases": 1
+}

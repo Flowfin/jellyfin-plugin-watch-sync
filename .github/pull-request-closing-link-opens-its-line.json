@@ -1,0 +1,18 @@
+{
+  "_what_this_is": "A body that means to end its issue and says so in the one place this rule leaves for it: the start of a line. It has to pass, and it is the direction proof. A rule written over the closing keywords alone, without the position, refuses this and refuses every deliberate landing on this board with it.",
+  "title": "Build the match index at start and rebuild it on every sweep",
+  "body": "Closes #29.\n\nThe fourth condition was the last one open, and the sweep that keeps the\nindex current is what meets it.\n",
+  "commits": [
+    {
+      "sha": "3333333333333333333333333333333333333333",
+      "message": "Build the match index at start and rebuild it on every sweep\n\nFor #29."
+    }
+  ],
+  "files": [
+    {
+      "path": "docs/matching.md",
+      "status": "modified"
+    }
+  ],
+  "releases": 1
+}

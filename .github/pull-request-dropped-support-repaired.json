@@ -1,7 +1,7 @@
 {
   "_what_this_is": "The two documents beside this one repaired and nothing else changed: one changed path under changelog.d/, carrying both drops at once. It has to pass. Both arms are exercised here rather than in two repairs, because what a repair proves is that the rule stops refusing once the entry exists, and one entry is what a change dropping two things writes.",
   "title": "Drop envelope version 1 and the 10.11 server line (#18, #91)",
-  "body": "Both drops carry one entry. Closes #18 and #91.",
+  "body": "Closes #18 and #91.\n\nBoth drops carry one entry.",
   "commits": [
     {
       "sha": "5555555555555555555555555555555555555555",

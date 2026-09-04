@@ -1,7 +1,7 @@
 {
   "_what_this_is": "A pull request that drops nothing and reindents the list the drop rule reads. Both server lines are still declared and a reader can see that; the reading beside this file cannot, because the entries no longer sit at column zero. It has to pass, and it has to say that it could not read one end. The direction this proves is the expensive one: a declaration nothing could parse must not be answered as an empty set, because that reads as every line disappearing at once and refuses a change that took nothing away.",
   "title": "Indent the targets list to match the rest of the manifest (#89)",
-  "body": "No line is added or removed. Closes #89.",
+  "body": "Closes #89.\n\nNo line is added or removed.",
   "commits": [
     {
       "sha": "6666666666666666666666666666666666666666",

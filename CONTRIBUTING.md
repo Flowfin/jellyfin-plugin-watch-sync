@@ -82,6 +82,58 @@ The half a machine does keep is elsewhere: `docs/configuration.md` refuses a
 number the plugin declares with no row, and a record that quotes a figure is held
 to the source it came from.
 
+## A closing link opens its own line
+
+The forge ends an issue when a pull request body carries one of its closing
+keywords in front of an issue reference. It reads those two words and nothing
+around them. A heading asking why a change does not finish an issue ends that
+issue; a sentence saying plainly that it does not ends it too; and a line saying
+a change finishes one CONDITION of an issue ends the whole issue.
+
+That is not a hypothetical here. Every pull request body this repository has
+opened was read for the shape, and each merge carrying one was compared against
+the moment the issue it named was closed:
+
+    gh pr list --repo Flowfin/jellyfin-plugin-watch-sync --state all --limit 500 --json number,body,mergedAt
+    gh api "repos/Flowfin/jellyfin-plugin-watch-sync/issues/events?per_page=100" --paginate --jq '.[] | select(.event=="closed") | "issue \(.issue.number) closed \(.created_at)"'
+
+Thirteen bodies carry it, and twelve of them ended the issue they named, one or
+two seconds after the merge. Six were noticed and reopened, the slowest after
+sixty-nine minutes. Two are closed today although the body that closed them says
+in so many words that it does not close them. The other four ended an issue the
+author did mean to end, in a spelling that happened to work.
+
+So there is one place a closing link may stand, and it is the start of a line, at
+column zero, where writing one is a decision rather than a turn of phrase:
+
+    Closes #29.
+
+Anywhere else in the body, `Deterministic PR-hygiene checks` refuses it by name
+and quotes the line back:
+
+    FAIL a-closing-verb-opens-its-own-line: ...
+
+Write anything else with the number out of the verb's reach. The two spellings
+are different for a writer and identical to the forge, and this reads the
+forge's.
+
+**It fails rather than warns.** Whether a line begins with a closing link is
+decidable by reading text, which is the whole test the three tiers here turn on:
+a rule that needs a judgement warns and can never fail, and a rule that needs
+none fails. The harm is the wrong shape for a warning as well. A warning is read
+by whoever is looking at the run; a wrongly closed issue is read by nobody,
+because it has left the list where somebody would have looked, and reopening it
+is somebody happening to notice.
+
+**What it does not reach**, so that a green run is not read as more than it is.
+It reads the pull request body and not the commit messages, which the forge also
+acts on when they land on the mainline. It reads `#1`, the reference this project
+writes, and not `owner/repo#1` or a full issue URL. And it reads every line the
+same way: a closing link inside a fenced block or an indented quotation is
+refused with the rest, because nothing here has measured whether the forge skips
+those, and refusing a line somebody could safely have written costs a rewrite
+while passing one the forge acts on costs an issue nobody notices is gone.
+
 ## Every test is headless
 
 Every test this plugin ships runs without a display, without elevation, without a
