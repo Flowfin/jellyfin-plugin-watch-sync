@@ -1,0 +1,8 @@
+## Installing it
+
+The address this plugin is published at is
+
+    https://flowfin.dev/manifest.json
+
+and it is written here rather than one document further away, because it is the
+value an operator pastes.

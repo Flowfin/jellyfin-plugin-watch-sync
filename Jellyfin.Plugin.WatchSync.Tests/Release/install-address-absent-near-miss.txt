@@ -1,0 +1,4 @@
+## Installing it
+
+The address this plugin is published at is in the release document, which is the
+one place it is written down.

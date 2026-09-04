@@ -1,7 +1,7 @@
 # When the publication address stops working
 
 An operator installs this plugin by adding a manifest address to their server. That
-address is a single point of failure, this repository owns it, and the people who
+address is a single point of failure, this project owns it, and the people who
 need an answer for the day it stops answering are exactly the people who cannot
 reach the place an answer would normally be posted. So the answer is written here,
 before it is needed.
@@ -79,14 +79,42 @@ So the generator has never run over anything but its own fixtures, and the first
 pushed is the first exercise of it. That is the same position every other part of this
 route is in.
 
-No address has been chosen, and nothing serves either manifest: both are attached to the
-run and go no further. Until one is published an operator cannot subscribe at all, and a
-lost address is not yet a state this repository can be in. That is #123. This document
-fixes what happens rather than recording a route that has run, and the day the first
-address is published is the day each claim above becomes checkable against something.
+THIS SECTION SAID NO ADDRESS HAD BEEN CHOSEN AND THAT NOTHING SERVED EITHER
+MANIFEST. One address is chosen, it answers, and this repository is declared behind
+it, so a lost address is a state this repository can be in from today rather than a
+later one and what this document fixes is live rather than hypothetical. The address
+is the one the readme prints:
 
-Nothing points at this file yet. The readme, the runbook and the manifest all naming
-one place is the second condition of #123, and the runbook it needs is #108.
+    curl -sS -o /dev/null -w "%{http_code}\n" https://flowfin.dev/manifest.json
+    200
+
+    curl -sS https://flowfin.dev/manifest.json \
+      | jq -r '.[] | "\(.name)\tversions=\(.versions|length)"'
+    Requests	versions=2
+    Playback Statistics	versions=1
+
+Run 2026-09-04. Two plugins and neither of them is this one, which is the paragraph
+above arriving rather than a second absence: the catalogue is generated from the
+releases each declared source has published, and this repository has published none.
+The declaration is already there and switched on, so nothing at that end has to change
+on the day the first tag is pushed:
+
+    gh api 'repos/Flowfin/hub/contents/sources/watch-sync.json?ref=b091d072827b20fceb7057df22839053a2c3100e' \
+      --jq '.content' | base64 -d | jq '{repository, slug, enabled}'
+    {
+      "repository": "jellyfin-plugin-watch-sync",
+      "slug": "watch-sync",
+      "enabled": true
+    }
+
+What is still unexercised is the recovery itself. No address of this project has ever
+stopped answering, so every step under the two headings above is a plan rather than a
+procedure anybody has run, and the first tag pushed is still the first exercise of the
+generator.
+
+The readme prints the address and points at this file, which is as far as the second
+condition of #123 reaches inside this repository. The runbook that has to name the
+same address is #108 and does not exist.
 
 ## What holds this document true
 
@@ -95,7 +123,23 @@ both directions. It reads the route this repository ships rather than a copy of 
 and it fails loudly on finding no sidecar at all, so a read that stopped matching
 cannot leave the comparison green over nothing.
 
+`InstallAddressTests` refuses ONE address being two, in both directions. The files it
+compares are derived rather than listed: the readme and every document under `docs/`
+that prints an address at all, so a second address arriving in a file written tomorrow
+is inside the comparison without anybody adding it. Beside that it requires the readme
+and this file to each print one, because a value that survives in one of them only
+leaves the reader of the other without the thing they came for.
+
+What it cannot ask is whether the address is the right one. Nothing in this tree
+declares it - the name belongs to the project that serves the catalogue - so every
+file agreeing on a wrong address passes here. That half is a reading at review, and
+the request that decides it is the one pasted above.
+
 Nothing holds the rest. The two quoted readings above were run at the commit that
 landed this file and go stale the moment either becomes untrue, which for both of
 them is the moment somebody does the work they name. A reading at review is what
 stands against that.
+
+The sentence in the readme saying nothing installs from the address yet is refused by
+nobody and stops being true on the day the first tag is pushed. Nothing in this tree
+can see a release, so no check here could judge it. Removing it is part of #159.

@@ -25,6 +25,25 @@ so on its own it does nothing at all. Installed without it, the plugin still
 loads, syncs nothing, and says on its configuration page which of those states it
 is in and what to do about it.
 
+## Installing it
+
+Jellyfin installs a plugin from a repository address, which an operator adds once
+in the server's plugin settings. The address this plugin is published at is
+
+    https://flowfin.dev/manifest.json
+
+and a server that has it finds this plugin and every later version of it there,
+with nothing to fetch or unpack by hand.
+
+That address serves finished versions and nothing else. There is no second
+address to subscribe to for a test build.
+
+Nothing installs from it yet. This repository has published no release, so a
+server that adds the address today finds the other plugins published at it and
+not this one. [docs/publication-route.md](docs/publication-route.md) carries that
+reading, what happens on the day the address stops answering, and how to check an
+archive when the index is not reachable at all.
+
 ## Which servers it runs on
 
 Two server lines, which sit on different frameworks, which is why the artifact is
