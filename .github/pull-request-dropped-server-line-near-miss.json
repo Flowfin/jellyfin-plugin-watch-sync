@@ -1,7 +1,7 @@
 {
   "_what_this_is": "The same mistake against the other declaration. This one takes a server line out of the manifest's targets list and writes no entry, and the version line is untouched, so again the rule about a version bump declines. An operator running the line that disappeared keeps the plugin they have and learns nothing about why the next update never arrives. Two near misses rather than one, because a document that tripped both arms would stay refused after either of them was deleted.",
   "title": "Drop the 10.11 server line (#91)",
-  "body": "The oldest supported line goes. Closes #91.",
+  "body": "Closes #91.\n\nThe oldest supported line goes.",
   "commits": [
     {
       "sha": "4444444444444444444444444444444444444444",

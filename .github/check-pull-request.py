@@ -2,10 +2,12 @@
 """Refuse a pull request that does not say what it is for.
 
 Every other check here reasons about the code. This one reasons about the pull
-request: whether it names an issue, whether its commits do, whether a version
-bump carries the changelog entry that goes with it, whether a change that drops
-support for something carries one, and whether one that raises the floor of a
-line it keeps carries one. Nothing the compiler, the analyzers,
+request: whether it names an issue, whether its commits do, whether a closing
+verb stands in front of an issue reference somewhere other than at the start of
+a line, whether a version bump carries the changelog entry that goes with it,
+whether a change that drops support for something carries one, and whether one
+that raises the floor of a line it keeps carries one. Nothing the compiler, the
+analyzers,
 the sign-off gate or the workflow audit reads can answer any of those, because
 none of them sees the pull request at all.
 
@@ -79,6 +81,20 @@ REMOVED = "removed"
 # An issue reference as this project writes one.
 ISSUE = re.compile(r"#(\d+)")
 
+# A closing link, as the forge reads one. These are its keywords, and it acts on
+# any of them standing in front of an issue reference ANYWHERE in a pull request
+# body: the merge ends that issue, and the sentence around the two words is not
+# read at all, so `does not close #57` closes #57 and `Whether this closes #29`
+# closes #29. Both of those are sentences this repository has actually merged.
+#
+# The reference is the spelling `ISSUE` above declares and nothing wider. The
+# forge also acts on `owner/repo#1` and on a full issue URL; neither is written
+# here, and a pattern reaching a form no body carries is surface no fixture
+# proves. That bound is stated rather than closed.
+CLOSING_REFERENCE = re.compile(
+    r"(?i)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b[ \t]*:?[ \t]*#\d+"
+)
+
 # The version, read as one anchored line rather than parsed. build.yaml is a
 # hand-maintained manifest with the key at column zero, and Directory.Build.props
 # reads it the same way; a version moved into a nested mapping is not found by
@@ -122,6 +138,31 @@ SUPPORTED = re.compile(r"Supported\s*\{\s*get;\s*\}\s*=\s*new\[\]\s*\{([^}]*)\}"
 def issues_in(text):
     """The set of issue numbers a piece of text names."""
     return set(ISSUE.findall(text or ""))
+
+
+def closing_references_inside_a_sentence(body):
+    """Yield the line and the closing link, per one that does not open a line.
+
+    A deliberate closing link is the first thing on its line. Anything at all in
+    front of it makes it part of a sentence, and a sentence is exactly what the
+    forge does not read.
+
+    THE TEST IS COLUMN ZERO RATHER THAN "ONLY WHITESPACE IN FRONT", and that is a
+    measurement rather than a preference. Every deliberate closing link this
+    repository has ever merged sits at column zero and none sits behind
+    indentation, so the looser test would separate no body here from any other and
+    would be a branch no fixture could reach. An indented one is refused, and the
+    repair is to move it to the start of the line.
+
+        gh pr list --repo Flowfin/jellyfin-plugin-watch-sync --state all --limit 500 --json body --jq ".[].body"
+
+    Taken over all 200 pull requests that command returns: 52 closing links at
+    column zero, 0 behind whitespace, and 15 inside a sentence across 13 bodies.
+    """
+    for line in (body or "").splitlines():
+        for found in CLOSING_REFERENCE.finditer(line):
+            if found.start() != 0:
+                yield line, found.group(0)
 
 
 def version_of(manifest):
@@ -411,6 +452,19 @@ def blocking(document):
             "pull-request-names-an-issue: neither the title nor the body names "
             "an issue. Work here starts as an issue, and a pull request that "
             "names none cannot be read against what it was for."
+        )
+
+    for line, reference in closing_references_inside_a_sentence(body):
+        yield (
+            "a-closing-verb-opens-its-own-line: {} is a closing link the forge "
+            "acts on, and it is written inside a sentence rather than at the "
+            "start of a line: {!r}. The merge ends that issue whatever the "
+            "sentence says, and it is the negation that costs most, because a "
+            "line denying that a change finishes an issue reads as safe and "
+            "ends it anyway. Reopening is somebody noticing, and the issue "
+            "leaves every open listing in the meantime. Write a deliberate one "
+            "at the start of its own line; write anything else with the number "
+            "out of the verb's reach.".format(reference, line.strip())
         )
 
     for commit in commits:

@@ -1,7 +1,8 @@
 # Reads the pull request rather than the code.
 #
 # Whether a pull request names an issue, whether its commits name one, whether a
-# version bump carries its changelog entry and whether a change that drops
+# closing link stands inside a sentence where the forge will act on it, whether
+# a version bump carries its changelog entry and whether a change that drops
 # support for something carries one are questions no other check here can
 # answer, because none of the others sees the pull request at all. The compiler and the analyzers read the code, the sign-off gate reads
 # a trailer, the workflow audit reads these files, and the unicode guard reads
@@ -89,6 +90,55 @@ jobs:
                 ;;
             esac
           done
+
+      - name: A closing link is refused inside a sentence, passes at the start of a line, and is not the keyword alone
+        # The forge ends an issue when a pull request body carries one of its
+        # closing keywords in front of a reference, ANYWHERE in the body, and it
+        # does not read the sentence around the two words. So a body asking
+        # whether it closes an issue ends it, and one denying that it closes an
+        # issue ends it too, and both of those are sentences this repository has
+        # merged. Reopening is somebody noticing: until then the issue is gone
+        # from every open listing and from every count a session takes to decide
+        # what is left.
+        #
+        # Four documents, and three of them prove things the exit code cannot.
+        # The near miss is the spelling that ended #29, which is the one a habit
+        # of not opening a body with a closing line does not catch, and it has to
+        # be refused for this rule's own name and with the line quoted back - a
+        # refusal naming no line tells the writer that a rule broke and not
+        # where. Its repair changes one word. The third opens a line with a
+        # deliberate link and has to pass, because a rule written over the
+        # keywords without the position refuses every deliberate landing on this
+        # board. The fourth names an issue and uses `close` as an ordinary word
+        # with no reference behind it, and has to pass, because a rule matching
+        # the keyword wherever it appears, or the reference wherever it appears,
+        # refuses it.
+        run: |
+          set -euo pipefail
+          near=.github/pull-request-closing-verb-inside-a-sentence-near-miss.json
+          if verdict="$(python3 .github/check-pull-request.py < "${near}")"; then
+            echo "${verdict}"
+            echo "${near} passed, so a closing link written inside a sentence still reaches a merge" >&2
+            exit 1
+          fi
+          echo "${verdict}"
+          case "${verdict}" in
+            *"FAIL a-closing-verb-opens-its-own-line"*) ;;
+            *)
+              echo "${near} was refused by another rule, so this one proves nothing" >&2
+              exit 1
+              ;;
+          esac
+          case "${verdict}" in
+            *"is what its fourth condition decides"*) ;;
+            *)
+              echo "${near} was refused without the offending line quoted back, so a writer is told a rule broke and not where" >&2
+              exit 1
+              ;;
+          esac
+          python3 .github/check-pull-request.py < .github/pull-request-closing-verb-inside-a-sentence-repaired.json
+          python3 .github/check-pull-request.py < .github/pull-request-closing-link-opens-its-line.json
+          python3 .github/check-pull-request.py < .github/pull-request-issue-named-with-no-closing-verb.json
 
       - name: The drop rule refuses each declaration on its own, passes the entry, and declines out loud
         # A change can strand a peer without moving the version, so the rule

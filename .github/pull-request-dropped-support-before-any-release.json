@@ -1,7 +1,7 @@
 {
   "_what_this_is": "The envelope near miss beside this file against a repository that has published nothing, which is the state this repository is in today. It has to pass, and it has to say why it passed. What a drop strands is a peer running a build somebody installed, and there is no such build, so the rule declines rather than asking for an entry against a release nobody can read it next to. The decline is the rule's live behaviour on this mainline, so it is proven here rather than assumed from the refusal.",
   "title": "Stop speaking envelope version 1 (#18)",
-  "body": "Version 1 has no peers left that this server has heard from. Closes #18.",
+  "body": "Closes #18.\n\nVersion 1 has no peers left that this server has heard from.",
   "commits": [
     {
       "sha": "3333333333333333333333333333333333333333",

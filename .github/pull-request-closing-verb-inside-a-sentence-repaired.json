@@ -1,0 +1,18 @@
+{
+  "_what_this_is": "The document beside this one with one word changed and nothing else. The verb in front of the reference is no longer one the forge acts on, so the question is the same question and the merge ends nothing. It has to pass.",
+  "title": "Build the match index at start and rebuild it on every sweep",
+  "body": "Works on #29.\n\nWhether this finishes #29 is what its fourth condition decides, and the answer\nis no: the index is built and the sweep that keeps it current is not.\n",
+  "commits": [
+    {
+      "sha": "3333333333333333333333333333333333333333",
+      "message": "Build the match index at start and rebuild it on every sweep\n\nFor #29."
+    }
+  ],
+  "files": [
+    {
+      "path": "docs/matching.md",
+      "status": "modified"
+    }
+  ],
+  "releases": 1
+}

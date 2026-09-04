@@ -1,0 +1,18 @@
+{
+  "_what_this_is": "The spelling that ended #29 on the merge of #346. The body asks whether the change finishes the issue and does not mean to end it, and the forge reads the two words in the middle of that question and ends it. Nothing else in this document is wrong, so a refusal here is this rule and no other. It has to be refused.",
+  "title": "Build the match index at start and rebuild it on every sweep",
+  "body": "Works on #29.\n\nWhether this closes #29 is what its fourth condition decides, and the answer\nis no: the index is built and the sweep that keeps it current is not.\n",
+  "commits": [
+    {
+      "sha": "3333333333333333333333333333333333333333",
+      "message": "Build the match index at start and rebuild it on every sweep\n\nFor #29."
+    }
+  ],
+  "files": [
+    {
+      "path": "docs/matching.md",
+      "status": "modified"
+    }
+  ],
+  "releases": 1
+}
