@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Jellyfin.Data.Enums;
 using MediaBrowser.Controller.Entities;
-using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 
 namespace Jellyfin.Plugin.WatchSync.Matching;
@@ -124,41 +123,13 @@ public sealed class ServerLibrary : IMatchIndexSource
     /// <summary>
     /// The key one library item produced, or null where it produced none.
     ///
-    /// The derivation is the one <c>docs/matching.md</c> fixes and is not repeated here: this
-    /// reads the values off the item the server holds and hands them over. An item that produced
-    /// no key is dropped rather than carried with its reason, because the index has nothing to
-    /// hold such an item under, and what an operator is told about it is the unmatched record in
-    /// #26, which is written where a subject is looked up rather than where the map is filled.
+    /// The derivation is <see cref="LibraryItemKey"/>'s rather than this type's, because the
+    /// events that keep the index current ask the same question of the same items and a copy
+    /// here would be a second answer nothing compares against the first.
     /// </summary>
     /// <param name="item">The library item.</param>
     /// <returns>The key, or null.</returns>
-    private MatchKey? KeyOf(BaseItem item)
-    {
-        if (item is Episode episode)
-        {
-            // The series is fetched through the manager this type was handed rather than through
-            // the item's own Series property, which resolves it off a static the server fills in
-            // at start. A type reading that static answers correctly on a running server and
-            // throws in every test, which is the shape #8 refuses one name further in.
-            var series = episode.SeriesId.Equals(default)
-                ? null
-                : _library.GetItemById(episode.SeriesId) as Series;
-
-            var derived = EpisodeMatchKey.Derive(
-                episode.ProviderIds,
-                series?.ProviderIds,
-                series?.DisplayOrder,
-                episode.ParentIndexNumber,
-                episode.IndexNumber,
-                episode.IndexNumberEnd);
-
-            return derived.IsKeyed ? MatchKey.Of(derived.Key!) : null;
-        }
-
-        var film = MovieMatchKey.Derive(item.ProviderIds);
-
-        return film.IsKeyed ? MatchKey.Of(film.Key!) : null;
-    }
+    private MatchKey? KeyOf(BaseItem item) => LibraryItemKey.Of(_library, item);
 
     /// <summary>
     /// The query the snapshot is taken with.

@@ -74,6 +74,14 @@ public class ServiceRegistrator : IPluginServiceRegistrator
         // the registration is what makes the sweep's constructor satisfiable.
         serviceCollection.AddSingleton<MatchIndex>();
 
+        // What hands that index the library's own events, which is the rest of #29. It is the
+        // one registration here that is not a singleton this plugin resolves: the server starts
+        // and stops a hosted service, and the subscription has to be made and unmade by
+        // something with a lifetime rather than by whoever happens to ask for a service first.
+        // AddHostedService rather than AddSingleton for that reason; registered as a singleton
+        // it would be constructed on demand and started by nobody.
+        serviceCollection.AddHostedService<LibraryEvents>();
+
         // One adapter per supported line, and only the line's own implementation is compiled
         // into the target it is built for, so this is a registration rather than a choice made
         // at run time. A branch asking which line this is would be a branch one of the two

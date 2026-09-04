@@ -14,6 +14,17 @@
     <CodeAnalysisRuleSet>../jellyfin.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
 
+  <!-- The lifetime hook is the one thing neither server line offers through the packages
+       above. A subscription to the library's events has to be made by something the server
+       starts and unmade when it stops, MediaBrowser.Controller carries no entry point type on
+       either line, and the hosting abstractions are referenced by that assembly without being
+       declared as a dependency of it, so the interface is not on this project's graph without
+       this. The version on each line is the one the rest of that line's graph already resolves
+       to, so nothing else in the lock file moves for it, and the runtime assets are excluded
+       for the same reason as above: the server carries the assembly.
+
+       This is the whole cost of the means, and it is written here rather than only in the
+       change that added it. -->
   <!-- Pinned per line rather than floating. The server carries these assemblies, so the
        runtime assets are excluded and only the reference assemblies are used; shipping a
        second copy inside the plugin is how a plugin ends up loading types the server does
@@ -25,6 +36,9 @@
     <PackageReference Include="Jellyfin.Model" Version="10.11.11">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.11">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
@@ -32,6 +46,9 @@
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
     <PackageReference Include="Jellyfin.Model" Version="12.0.0-rc4">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.10">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
   </ItemGroup>
