@@ -337,7 +337,7 @@ public class EnvelopeVersionTests
             () => Envelope.Read(null!, EnvelopeVersions.Supported));
 
         Assert.Throws<ArgumentNullException>(
-            () => Envelope.Read("{}", (IReadOnlyList<int>)null!));
+            () => Envelope.Read("{}", null!));
     }
 
     /// <summary>
