@@ -301,7 +301,9 @@ public static class CappedApply
     ///
     /// Every failure a read can produce is caught here rather than a chosen few, for the reason
     /// the walk gives: this plugin does not own the server's user data manager and cannot
-    /// enumerate what it throws. A cancellation is not a failure of the read and leaves.
+    /// enumerate what it throws. A cancellation is not a failure of the read and leaves, and
+    /// the filter on the clause is where that is said, so the clause names what it lets
+    /// through rather than catching everything and handing one thing back.
     /// </summary>
     /// <param name="user">The local user the mapping names.</param>
     /// <param name="item">The item.</param>
@@ -316,11 +318,7 @@ public static class CappedApply
         {
             held = gateway.Read(user, item).State;
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception)
+        catch (Exception thrown) when (thrown is not OperationCanceledException)
         {
             return false;
         }

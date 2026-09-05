@@ -248,7 +248,9 @@ public static class ItemByItemApply
     ///
     /// A cancellation is not a failure of the item and is not recorded as one. It is asked for by
     /// this side, it says nothing about the item or about the peer, and an entry naming it would
-    /// put a row on a page for something an operator did.
+    /// put a row on a page for something an operator did. The filter on the clause is where that
+    /// is said, so the clause names what it lets through rather than catching everything and
+    /// throwing one thing back.
     /// </summary>
     /// <param name="user">The local user the mapping names.</param>
     /// <param name="item">The decided item.</param>
@@ -284,11 +286,7 @@ public static class ItemByItemApply
                 WrittenBecauseItCameFromAPeer,
                 cancellationToken);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception thrown)
+        catch (Exception thrown) when (thrown is not OperationCanceledException)
         {
             refusal = thrown.GetType().Name;
 

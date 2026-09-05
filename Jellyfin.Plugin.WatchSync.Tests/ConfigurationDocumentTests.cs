@@ -232,6 +232,10 @@ public class ConfigurationDocumentTests
     /// nobody weighs 00:05:00 against how long the credits run. The unit is the largest one the
     /// span divides into exactly, so a value that stops being a whole number of minutes is written
     /// as seconds rather than rounded into a cell that then says something untrue.
+    ///
+    /// The division is asked of ticks rather than of seconds. Ticks are whole numbers on both
+    /// sides, so the test is exact by construction; the same test on a double held only while
+    /// every declared value happened to be a whole number of seconds small enough to be exact.
     /// </summary>
     /// <param name="value">The declared value.</param>
     /// <returns>The value as the table writes it.</returns>
@@ -242,19 +246,19 @@ public class ConfigurationDocumentTests
             return Convert.ToString(value, CultureInfo.InvariantCulture)!;
         }
 
-        var units = new (double Size, string One, string Many)[]
+        var units = new (long Ticks, string One, string Many)[]
         {
-            (TimeSpan.FromDays(1).TotalSeconds, "day", "days"),
-            (TimeSpan.FromHours(1).TotalSeconds, "hour", "hours"),
-            (TimeSpan.FromMinutes(1).TotalSeconds, "minute", "minutes"),
-            (1, "second", "seconds"),
+            (TimeSpan.TicksPerDay, "day", "days"),
+            (TimeSpan.TicksPerHour, "hour", "hours"),
+            (TimeSpan.TicksPerMinute, "minute", "minutes"),
+            (TimeSpan.TicksPerSecond, "second", "seconds"),
         };
 
         foreach (var unit in units)
         {
-            if (span.TotalSeconds % unit.Size == 0)
+            if (span.Ticks % unit.Ticks == 0)
             {
-                var count = (long)(span.TotalSeconds / unit.Size);
+                var count = span.Ticks / unit.Ticks;
 
                 return string.Create(
                     CultureInfo.InvariantCulture,

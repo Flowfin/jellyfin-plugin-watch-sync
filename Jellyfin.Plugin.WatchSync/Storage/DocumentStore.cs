@@ -346,9 +346,15 @@ public sealed class DocumentStore
         }
         catch (IOException)
         {
+            // The file stays, on purpose. This runs on the failing path of a write that has
+            // already decided to answer with a refusal, and a delete that also fails may not
+            // turn that refusal into a different one. The leftover is written over by the next
+            // attempt, which the in-flight naming already arranges.
         }
         catch (UnauthorizedAccessException)
         {
+            // The same answer for the same reason: the refusal the write already carries is
+            // the one the caller hears, and the leftover is written over by the next attempt.
         }
     }
 
