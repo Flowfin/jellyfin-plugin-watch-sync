@@ -117,6 +117,105 @@ public class InvariantGuardTests
     }
 
     /// <summary>
+    /// The vocabulary measured a rule at a time, which is the accounting the theory above cannot
+    /// make. That theory asserts that an invariant's near-miss produces findings and that every
+    /// finding belongs to that invariant, so an invariant carried by five rules is satisfied when
+    /// one of them matches and the other four are unmeasured while the invariant goes on reporting
+    /// itself proven.
+    ///
+    /// Two readings, because they are different questions and the second is the stronger. A rule
+    /// is UNTRIPPED when no near-miss fixture in the tree produces a finding for it, which is the
+    /// rule narrowed until it matches nothing a person would write. A rule is INERT when taking it
+    /// out of the vocabulary leaves the verdict over the fixtures identical - every line it
+    /// reported is reported by another rule of its own invariant anyway - so its absence changes
+    /// nothing the guard says. Every untripped rule is inert; the reverse does not hold.
+    ///
+    /// A rule left unreached is declared in `Invariants/unreached.txt` with its reason, and the
+    /// declaration fails closed in both directions: one naming a rule a near-miss DOES reach is
+    /// refused as stale, and one naming a rule the vocabulary does not carry is refused as
+    /// dangling. The fixtures are not widened to empty that file, for the reason written on it.
+    /// </summary>
+    [Fact]
+    public void EveryRuleIsReachedByANearMissOrIsDeclaredUnreached()
+    {
+        var reach = InvariantGuard.ReachOfEachRule(
+            InvariantGuard.Vocabulary(),
+            InvariantGuard.NearMisses(),
+            InvariantGuard.Unreached());
+
+        Assert.Empty(reach.Unproven.Select(entry =>
+            $"{entry.Id} is {entry.State}, so no near-miss fixture proves it, and Invariants/unreached.txt does not declare it."));
+
+        Assert.Empty(reach.Stale.Select(id =>
+            $"Invariants/unreached.txt declares {id} unreached, and a near-miss fixture reaches it."));
+
+        Assert.Empty(reach.Dangling.Select(id =>
+            $"Invariants/unreached.txt declares {id}, which the vocabulary does not carry."));
+    }
+
+    /// <summary>
+    /// The accounting above proven by deleting it, on the two shapes the guard could not see
+    /// before it existed. A rule narrowed until the fixture's own line stops matching it is
+    /// reported as untripped; a rule whose every line a sibling of the same invariant also reports
+    /// is reported as inert; and a rule that owns a line of its own is reported as neither.
+    ///
+    /// The declaration leg is proven the same way and in both of its directions, on a vocabulary
+    /// of this test's own rather than on the tree's, so the proof does not move the day a fixture
+    /// or a pattern does.
+    /// </summary>
+    [Fact]
+    public void ARuleNoFixtureReachesIsReportedAndADeclarationCoveringAReachedOneIsStale()
+    {
+        var owned = new InvariantGuard.Rule("owned", "an-invariant", "1", new Regex("anvil"), "does", "instead");
+        var sibling = new InvariantGuard.Rule("sibling", "an-invariant", "1", new Regex("hammer"), "does", "instead");
+        var narrowed = new InvariantGuard.Rule("narrowed", "an-invariant", "1", new Regex("no line here says this"), "does", "instead");
+
+        var fixtures = new[]
+        {
+            new InvariantGuard.NearMiss(
+                "an-invariant",
+                "Invariants/an-invariant-near-miss.txt",
+                "the anvil line\nthe anvil and hammer line"),
+        };
+
+        var vocabulary = new[] { owned, sibling, narrowed };
+        var undeclared = InvariantGuard.ReachOfEachRule(vocabulary, fixtures, Array.Empty<InvariantGuard.Declaration>());
+
+        Assert.Equal(
+            new[] { ("narrowed", "untripped"), ("sibling", "inert") },
+            undeclared.Unproven.Select(entry => (entry.Id, entry.State)).OrderBy(entry => entry.Id, StringComparer.Ordinal));
+
+        Assert.Empty(undeclared.Stale);
+        Assert.Empty(undeclared.Dangling);
+
+        var declared = InvariantGuard.ReachOfEachRule(
+            vocabulary,
+            fixtures,
+            new[]
+            {
+                new InvariantGuard.Declaration("narrowed", "a reason"),
+                new InvariantGuard.Declaration("sibling", "a reason"),
+            });
+
+        Assert.Empty(declared.Unproven);
+        Assert.Empty(declared.Stale);
+
+        var stale = InvariantGuard.ReachOfEachRule(
+            vocabulary,
+            fixtures,
+            new[] { new InvariantGuard.Declaration("owned", "a reason") });
+
+        Assert.Equal("owned", Assert.Single(stale.Stale));
+
+        var dangling = InvariantGuard.ReachOfEachRule(
+            vocabulary,
+            fixtures,
+            new[] { new InvariantGuard.Declaration("named-by-nothing", "a reason") });
+
+        Assert.Equal("named-by-nothing", Assert.Single(dangling.Dangling));
+    }
+
+    /// <summary>
     /// The departure leg proven the same way. One declared departure covers the call and removes
     /// the finding; a second one names a rule the file does not carry and is reported as dangling.
     /// The tree declares none today, so this is where that leg is exercised.
@@ -270,6 +369,16 @@ public class InvariantGuardTests
         });
 
         Assert.Equal(register.Count, register.Select(entry => entry.Id).Distinct(StringComparer.Ordinal).Count());
+
+        var declared = InvariantGuard.Unreached();
+
+        Assert.All(declared, entry =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(entry.Id));
+            Assert.False(string.IsNullOrWhiteSpace(entry.Reason));
+        });
+
+        Assert.Equal(declared.Count, declared.Select(entry => entry.Id).Distinct(StringComparer.Ordinal).Count());
     }
 
     internal static class InvariantGuard
@@ -300,6 +409,14 @@ public class InvariantGuardTests
         internal sealed record Report(IReadOnlyList<Finding> Findings, IReadOnlyList<Departure> Dangling);
 
         internal sealed record Drift(IReadOnlyList<string> Uncarried, IReadOnlyList<string> Unregistered);
+
+        internal sealed record NearMiss(string Invariant, string Path, string Text);
+
+        internal sealed record Declaration(string Id, string Reason);
+
+        internal sealed record Unproven(string Id, string State);
+
+        internal sealed record Reach(IReadOnlyList<Unproven> Unproven, IReadOnlyList<string> Stale, IReadOnlyList<string> Dangling);
 
         /// <summary>
         /// Scans a set of sources against a vocabulary, honouring the declared departures and
@@ -347,6 +464,120 @@ public class InvariantGuardTests
 
             return new Report(findings, dangling);
         }
+
+        /// <summary>
+        /// Measures each rule of a vocabulary against the near-miss fixtures, and holds the
+        /// declared exemptions to what it measured.
+        ///
+        /// Untripped is read from the findings: no near-miss produces one naming the rule. Inert is
+        /// read by deletion, which is how every other guard here is proven: the rule is taken out
+        /// of the vocabulary, the fixtures are scanned again, and the rule is inert when the
+        /// verdict does not move. The verdict is what the fixtures prove about their invariants -
+        /// which line of which fixture is reported against which invariant - rather than the
+        /// findings themselves, because a finding carries its rule's identifier and comparing
+        /// those would make every deletion look like a change.
+        /// </summary>
+        /// <param name="vocabulary">The rules to measure.</param>
+        /// <param name="fixtures">The near-miss fixtures to measure them against.</param>
+        /// <param name="declared">The rules deliberately left unreached.</param>
+        /// <returns>The rules nothing proves, and the declarations that are stale or dangling.</returns>
+        internal static Reach ReachOfEachRule(
+            IReadOnlyList<Rule> vocabulary,
+            IReadOnlyList<NearMiss> fixtures,
+            IReadOnlyList<Declaration> declared)
+        {
+            var whole = Verdict(vocabulary, fixtures);
+
+            var tripped = new HashSet<string>(
+                Scan(fixtures.Select(fixture => (fixture.Path, fixture.Text)).ToList(), vocabulary, Array.Empty<Departure>())
+                    .Findings.Select(finding => finding.Id),
+                StringComparer.Ordinal);
+
+            var exempt = new HashSet<string>(declared.Select(entry => entry.Id), StringComparer.Ordinal);
+            var carried = new HashSet<string>(vocabulary.Select(rule => rule.Id), StringComparer.Ordinal);
+
+            var unproven = new List<Unproven>();
+            var stale = new List<string>();
+
+            foreach (var rule in vocabulary)
+            {
+                var without = vocabulary
+                    .Where(other => !string.Equals(other.Id, rule.Id, StringComparison.Ordinal))
+                    .ToList();
+
+                var inert = string.Equals(whole, Verdict(without, fixtures), StringComparison.Ordinal);
+
+                if (tripped.Contains(rule.Id) && !inert)
+                {
+                    if (exempt.Contains(rule.Id))
+                    {
+                        stale.Add(rule.Id);
+                    }
+
+                    continue;
+                }
+
+                if (exempt.Contains(rule.Id))
+                {
+                    continue;
+                }
+
+                unproven.Add(new Unproven(rule.Id, tripped.Contains(rule.Id) ? "inert" : "untripped"));
+            }
+
+            var dangling = declared
+                .Select(entry => entry.Id)
+                .Where(id => !carried.Contains(id))
+                .ToList();
+
+            return new Reach(unproven, stale, dangling);
+        }
+
+        /// <summary>
+        /// What the near-miss fixtures prove about their invariants under a given vocabulary: the
+        /// fixture, the line and the invariant of every finding, ordered so two vocabularies are
+        /// comparable. This is the thing a rule has to move to count as proven.
+        /// </summary>
+        /// <param name="vocabulary">The rules to scan with.</param>
+        /// <param name="fixtures">The near-miss fixtures to scan.</param>
+        /// <returns>The verdict, rendered so two of them compare as text.</returns>
+        internal static string Verdict(IReadOnlyList<Rule> vocabulary, IReadOnlyList<NearMiss> fixtures)
+        {
+            var report = Scan(
+                fixtures.Select(fixture => (fixture.Path, fixture.Text)).ToList(),
+                vocabulary,
+                Array.Empty<Departure>());
+
+            return string.Join(
+                "\n",
+                report.Findings
+                    .Select(finding => $"{finding.Path}:{finding.Line}{Separator}{finding.Invariant}")
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(line => line, StringComparer.Ordinal));
+        }
+
+        /// <summary>
+        /// The near-miss fixtures of every invariant this guard carries, taken from the register so
+        /// the measurement reaches an invariant added there without anybody adding it here as well.
+        /// </summary>
+        /// <returns>The near-miss fixture of each invariant this guard carries.</returns>
+        internal static IReadOnlyList<NearMiss> NearMisses() =>
+            Register()
+                .Where(entry => string.Equals(entry.Carrier, ThisGuard, StringComparison.Ordinal))
+                .Select(entry => new NearMiss(
+                    entry.Id,
+                    $"Invariants/{entry.Id}-near-miss.txt",
+                    Fixture($"{entry.Id}-near-miss.txt")))
+                .ToList();
+
+        /// <summary>
+        /// Reads the rules declared as deliberately unreached.
+        /// </summary>
+        /// <returns>The declarations.</returns>
+        internal static IReadOnlyList<Declaration> Unreached() =>
+            Entries("unreached.txt", 2)
+                .Select(fields => new Declaration(fields[0], fields[1]))
+                .ToList();
 
         /// <summary>
         /// Runs the scan over this plugin's own sources.

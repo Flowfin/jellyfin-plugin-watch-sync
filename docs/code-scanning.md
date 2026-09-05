@@ -391,7 +391,7 @@ call site passes a literal:
     git grep -n 'InvariantGuard.Fixture(' -- Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs
     Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:103:            new[] { ($"Invariants/{invariant}-near-miss.txt", InvariantGuard.Fixture($"{invariant}-near-miss.txt")) },
     Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:111:            new[] { ($"Invariants/{invariant}-near-miss-repaired.txt", InvariantGuard.Fixture($"{invariant}-near-miss-repaired.txt")) },
-    Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:127:        var sources = new[] { ("Invariants/injected-clock-near-miss.txt", InvariantGuard.Fixture("injected-clock-near-miss.txt")) };
+    Jellyfin.Plugin.WatchSync.Tests/InvariantGuardTests.cs:226:        var sources = new[] { ("Invariants/injected-clock-near-miss.txt", InvariantGuard.Fixture("injected-clock-near-miss.txt")) };
 
 `invariant` is a theory parameter fed from `Invariants/register.txt`, so two of the
 three names are rows of a tracked file rather than literals at the call. Neither

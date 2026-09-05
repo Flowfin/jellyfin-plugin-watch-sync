@@ -1,0 +1,45 @@
+# The rules no near-miss fixture in this tree proves, declared one per line with the reason.
+#
+# Fields are separated by " :: ": the rule identifier and why the rule is left unreached.
+#
+# The register beside this file names the invariants and the vocabulary names the rules, and the
+# guard proves each INVARIANT on a near-miss fixture. An invariant carried by several rules is
+# satisfied by one of them matching, so the rest were unmeasured and went on reporting themselves
+# proven. This file is the other half of that accounting: every rule is either reached by a
+# near-miss or named here, and the number named here is the number a reader has to take on trust.
+#
+# The fixtures are not widened to empty this file. Each one is the mistake somebody actually
+# makes, one change away from correct, and several invariants carry rules for routes that one
+# mistake does not take: the clock has eight spellings and a fixture using all eight would be a
+# list rather than a mistake. Widening them until every rule is tripped would buy the count at
+# the cost of the thing that makes each fixture worth reading.
+#
+# A declaration fails closed in both directions. One naming a rule a near-miss DOES reach is
+# refused as stale, so it leaves with the fixture line that reached it, and one naming a rule the
+# vocabulary does not carry is refused as dangling. Neither is a dispensation: what a rule named
+# here has is a reason and no proof, and docs/invariants.md says so where a reader deciding
+# whether to trust a green run will find it.
+
+user-name-equality :: the fixture's fallback compares through string.Equals with a comparison mode, which is what that line looks like when somebody writes it; the operator form is the same decision spelled shorter, and carrying both would make the fixture a list of spellings rather than the one line an apply path writes
+user-name-equals-call :: the fixture's one wrong line is a name search and a name comparison at once, so this rule and user-name-search both report it and neither owns a line of its own; separating them needs a fallback that compares without searching, which is not the mistake #42 argues
+user-name-search :: the same line from the other side, so removing this rule leaves it reported by its neighbour and the fixture proves the invariant rather than this rule
+clock-datetime-now :: the local-zone spelling of the read the fixture makes; that method compares instants, where the UTC form is what somebody writes, and a second read beside it would be two mistakes in one method rather than the one #32 is about
+clock-datetimeoffset-now :: the same local-zone read one type further out, which a resolver holding DateTimeOffset would reach for; the fixture holds DateTime, and changing its type to reach this rule changes what the fixture is about
+clock-datetimeoffset-utcnow :: the DateTimeOffset spelling of the read the fixture already makes, so reaching it means one method asking the time twice in two types
+clock-tick-count :: an uptime read, which is the mistake a backoff or a timeout makes rather than the one a position resolver makes, and the resolver is what #32 argues and what the fixture is
+clock-stopwatch :: an elapsed-time measurement, which belongs to a fixture about how long something took rather than to one about which of two plays is newer
+clock-time-provider-system :: the runtime's own provider, which is the read the composition root makes deliberately and is the declared departure in exceptions.txt; a near-miss for it would be that departure written in the wrong file, and ClockEntryTests is what holds it to the one file instead
+clock-local-time-zone :: a zone read rather than an instant read, and the fixture's method takes both instants as parameters, so it has no line where a zone would be asked for
+log-provider-identifier :: the fixture logs a title, which is the identifier a log line reaches for first because it is the one already in hand; a provider identifier arrives on an apply path that has resolved one, and a fixture carrying both would be naming the same item twice to trip two rules
+play-count-pre-increment :: the postfix form is what the fixture writes because it is what somebody writes; the prefix form is the same addition spelled the other way round, and both on one apply would count a play twice
+position-accumulated :: the fixture assigns the position correctly on the line below the addition, which is what makes it a near-miss rather than a broken apply; adding to the position as well would be two mistakes and a reader would stop at the first
+store-path-environment-variable :: the fixture takes the reading #68's own wording invites, which is the expensive one; the environment is a root somebody reaches for after that one is refused, and a store composed from two roots at once is not one anybody writes
+store-path-user-profile :: the same, for the account the server runs as
+store-path-temporary :: the same, for a directory a machine is entitled to empty
+store-path-beside-the-assembly :: the same, for the directory the assembly was loaded from, which is the install directory under another name and would read as the fixture's own mistake made twice
+store-path-absolute-literal :: an absolute path typed into the source, which is right on the machine it was written on; the fixture composes its path from a property instead, which is the mistake that survives a reading
+wait-thread-sleep :: the fixture awaits its window, which is what an async apply path writes; a blocking sleep is the same wait on a thread that cannot be given back, and a method doing both would be waiting twice
+wait-spin :: a busy wait, which nobody writes for a window measured in minutes; it is carried for the backoff that would, and no fixture in this tree is one
+wait-timer :: a timer fires a sweep rather than closes a window, so the line belongs to a scheduled run rather than to the echo window #16 argues, which is what the fixture is
+user-data-manager-class :: the fixture takes the manager as the interface, which is what the server registers and what a constructor asks for; naming the implementation as well would be one type reaching for the server twice
+user-data-batch-read :: the fixture calls the resume member, which is the difference the adapter exists to hold and the one a sweep reaches for first; the batch read is the newer line's other member, and a fixture calling both would be an adapter rather than a mistake

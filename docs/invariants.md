@@ -283,6 +283,37 @@ actually written, and it is not the same as the property being held. Where the t
 apart, it is written here rather than left for somebody to discover after trusting a
 green run.
 
+**Half of the vocabulary is proven and half is declared.** A near-miss fixture proves an
+INVARIANT, and for a long time that was the whole of what it proved. The theory driving it
+asserts that the fixture produces findings and that every finding belongs to that
+invariant, so an invariant carried by five rules is satisfied the moment one of them
+matches and the other four are unmeasured while the invariant goes on reporting itself
+proven. A rule narrowed until it matches nothing anybody would write reddens nothing, and
+that is the shape #358 measured.
+
+The accounting is per rule now. A rule counts as proven when a near-miss in this tree
+reaches it AND taking it out of the vocabulary moves what the fixtures report, which is the
+same deletion proof every other guard here is held to. Every rule that is not proven is
+named in `Jellyfin.Plugin.WatchSync.Tests/Invariants/unreached.txt` with its reason, and
+that file fails closed in both directions: a declaration naming a rule a near-miss DOES
+reach is refused as stale, and one naming a rule the vocabulary does not carry is refused
+as dangling. The two numbers are read rather than written here:
+
+    grep -vc '^#\|^$' Jellyfin.Plugin.WatchSync.Tests/Invariants/vocabulary.txt
+    47
+    grep -vc '^#\|^$' Jellyfin.Plugin.WatchSync.Tests/Invariants/unreached.txt
+    23
+
+WHAT A DECLARATION BUYS IS VISIBILITY AND NOT PROOF, and that is the sentence to read
+before trusting the green run this page is about. A rule named in that file refuses a call
+in this plugin's sources exactly as a proven one does; what it lacks is a fixture showing
+that it refuses the mistake it was written for rather than something that merely looks like
+one. The fixtures are not widened until the file empties, because each is the mistake
+somebody actually makes, one change away from correct, and a fixture reading the clock in
+eight ways would be a list of spellings rather than a mistake. So the second number is what
+a reader takes on trust, and it is in this file rather than in the data file because this is
+the page somebody opens before believing a green run.
+
 **A scan is only as wide as its subject.** These rules read the plugin's own sources, so
 what a green run is worth depends on what those sources hold, and that moves under this
 paragraph without anybody editing it. Every reading below was taken at `79a3a62` except the
