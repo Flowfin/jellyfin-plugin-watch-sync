@@ -256,6 +256,12 @@ public sealed class DocumentStoreTests : IDisposable
         Assert.True(await FinishedWithin(slow, Patience), "The held writer never finished once it was let go.");
         Assert.Equal(DocumentWriteOutcome.Written, (await slow).Outcome);
 
+        // After the wait rather than at the end of the method under a using: both events are
+        // handed to a stream the store drives on another thread, and they may not be disposed
+        // while that thread can still touch them. The wait above is what says it cannot.
+        held.Dispose();
+        reached.Dispose();
+
         var document = store.Read(Name)!.Document!;
 
         Assert.Equal("here", Member(document, "slow"));
@@ -298,6 +304,11 @@ public sealed class DocumentStoreTests : IDisposable
         held.Set();
 
         Assert.True(await FinishedWithin(slow, Patience), "The held writer never finished once it was let go.");
+
+        // After the wait, for the reason the case above gives.
+        held.Dispose();
+        reached.Dispose();
+
         Assert.Equal("the sweep", Member(store.Read("queue")!.Document!, "who"));
         Assert.Equal("the event", Member(store.Read(Name)!.Document!, "who"));
     }

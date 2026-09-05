@@ -118,59 +118,73 @@ which is what the fixed alerts are.
 
 ### `cs/catch-of-all-exceptions`
 
-Disposition: sorted by site under #370, which is open as this entry is written
-and rewrites it when it lands: fixed at the two sites in production code, in
-`Apply/CappedApply.cs` and `Apply/ItemByItemApply.cs`, and declined at the four
-sites in the fuzz harness, `EnvelopeFuzz.cs` in the suite.
+Disposition: sorted by site under #370: fixed at the two sites in production
+code, in `Apply/CappedApply.cs` and `Apply/ItemByItemApply.cs`, and declined at
+the four sites in the fuzz harness, `EnvelopeFuzz.cs` in the suite.
 
 Quoted by a dismissal: Declined at this site (#271, 2026-09-05; #370; register docs/code-scanning.md): this catch is in a fuzz harness whose subject is what the reader does with bytes nobody wrote, and an exception the reader did not declare is the finding the sweep exists to record rather than an error to narrow away.
 
 The four harness sites catch everything because that is what the harness is
 for: narrowing a clause to the types the reader is known to throw would make
 the sweep blind to exactly the case it exists to find, and the finding it
-records carries the type name and the message. The two apply sites are the
-pair #370 argues rather than sorts. An apply that catches everything is how one
-bad item stops taking the whole run down, which is #54's own rule, and it is
-also how a defect in this plugin becomes a per-item refusal; what the catch is
-for, what it hides and why the answer is the one taken are written there and
-into this entry when it lands.
+records carries the type name and the message.
 
+The two apply sites are argued rather than sorted, because the same clause is
+#54's own rule and is also the shape the query is about. What the catch is for:
+one item's failure must not take the run down, and this plugin does not own the
+server's user data manager and cannot enumerate what it throws, so a clause
+naming the failures somebody thought of would stop the walk at the first one
+nobody did. What it hides: the message and the stack of whatever was thrown,
+which for a defect in this plugin's own adapter is the thing a reader would
+want first. What it does not hide is that a failure happened and of what kind:
+the walk records the type name of the refusal against the item and stops the
+run when the share of failures says the failure is systematic, and the capped
+read records the item as unread and sets it aside at the approval, so each
+outcome is a row an operator reads rather than a silence.
+
+The answer taken is that the breadth stays and the clause says its own bound.
+Both sites caught everything and threw one thing back, a cancellation, which is
+this side's own request and not a failure of the item. That exclusion is now a
+filter on the clause, `when (thrown is not OperationCanceledException)`, which
+is what the query reads as a considered catch and is also the more exact form:
+a filtered clause is never entered for a cancellation, where a catch and a
+rethrow was entered and unwound. What the facts pin is unchanged on both
+sides: a cancelled read or write leaves the run, and any other failure is
+recorded against the item, and both are proven by the facts the pull request
+names. That the alert closes on it is a fact to read after the mainline is
+scanned rather than a claim made here.
 ### `cs/local-not-disposed`
 
-Disposition: fixed, under #370, which is open as this entry is written and
-rewrites it when it lands. Four sites, all `ManualResetEventSlim` in
+Disposition: fixed, under #370. Four sites, all `ManualResetEventSlim` in
 `DocumentStoreTests.cs`.
 
 The query is right. That type allocates a kernel event lazily and does so
 exactly when a waiter blocks past its spin count, which is what both cases make
-it do, so the handle is real rather than theoretical and nothing releases it.
+it do, so the handle is real rather than theoretical and nothing released it.
 The repair is not a blind `using` and it is not a disposal at the end of the
-method: both events are handed to a stream the store opens on another thread,
+method: both events are handed to a stream the store drives on another thread,
 so they may not be disposed while that thread can still touch them, and both
-cases already wait for that thread. The disposal goes after that wait.
-
+cases already wait for that thread. The disposal goes after that wait, and the
+sentence saying why is written at the site.
 ### `cs/empty-catch-block`
 
-Disposition: fixed, under #370, which is open as this entry is written and
-rewrites it when it lands. Two sites, both in `Discard` in
+Disposition: fixed, under #370. Two sites, both in `Discard` in
 `Storage/DocumentStore.cs`.
 
 The swallow is the behaviour rather than an oversight. `Discard` runs on the
 failing path of a write that has already decided to answer with a refusal, and
 a delete that also fails may not turn that refusal into a different one: a
 leftover in-flight file is written over by the next attempt, which the
-in-flight naming already fixes, and the failure nobody hears of is answered
+in-flight naming already arranges, and the failure nobody hears of is answered
 one level up by what the write returns. The repair is that sentence written
 inside each block, because the next reader meets an empty block before they
-meet this entry. The query itself excludes a block that carries a comment, so
-the fix is the reader's rather than the tool's, and whether the alert closes on
-it is a reading to take after the change rather than a claim to make here.
-
+meet this entry. The query excludes a block that carries a comment, so the fix
+is the reader's rather than the tool's, and whether the alert closes on it is
+a reading to take after the mainline is scanned.
 ### `cs/dispose-not-called-on-throw`
 
-Disposition: declined at both sites, under #370, which is open as this entry
-is written and applies it on the security page when it lands. Two sites, both
-in `OneExchangeAtATimeTests.cs` in the suite.
+Disposition: declined at both sites, under #370. Two sites, both in
+`OneExchangeAtATimeTests.cs` in the suite.
 
 Quoted by a dismissal: Declined at this site (#271, 2026-09-05; #370; register docs/code-scanning.md): the moment this admission is released is what the test asserts, and a using block would move that moment to the end of the method and leave the test asserting nothing.
 
@@ -186,19 +200,17 @@ the same method, so a throw between the two calls loses a place in an exclusion
 nothing outside the failing test can reach. In the plugin the same shape is
 the failure that type's own comment is written against, which is why this is a
 decline of two sites and not of the query.
-
 ### `cs/equality-on-floats`
 
-Disposition: fixed, under #370, which is open as this entry is written and
-rewrites it when it lands. One site, in `ConfigurationDocumentTests.cs` in the
-suite.
+Disposition: fixed, under #370. One site, in `ConfigurationDocumentTests.cs`
+in the suite.
 
-The query is right about the class. The comparison holds today because every
-value on both sides is a whole number of seconds small enough to be exact as a
-double, which is a property of the fixtures rather than of the code. The
-repair compares ticks, which are whole numbers on both sides, and removes the
-class rather than the alert.
-
+The query is right about the class. The comparison held because every value on
+both sides was a whole number of seconds small enough to be exact as a double,
+which is a property of the fixtures rather than of the code. The repair asks
+the division of ticks, which are whole numbers on both sides, and removes the
+class rather than the alert; a span that is not a whole number of seconds is
+still written in the machine format, as before.
 ### `cs/inefficient-containskey`
 
 Disposition: fixed. Two sites under #369, landed as #372 on `9f2678d`; one
