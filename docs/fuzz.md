@@ -47,6 +47,39 @@ the contract while the process stays up. The rules, one per way that happens:
 | `bounds-threw` | the bounds threw on quantities counted off the bytes |
 | `bounds-answer-disagrees-with-its-own-bounds` | an envelope allowed past a bound it exceeds |
 
+The rules above are about text that is already in memory. The body reader is the layer in
+front of them, and it decides how much of what a peer is sending this side takes at all,
+which is the second condition of #19. Its rules are asked of the same input, and the
+fifth condition of that issue is why they are here rather than only beside the reader:
+
+| rule | what an input made the body reader do |
+| --- | --- |
+| `body-reader-threw` | it threw instead of answering |
+| `body-reader-answered-nothing` | it came back with no reading at all |
+| `refused-body-carries-text` | a refused body carrying text a caller can parse |
+| `read-body-carries-no-text` | a body that was not refused carrying nothing |
+| `the-declaration-was-not-carried` | a reading naming a length the peer did not declare |
+| `too-many-bytes-names-no-bound` | a refusal by length naming no bound |
+| `bound-named-where-no-bound-refused` | a bound named where no bound refused anything |
+| `declared-past-the-bound-was-read-anyway` | bytes taken off a body already refused on its declaration |
+| `a-body-inside-the-bound-was-refused-for-its-length` | a body inside the bound refused for its length |
+| `the-text-is-not-the-bytes-that-arrived` | text that re-encodes to bytes the peer did not send |
+| `body-read-past-the-bound` | more than one byte past the bound taken off the stream |
+| `an-endless-body-was-not-refused` | a peer that never stops sending answered as read |
+
+Five declarations per input, at the length of the input rather than the length of the
+bound: none, the honest one, one below the body, one past the bound, and the same bytes
+with a lead byte on the end that no continuation follows. The fourth is the case the rule
+exists for, because nothing is read off the stream at all; the fifth is the one shape a
+body derived from text cannot otherwise reach, since everything the mutations produce is
+a string and a string encodes to UTF-8 that decodes again.
+
+The last two rules are asked once per sweep rather than once per input, against a peer
+that never stops sending. Reading a quarter of a mebibyte per input would spend a run's
+whole budget re-answering a question that does not depend on the input, and a reader
+whose stopping condition is the end of the stream rather than the bound passes every
+input that has an end.
+
 Each of those is proven by a reader that breaks exactly that rule, in
 `EnvelopeFuzzTests`. That leg is what makes the run worth reading: an oracle is only
 ever exercised by inputs that satisfy it, so one that has quietly stopped asking looks
@@ -78,9 +111,14 @@ on every execution, including a green one.
 **A clean run is not an absence of defects.** It is the absence of a defect this
 harness's mutations reached with a rule this harness carries.
 
-**It judges the reader and the bounds and nothing beyond them.** The bounds are asked
+**It judges the readers and the bounds and nothing beyond them.** The bounds are asked
 with the three quantities counted off the bytes; what a real caller does with a refusal
 is the transfer plane in #47 and the apply path in #54, and neither exists.
+
+**The body leg hands the bytes over rather than receiving them.** No transport in this
+plugin produces a body, so the stream is one the harness builds out of the input and the
+declaration is a number it chooses. What a real transport declares, and whether it
+declares anything, is #40's adapter and is not measured here.
 
 **The suite does not sweep.** `EnvelopeFuzzTests` proves the machinery on fixed inputs
 and runs the oracle over the seeds only. A sweep inside the suite would be a fuzz run

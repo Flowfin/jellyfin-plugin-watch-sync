@@ -131,11 +131,11 @@ public class EnvelopeFuzzTests
         var judged = EnvelopeFuzz.Judge(overTheStringBound, EnvelopeFuzz.TheRealReader());
 
         Assert.Empty(judged.Findings);
-        Assert.EndsWith(EnvelopeBoundsAnswer.AStringIsTooLong.ToString(), judged.Answer, StringComparison.Ordinal);
+        Assert.Equal(EnvelopeBoundsAnswer.AStringIsTooLong.ToString(), BoundsAnswerIn(judged.Answer));
 
         var within = EnvelopeFuzz.Judge("{\"version\":1,\"changes\":[]}", EnvelopeFuzz.TheRealReader());
 
-        Assert.EndsWith(EnvelopeBoundsAnswer.Within.ToString(), within.Answer, StringComparison.Ordinal);
+        Assert.Equal(EnvelopeBoundsAnswer.Within.ToString(), BoundsAnswerIn(within.Answer));
     }
 
     /// <summary>
@@ -196,10 +196,10 @@ public class EnvelopeFuzzTests
         var sweep = EnvelopeFuzz.Run(EnvelopeCorpus.Seeds(), 64, 3, EnvelopeFuzz.TheRealReader());
 
         var reached = sweep.Corpus
-            .Where(body => EnvelopeFuzz
-                .Judge(body, EnvelopeFuzz.TheRealReader())
-                .Answer
-                .EndsWith(EnvelopeBoundsAnswer.TooManyBytes.ToString(), StringComparison.Ordinal))
+            .Where(body => string.Equals(
+                BoundsAnswerIn(EnvelopeFuzz.Judge(body, EnvelopeFuzz.TheRealReader()).Answer),
+                EnvelopeBoundsAnswer.TooManyBytes.ToString(),
+                StringComparison.Ordinal))
             .ToList();
 
         Assert.NotEmpty(reached);
@@ -221,6 +221,91 @@ public class EnvelopeFuzzTests
                 Assert.True(member.Value.GetString()!.Length <= EnvelopeBounds.LongestStringLength);
             }
         }
+    }
+
+    /// <summary>
+    /// Every rule the BODY oracle carries, proven on a reader that breaks exactly that rule.
+    ///
+    /// The same leg as the one above and for the same reason. These rules are the ones about how
+    /// much of what a peer is sending this side takes at all, which is #19's second condition, and
+    /// an oracle over them that has quietly stopped asking reports the same clean sheet as a
+    /// bounded reader.
+    /// </summary>
+    /// <param name="rule">The rule the broken reader is meant to trip.</param>
+    [Theory]
+    [InlineData("body-reader-threw")]
+    [InlineData("body-reader-answered-nothing")]
+    [InlineData("refused-body-carries-text")]
+    [InlineData("read-body-carries-no-text")]
+    [InlineData("the-declaration-was-not-carried")]
+    [InlineData("too-many-bytes-names-no-bound")]
+    [InlineData("bound-named-where-no-bound-refused")]
+    [InlineData("declared-past-the-bound-was-read-anyway")]
+    [InlineData("a-body-inside-the-bound-was-refused-for-its-length")]
+    [InlineData("the-text-is-not-the-bytes-that-arrived")]
+    [InlineData("body-read-past-the-bound")]
+    public void EveryBodyOracleRuleRefusesAReaderThatBreaksIt(string rule)
+    {
+        var judged = EnvelopeFuzz.Judge(
+            BrokenBodyReaders.BodyFor(rule),
+            EnvelopeFuzz.TheRealReader(),
+            BrokenBodyReaders.For(rule));
+
+        Assert.Contains(rule, judged.Findings.Select(finding => finding.Rule), StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// The two rules a body of a known length cannot reach, proven on the leg that judges the peer
+    /// that never stops sending.
+    ///
+    /// A reader whose stopping condition is the end of the stream rather than the bound passes
+    /// every finite input, so this is the one place where the ceiling on what this side holds is
+    /// asked at all.
+    /// </summary>
+    /// <param name="rule">The rule the broken reader is meant to trip.</param>
+    [Theory]
+    [InlineData("body-read-past-the-bound")]
+    [InlineData("an-endless-body-was-not-refused")]
+    [InlineData("body-reader-threw")]
+    public void EveryCeilingRuleRefusesAReaderThatBreaksIt(string rule)
+    {
+        var findings = EnvelopeFuzz.JudgeTheCeiling(BrokenBodyReaders.For(rule));
+
+        Assert.Contains(rule, findings.Select(finding => finding.Rule), StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// The body reader this plugin ships is refused by none of those, on a body that never ends.
+    ///
+    /// The positive half of the pair above: the ceiling leg refuses three broken readers and
+    /// refuses nothing here, so a finding out of a scheduled run says something about the reader
+    /// rather than about a leg that refuses whatever it meets.
+    /// </summary>
+    [Fact]
+    public void TheRealBodyReaderIsRefusedByNoCeilingRule()
+    {
+        Assert.Empty(EnvelopeFuzz.JudgeTheCeiling(EnvelopeFuzz.TheRealBodyReader()));
+    }
+
+    /// <summary>
+    /// A run reaches both refusals of the body reader, which is the fifth condition of #19 for the
+    /// path that landed under its second.
+    ///
+    /// The two are reached from opposite ends and neither depends on the input, which is why they
+    /// are asked of every one rather than waited for. A peer that declares more than the bound is
+    /// refused with nothing read off it at all, and bytes that are not text are refused rather than
+    /// repaired into text; before this the harness reached neither, and both were exercised only by
+    /// the cases beside the reader.
+    /// </summary>
+    [Fact]
+    public void ARunReachesBothRefusalsOfTheBodyReader()
+    {
+        var answers = BodyAnswersIn(
+            EnvelopeFuzz.Judge("{\"version\":1,\"changes\":[]}", EnvelopeFuzz.TheRealReader()).Answer);
+
+        Assert.Contains(EnvelopeBodyAnswer.Read.ToString(), answers, StringComparer.Ordinal);
+        Assert.Contains(EnvelopeBodyAnswer.TooManyBytes.ToString(), answers, StringComparer.Ordinal);
+        Assert.Contains(EnvelopeBodyAnswer.NotText.ToString(), answers, StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -258,6 +343,25 @@ public class EnvelopeFuzzTests
         Assert.Throws<ArgumentOutOfRangeException>(
             () => EnvelopeFuzz.Run(EnvelopeCorpus.Seeds(), -1, 1, EnvelopeFuzz.TheRealReader()));
     }
+
+    /// <summary>
+    /// The bounds answer out of the key one input is archived under.
+    ///
+    /// The key names what every leg answered, so a reader of one leg takes its own field rather
+    /// than matching the end of the string. Matching the end is what these two facts did until the
+    /// body leg landed behind the bounds leg, and it is the shape that goes quietly wrong when a
+    /// fifth leg arrives rather than failing.
+    /// </summary>
+    /// <param name="key">The answer key.</param>
+    /// <returns>The bounds answer.</returns>
+    private static string BoundsAnswerIn(string key) => key.Split('/')[2];
+
+    /// <summary>
+    /// The body answers out of the same key, one per declaration the harness hands over.
+    /// </summary>
+    /// <param name="key">The answer key.</param>
+    /// <returns>The answers.</returns>
+    private static IReadOnlyList<string> BodyAnswersIn(string key) => key.Split('/')[3].Split('|');
 
     private static IReadOnlyList<string> Mutations(IReadOnlyList<string> seeds, int count, int seed)
     {
@@ -337,5 +441,137 @@ public class EnvelopeFuzzTests
 
             _ => throw new ArgumentOutOfRangeException(nameof(rule), rule, "No broken reader is written for that rule."),
         };
+    }
+
+    /// <summary>
+    /// One body reader per rule the body oracle carries, each breaking that rule.
+    ///
+    /// Most of them are the reader this plugin ships with one thing about its answer changed,
+    /// rather than an answer invented from nothing. A reader written from scratch to trip a rule
+    /// tends to trip four, and then the fact that it trips this one says less than it looks like
+    /// it says.
+    /// </summary>
+    internal static class BrokenBodyReaders
+    {
+        /// <summary>
+        /// A body that reaches the rule's branch in a reader that is otherwise honest.
+        ///
+        /// One rule needs a body past the bound, and it is the rule about how far a reader goes:
+        /// a body with an end that is inside the bound cannot tell a reader that stops at the
+        /// bound from one that stops at the end of the stream, because the two stop in the same
+        /// place. Every other rule is reached by an ordinary envelope.
+        /// </summary>
+        /// <param name="rule">The rule.</param>
+        /// <returns>The body.</returns>
+        internal static string BodyFor(string rule) => rule switch
+        {
+            "body-read-past-the-bound" =>
+                "{\"version\":1,\"changes\":[\"" + new string('k', EnvelopeBounds.MaximumBytes) + "\"]}",
+            _ => "{\"version\":1,\"changes\":[]}",
+        };
+
+        /// <summary>
+        /// The reader that breaks one rule.
+        /// </summary>
+        /// <param name="rule">The rule to break.</param>
+        /// <returns>The reader.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">A rule nothing here breaks.</exception>
+        internal static EnvelopeFuzz.BodyReader For(string rule)
+        {
+            var honest = EnvelopeFuzz.TheRealBodyReader();
+
+            return rule switch
+            {
+                "body-reader-threw" => (_, _) => throw new InvalidOperationException("the body reader gave way"),
+
+                "body-reader-answered-nothing" => (_, _) => null!,
+
+                "refused-body-carries-text" => (body, declared) =>
+                {
+                    var seen = honest(body, declared);
+
+                    return seen.IsRefused ? seen with { Text = "what was refused" } : seen;
+                },
+
+                "read-body-carries-no-text" => (body, declared) =>
+                {
+                    var seen = honest(body, declared);
+
+                    return seen.IsRefused ? seen : seen with { Text = null };
+                },
+
+                "the-declaration-was-not-carried" => (body, declared) =>
+                    honest(body, declared) with { DeclaredBytes = -1 },
+
+                "too-many-bytes-names-no-bound" => (body, declared) =>
+                {
+                    var seen = honest(body, declared);
+
+                    return seen.Bound is null ? seen : seen with { Bound = null };
+                },
+
+                "bound-named-where-no-bound-refused" => (body, declared) =>
+                {
+                    var seen = honest(body, declared);
+
+                    return seen.Bound is null ? seen with { Bound = 1 } : seen;
+                },
+
+                // It takes the body off the stream before it asks anything about the declaration,
+                // which is the whole failure: the size is discovered by reading rather than by
+                // being told, and the refusal then arrives with the body already in memory.
+                "declared-past-the-bound-was-read-anyway" => (body, declared) =>
+                {
+                    Drain(body);
+
+                    return honest(body, declared);
+                },
+
+                "a-body-inside-the-bound-was-refused-for-its-length" => (_, declared) =>
+                    new EnvelopeFuzz.BodyObservation(
+                        nameof(EnvelopeBodyAnswer.TooManyBytes),
+                        true,
+                        null,
+                        EnvelopeBounds.MaximumBytes,
+                        declared,
+                        0),
+
+                "the-text-is-not-the-bytes-that-arrived" => (body, declared) =>
+                {
+                    var seen = honest(body, declared);
+
+                    return seen.IsRefused ? seen : seen with { Text = seen.Text + "and one character nobody sent" };
+                },
+
+                // The reader that stops at the end of the stream rather than at the bound. Every
+                // body with an end passes it, which is why the ceiling leg exists.
+                "body-read-past-the-bound" => (body, declared) =>
+                {
+                    Drain(body);
+
+                    return honest(body, declared);
+                },
+
+                "an-endless-body-was-not-refused" => (_, declared) => new EnvelopeFuzz.BodyObservation(
+                    nameof(EnvelopeBodyAnswer.Read),
+                    false,
+                    string.Empty,
+                    null,
+                    declared,
+                    0),
+
+                _ => throw new ArgumentOutOfRangeException(nameof(rule), rule, "No broken body reader is written for that rule."),
+            };
+        }
+
+        private static void Drain(Stream body)
+        {
+            var scratch = new byte[4096];
+
+            while (body.Read(scratch, 0, scratch.Length) > 0)
+            {
+                // Reading until the stream says it is done, which is the mistake being made.
+            }
+        }
     }
 }
