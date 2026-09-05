@@ -1,0 +1,23 @@
+// The repair of the near-miss next to it, and nothing else. Where one identifier answers
+// for two local items the derivation produces no key, so the ambiguity is recorded rather
+// than decided by a number that belongs to one server's copy. If the guard passes this
+// and refuses its neighbour, what it refused was the mistake and not something else about
+// the fixture.
+
+internal static class MovieKey
+{
+    internal static string? Derive(BaseItem item, IReadOnlyList<BaseItem> candidates)
+    {
+        if (!item.TryGetProviderId(MetadataProvider.Imdb, out var imdb))
+        {
+            return null;
+        }
+
+        if (candidates.Count > 1)
+        {
+            return null;
+        }
+
+        return "imdb:" + Normalise(imdb);
+    }
+}

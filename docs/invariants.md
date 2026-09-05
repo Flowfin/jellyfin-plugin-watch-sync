@@ -344,6 +344,27 @@ eight ways would be a list of spellings rather than a mistake. So the second num
 a reader takes on trust, and it is in this file rather than in the data file because this is
 the page somebody opens before believing a green run.
 
+THE ACCOUNTING REACHES BOTH GUARDS NOW, AND IT REACHED ONE OF THEM UNTIL #365. What #358
+built reads `Invariants/vocabulary.txt` and the fixtures beside it, and storage identity is
+the one invariant this register hands to a guard of its own, so its rules were outside that
+measurement in both arguments. Four of the five could be narrowed until they matched nothing
+with the whole suite staying green, which is the shape the paragraph above describes and had
+stopped describing only half of.
+
+`StorageIdentityGuardTests` carries the same measurement over its own vocabulary now, with
+one near-miss pair per rule and its own declaration file beside them, and the measurement is
+the shared one rather than a second implementation of it, because two measurements of one
+thing disagree and the disagreement is found by somebody trusting the wrong one. How many
+rules that vocabulary carries is the count at the head of this page. Its declaration file
+holds no entry today, which is a state of this tree rather than a property of the register:
+
+    grep -vc '^#\|^$' Jellyfin.Plugin.WatchSync.Tests/Matching/storage-identity-unreached.txt
+    0
+
+A third guard added tomorrow is outside both, and nothing reports that. What would is a
+reading of this paragraph against the register, and there is no such reading; the register
+names the carrier of every invariant, so the question is answerable and nothing asks it.
+
 **A scan is only as wide as its subject.** These rules read the plugin's own sources, so
 what a green run is worth depends on what those sources hold, and that moves under this
 paragraph without anybody editing it. Every reading below was taken at `79a3a62` except the

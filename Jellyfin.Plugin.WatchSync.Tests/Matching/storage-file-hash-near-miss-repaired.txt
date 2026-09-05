@@ -1,0 +1,18 @@
+// The repair of the near-miss next to it, and nothing else. The branch that digested the
+// bytes of one file returns no key, so an item carrying no identifier is recorded as
+// unmatched rather than matched against one encoding of one copy. If the guard passes
+// this and refuses its neighbour, what it refused was the mistake and not something else
+// about the fixture.
+
+internal static class MovieKey
+{
+    internal static string? Derive(BaseItem item, Stream content)
+    {
+        if (item.TryGetProviderId(MetadataProvider.Imdb, out var imdb))
+        {
+            return "imdb:" + Normalise(imdb);
+        }
+
+        return null;
+    }
+}

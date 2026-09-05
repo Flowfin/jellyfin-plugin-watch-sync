@@ -1,0 +1,24 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// This is the mistake that looks like the rigorous answer rather than the lazy one, which
+// is why it is the one worth refusing. Nothing about a name or a location is trusted; the
+// bytes themselves are digested, and two servers agreeing on a digest are held to be
+// talking about the same work. They are talking about the same ENCODING, and the plugin
+// exists for the case where they hold different ones. It also reads every file of the
+// library to build a key, on a machine an operator is watching something on.
+//
+// The repair beside it drops the digest and leaves the item unmatched, which is what the
+// document asks for.
+
+internal static class MovieKey
+{
+    internal static string? Derive(BaseItem item, Stream content)
+    {
+        if (item.TryGetProviderId(MetadataProvider.Imdb, out var imdb))
+        {
+            return "imdb:" + Normalise(imdb);
+        }
+
+        return "digest:" + Convert.ToHexString(SHA256.HashData(content));
+    }
+}

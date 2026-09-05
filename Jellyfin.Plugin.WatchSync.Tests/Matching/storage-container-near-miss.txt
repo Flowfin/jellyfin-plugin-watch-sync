@@ -1,0 +1,28 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// This one does not fall back at all. It prefers the provider identifiers, it returns
+// them normalised, and then it appends what the file is packaged in so that two versions
+// of one work on one server do not collide. That is the reasonable-sounding form of the
+// mistake: the key is right about the work and wrong about the sameness, because the peer
+// holding the same work in another wrapper now derives a different key and the two never
+// meet.
+//
+// It is one suffix away from correct, and the repair beside it removes the suffix.
+
+internal static class MovieKey
+{
+    internal static string? Derive(BaseItem item)
+    {
+        if (item.TryGetProviderId(MetadataProvider.Imdb, out var imdb))
+        {
+            return "imdb:" + Normalise(imdb) + ":" + item.Container;
+        }
+
+        if (item.TryGetProviderId(MetadataProvider.Tmdb, out var tmdb))
+        {
+            return "tmdb:" + Normalise(tmdb);
+        }
+
+        return null;
+    }
+}
