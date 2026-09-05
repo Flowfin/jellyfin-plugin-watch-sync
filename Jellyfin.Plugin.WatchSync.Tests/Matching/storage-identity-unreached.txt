@@ -1,0 +1,18 @@
+# Rules of the storage identity vocabulary that no near-miss fixture in this tree reaches,
+# each with the reason it is declared rather than proven.
+#
+# Fields are separated by " :: ": the rule identifier, and the reason.
+#
+# A declaration is a debt with the thing that retires it written next to it. It buys
+# VISIBILITY and not proof: a rule named here refuses a call in this plugin's sources
+# exactly as a proven one does, and what it lacks is a fixture showing that it refuses the
+# mistake it was written for rather than something that merely looks like one.
+#
+# The file fails closed in both directions. A rule declared here that a near-miss DOES
+# reach is refused as stale, and one named here that the vocabulary does not carry is
+# refused as dangling, so an entry leaves with the rule it covered.
+#
+# It holds no entry today. That is a state of this tree rather than a property of the
+# register: every rule the vocabulary carries has a near-miss pair beside it and moves the
+# verdict when it is taken out. A rule added without one is reported here rather than
+# passing, which is what this file exists for.

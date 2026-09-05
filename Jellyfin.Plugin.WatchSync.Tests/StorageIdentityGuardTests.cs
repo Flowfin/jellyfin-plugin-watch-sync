@@ -58,31 +58,86 @@ public class StorageIdentityGuardTests
     }
 
     /// <summary>
-    /// The guard proven by deleting it, on the mistake the prior art actually makes. The
-    /// near-miss is a movie key that prefers the three provider identifiers in the order the
-    /// document fixes and falls back to the storage location for the item that carries none of
-    /// them. Everything else about it is right, and the repair is that one branch returning no
-    /// key instead.
+    /// The rules this guard carries, read from the vocabulary rather than listed here. That is
+    /// what makes the near-miss obligation arrive with the rule: a sixth entry added to the
+    /// vocabulary has no fixture pair, and the theory below fails until one exists.
     /// </summary>
-    [Fact]
-    public void TheGuardRefusesTheNearMissAndPassesItsRepair()
+    /// <returns>One case per rule.</returns>
+    public static TheoryData<string> RulesThisGuardCarries()
+    {
+        var data = new TheoryData<string>();
+
+        foreach (var rule in StorageIdentityGuard.Vocabulary())
+        {
+            data.Add(rule.Id);
+        }
+
+        return data;
+    }
+
+    /// <summary>
+    /// Each rule proven by deleting it, on the mistake somebody will actually make. The pairs
+    /// are one change apart and the repair is that one change, so a guard that passed the repair
+    /// and refused its neighbour refused the mistake rather than the shape of the fixture.
+    ///
+    /// One pair per rule rather than one for the guard. Until #365 there was a single pair, it
+    /// tripped the location rule, and the other four rules could be narrowed until they matched
+    /// nothing with the whole suite staying green.
+    /// </summary>
+    /// <param name="rule">The rule whose fixture pair is exercised.</param>
+    [Theory]
+    [MemberData(nameof(RulesThisGuardCarries))]
+    public void EachRuleIsRefusedOnItsNearMissAndPassesItsRepair(string rule)
     {
         var vocabulary = StorageIdentityGuard.Vocabulary();
 
         var refused = StorageIdentityGuard.Scan(
-            new[] { ("Matching/storage-identity-near-miss.txt", StorageIdentityGuard.Fixture("storage-identity-near-miss.txt")) },
+            new[] { ($"Matching/{rule}-near-miss.txt", StorageIdentityGuard.Fixture($"{rule}-near-miss.txt")) },
             vocabulary,
             Array.Empty<StorageIdentityGuard.Departure>());
 
         var finding = Assert.Single(refused.Findings);
-        Assert.Equal("storage-path", finding.Id);
+        Assert.Equal(rule, finding.Id);
 
         var repaired = StorageIdentityGuard.Scan(
-            new[] { ("Matching/storage-identity-near-miss-repaired.txt", StorageIdentityGuard.Fixture("storage-identity-near-miss-repaired.txt")) },
+            new[] { ($"Matching/{rule}-near-miss-repaired.txt", StorageIdentityGuard.Fixture($"{rule}-near-miss-repaired.txt")) },
             vocabulary,
             Array.Empty<StorageIdentityGuard.Departure>());
 
-        Assert.Empty(repaired.Findings);
+        Assert.Empty(repaired.Findings.Select(entry =>
+            $"the repaired fixture for {rule} still trips {entry.Id} at line {entry.Line}."));
+    }
+
+    /// <summary>
+    /// The accounting the theory above cannot make, measured a rule at a time.
+    ///
+    /// A theory asserting that a fixture produces a finding naming its own rule says nothing
+    /// about a rule whose fixture nobody wrote, and nothing about one that has been narrowed
+    /// until a sibling of the same invariant reports every line it used to. Both were live here:
+    /// #358 built this accounting for the vocabulary beside this one and this guard's five rules
+    /// were outside it in both arguments, so four of them were refused by nothing while the
+    /// invariant went on reporting itself proven.
+    ///
+    /// The accounting is the one <see cref="InvariantGuardTests"/> already carries rather than a
+    /// second implementation of it, because two measurements of one thing disagree and the
+    /// disagreement is discovered by somebody trusting the wrong one.
+    /// </summary>
+    [Fact]
+    public void EveryRuleIsReachedByANearMissOrIsDeclaredUnreached()
+    {
+        var reach = InvariantGuardTests.InvariantGuard.ReachOfEachRule(
+            StorageIdentityGuard.RulesAsInvariantRules(),
+            StorageIdentityGuard.NearMisses(),
+            StorageIdentityGuard.Unreached());
+
+        Assert.Empty(reach.Unproven.Select(entry =>
+            $"{entry.Id} is {entry.State}, so no near-miss fixture proves it, and Matching/storage-identity-unreached.txt does not declare it."));
+
+        Assert.Empty(reach.Stale.Select(id =>
+            $"Matching/storage-identity-unreached.txt declares {id} unreached, and a near-miss fixture reaches it."));
+
+        Assert.Empty(reach.Dangling.Select(id =>
+            $"Matching/storage-identity-unreached.txt declares {id}, which the vocabulary does not carry."));
     }
 
     /// <summary>
@@ -93,13 +148,13 @@ public class StorageIdentityGuardTests
     [Fact]
     public void ADepartureCoversItsCallAndOneThatCoversNothingIsRefused()
     {
-        var sources = new[] { ("Matching/storage-identity-near-miss.txt", StorageIdentityGuard.Fixture("storage-identity-near-miss.txt")) };
+        var sources = new[] { ("Matching/storage-path-near-miss.txt", StorageIdentityGuard.Fixture("storage-path-near-miss.txt")) };
         var vocabulary = StorageIdentityGuard.Vocabulary();
 
         var covered = StorageIdentityGuard.Scan(
             sources,
             vocabulary,
-            new[] { new StorageIdentityGuard.Departure("Matching/storage-identity-near-miss.txt", "storage-path", "a reason") });
+            new[] { new StorageIdentityGuard.Departure("Matching/storage-path-near-miss.txt", "storage-path", "a reason") });
 
         Assert.Empty(covered.Findings);
         Assert.Empty(covered.Dangling);
@@ -107,7 +162,7 @@ public class StorageIdentityGuardTests
         var stale = StorageIdentityGuard.Scan(
             sources,
             vocabulary,
-            new[] { new StorageIdentityGuard.Departure("Matching/storage-identity-near-miss.txt", "storage-container", "a reason") });
+            new[] { new StorageIdentityGuard.Departure("Matching/storage-path-near-miss.txt", "storage-container", "a reason") });
 
         var dangling = Assert.Single(stale.Dangling);
         Assert.Equal("storage-container", dangling.Id);
@@ -179,6 +234,11 @@ public class StorageIdentityGuardTests
         private const string TestProject = "Jellyfin.Plugin.WatchSync.Tests";
 
         private const string DocumentSection = "## How a key derivation is held to these refusals";
+
+        /// <summary>
+        /// The name the register knows this guard's invariant by.
+        /// </summary>
+        internal const string Invariant = "storage-identity";
 
         internal sealed record Rule(string Id, Regex Pattern, string Identifies, string Instead);
 
@@ -338,7 +398,57 @@ public class StorageIdentityGuardTests
                 .ToList();
 
         /// <summary>
-        /// Reads one of the two fixtures.
+        /// Reads the rules declared as deliberately unreached by any near-miss in this tree.
+        /// </summary>
+        /// <returns>The declarations.</returns>
+        internal static IReadOnlyList<InvariantGuardTests.InvariantGuard.Declaration> Unreached() =>
+            Entries("storage-identity-unreached.txt", 2)
+                .Select(fields => new InvariantGuardTests.InvariantGuard.Declaration(fields[0], fields[1]))
+                .ToList();
+
+        /// <summary>
+        /// This vocabulary in the shape the shared reach accounting takes, so the measurement is
+        /// the one the other guard is already held to rather than a second one written here.
+        ///
+        /// Every rule carries the same invariant, which is the whole point of the accounting: a
+        /// rule whose lines a sibling of that invariant also reports moves nothing when it is
+        /// taken out, and is reported as inert rather than counted as proven. The issue is read
+        /// off the register rather than typed, because the register is what names it.
+        /// </summary>
+        /// <returns>The rules, as the shared accounting reads them.</returns>
+        internal static IReadOnlyList<InvariantGuardTests.InvariantGuard.Rule> RulesAsInvariantRules()
+        {
+            var entry = InvariantGuardTests.InvariantGuard.Register()
+                .SingleOrDefault(candidate => string.Equals(candidate.Id, Invariant, StringComparison.Ordinal));
+
+            Assert.True(entry is not null, $"The register names no invariant {Invariant}, so there is nothing for this guard's rules to belong to.");
+
+            return Vocabulary()
+                .Select(rule => new InvariantGuardTests.InvariantGuard.Rule(
+                    rule.Id,
+                    Invariant,
+                    entry!.Issue,
+                    rule.Pattern,
+                    rule.Identifies,
+                    rule.Instead))
+                .ToList();
+        }
+
+        /// <summary>
+        /// The near-miss fixture of each rule, named from the vocabulary so that a rule added
+        /// with no pair beside it fails on the read rather than being skipped.
+        /// </summary>
+        /// <returns>One near-miss per rule.</returns>
+        internal static IReadOnlyList<InvariantGuardTests.InvariantGuard.NearMiss> NearMisses() =>
+            Vocabulary()
+                .Select(rule => new InvariantGuardTests.InvariantGuard.NearMiss(
+                    Invariant,
+                    $"Matching/{rule.Id}-near-miss.txt",
+                    Fixture($"{rule.Id}-near-miss.txt")))
+                .ToList();
+
+        /// <summary>
+        /// Reads one of the fixtures.
         /// </summary>
         /// <param name="name">The fixture file name.</param>
         /// <returns>Its text.</returns>

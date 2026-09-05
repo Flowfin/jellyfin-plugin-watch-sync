@@ -1,0 +1,28 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The mistake is the second one a derivation reaches for once the path has been refused,
+// and it looks like the careful version of it: the location is dropped, and what is used
+// instead is the name whoever produced the file chose for it, with the extension taken
+// off so that two encodings of one work agree. It agrees on the two servers that were
+// filled by the same downloader and on no others, which is the failure the location has
+// one layer up.
+//
+// Everything else about this file is right. The repair beside it is the one branch.
+
+internal static class MovieKey
+{
+    internal static string? Derive(BaseItem item)
+    {
+        if (item.TryGetProviderId(MetadataProvider.Imdb, out var imdb))
+        {
+            return "imdb:" + Normalise(imdb);
+        }
+
+        if (item.TryGetProviderId(MetadataProvider.Tmdb, out var tmdb))
+        {
+            return "tmdb:" + Normalise(tmdb);
+        }
+
+        return "name:" + Normalise(item.FileNameWithoutExtension);
+    }
+}

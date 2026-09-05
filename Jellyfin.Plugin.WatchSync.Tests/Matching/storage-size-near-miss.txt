@@ -1,0 +1,30 @@
+// A fixture, not a source file, and its vocabulary is a fixture vocabulary.
+//
+// The mistake here is not in the key at all, which is why it is worth a fixture of its
+// own. The key is derived from the identifiers and nothing else. What goes wrong is the
+// tie-break beside it: where one identifier answers for two local items, the byte length
+// of each file is used to decide which of them the peer meant. The peer holds its own
+// copy at its own quality, so the number agrees only where the two servers were filled
+// from the same file, and the ambiguity this was supposed to resolve is resolved wrongly
+// and in silence.
+//
+// The repair beside it leaves the ambiguity unresolved, which is what the document asks
+// for.
+
+internal static class MovieKey
+{
+    internal static string? Derive(BaseItem item, IReadOnlyList<BaseItem> candidates)
+    {
+        if (!item.TryGetProviderId(MetadataProvider.Imdb, out var imdb))
+        {
+            return null;
+        }
+
+        if (candidates.Count > 1)
+        {
+            return "imdb:" + Normalise(imdb) + ":" + candidates[0].Size;
+        }
+
+        return "imdb:" + Normalise(imdb);
+    }
+}
