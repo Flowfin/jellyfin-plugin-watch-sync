@@ -73,8 +73,8 @@ What ends the decline is a site whose later argument arrives from an
 environment variable, a command line, a configuration file or a peer. The
 second plugin site, the in-flight path, rests on the guard having run in the
 one method that reaches it rather than on a line of its own. The first note on
-#271 asked for a guard in that method as well; that is a hardening of the
-store and not a change to this decision.
+#271 asked for a guard in that method as well, and #377 is that hardening; it
+is a change to the store and not a change to this decision.
 
 The forty six sites dismissed before the decision carry a sentence per kind
 rather than the sentence above, and the readings below record which site is
