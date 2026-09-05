@@ -1,0 +1,25 @@
+# Fixture text
+
+## The disposition register
+
+Three entries.
+
+### `cs/alpha`
+
+Disposition: fixed.
+
+### `cs/beta`
+
+Disposition: declined as a set.
+
+Quoted by a dismissal: The sentence every dismissal of this rule carries.
+
+### `cs/gamma`
+
+Disposition: out of scope, and open.
+
+## A later section
+
+### `cs/delta`
+
+Disposition: declined. This heading is under a later section and is not an entry.

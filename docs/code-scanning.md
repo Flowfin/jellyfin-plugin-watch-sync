@@ -5,6 +5,291 @@ Every one of those was decided inside a shared workflow in another organisation'
 repository until `.github/workflows/code-scanning.yaml` replaced the call, and
 this file is where each answer is written down and argued.
 
+## The disposition register
+
+One entry per rule the security page has carried, each naming what was decided
+about the rule, where, and the argument for it. #271 read the open alerts as a
+set and decided each rule on 2026-09-05, and this register is where those
+decisions live in the tree: a reader asking why a class of finding stands finds
+an argument here rather than a click on the security page, and the next reading
+of that page does not re-derive what this one already decided. The readings
+below this section are older than the register and are left as they were
+written, dated; where one of them and an entry here disagree, the entry is the
+decision and the reading is what was true on its day.
+
+An entry is one heading carrying the rule id, a `Disposition:` line, and, where
+the disposition is a decline, a `Quoted by a dismissal:` line holding the one
+sentence a dismissal of that rule on the security page carries as its comment.
+The page and this file are then two copies of one sentence rather than two
+paraphrases, so a reader comparing them is comparing the page against the
+argument. Where an entry names a rule declined as a set, the argument is written
+once here and the dismissals point at it; nothing on the page argues on its own.
+
+### What the suite reads, and what it does not
+
+The suite is headless and reaches no network, so nothing in it reads the
+security page. What it reads is
+`Jellyfin.Plugin.WatchSync.Tests/CodeScanning/page-rules.txt`, which is the
+page's rule set as one command returned it, with that command, the day and the
+mainline commit in the file's header. `CodeScanningRegisterTests` holds this
+register to that file in both directions: a rule the file carries with no entry
+here is refused, naming the rule, and an entry here naming a rule the file does
+not carry is refused, naming the entry. A decline with nothing for a dismissal
+to quote is refused as well.
+
+What that cannot see is the page moving after the file was written. A rule
+raised tomorrow is unread by anything in this tree until somebody re-runs the
+command in that header and commits its output, and the suite then reports the
+entry the register lacks. The page itself is read by hand and by nothing else,
+which is the same gap `### What ends a dismissal` records further down, and it
+is stated here because this is where a reader of the register meets it.
+
+Every alert state is in that file rather than the open ones alone. A dismissed
+alert is a decision this register has to carry, a fixed one is a decision it
+has to carry as fixed, and a register held to the open alerts alone would owe
+nothing for a rule on the day its last alert closed, which is the day its entry
+is most worth having.
+
+### `cs/path-combine`
+
+Disposition: declined as a set. Decided on #271, 2026-09-05; applied on the
+security page by #371 on the same day.
+
+Quoted by a dismissal: Declined as a set (#271, 2026-09-05; register #368, docs/code-scanning.md): a validated path segment joined with Path.Combine, and a table walked for the row matching a key, are idioms this code uses on purpose; the rule misreads them. No finding of this rule here is a defect.
+
+The rule is right wherever a later argument of `Path.Combine` can be absolute,
+because an absolute later argument silently drops the earlier ones. No site the
+rule reaches in this tree can take one. In the suite the later argument is a
+literal written at the call, a constant of the test project, a path git printed
+against the same root, a fixture name every call site passes as a literal or as
+a row of a tracked file, or a name composed from a format whose first characters
+are literal. In the plugin it is a document name that
+`RefuseANameThisStoreMayNotCompose` in `Storage/DocumentStore.cs` has already
+refused unless it is lower case letters, digits and hyphens, which is a closed
+set that carries no separator, no drive letter and no two dots. The sections
+below, dated as readings, carry each kind site by site.
+
+What ends the decline is a site whose later argument arrives from an
+environment variable, a command line, a configuration file or a peer. The
+second plugin site, the in-flight path, rests on the guard having run in the
+one method that reaches it rather than on a line of its own. The first note on
+#271 asked for a guard in that method as well, and #377 is that hardening; it
+is a change to the store and not a change to this decision.
+
+The forty six sites dismissed before the decision carry a sentence per kind
+rather than the sentence above, and the readings below record which site is
+which. They stand: a comment on a dismissed alert cannot be edited, and the
+argument each one points at is this file.
+
+### `cs/linq/missed-where`
+
+Disposition: declined as a set. Decided on #271, 2026-09-05; applied on the
+security page by #371 on the same day. Alerts of this rule closed before the
+decision are in the fixed state and were rewritten under #182 and #222, where
+the loop body was nothing but the guarded statement.
+
+Quoted by a dismissal: Declined as a set (#271, 2026-09-05; register #368, docs/code-scanning.md): a validated path segment joined with Path.Combine, and a table walked for the row matching a key, are idioms this code uses on purpose; the rule misreads them. No finding of this rule here is a defect.
+
+The rule offers to move a loop's condition into a filter. `### The five loops
+whose body is the guard` below is the split this tree takes: the rewrite is
+taken where the body is nothing but the guarded statement, so the loop becomes
+one line over a filtered sequence, and it is refused where the fix would
+relocate a statement without removing one, because the site then reads worse
+and nothing behavioural is at stake. A loop that walks a table for the row
+matching a key and then does more with it is the second case and is what the
+open alerts were, so the set is declined rather than rewritten. The split is
+not reopened by the decline: a new loop whose body is only the guarded
+statement is still written as the filter.
+
+### `cs/linq/missed-select`
+
+Disposition: declined as a set. Decided on #271, 2026-09-05; applied on the
+security page by #371 on the same day. Alerts of this rule closed before the
+decision are in the fixed state, rewritten under #182 and the reading dated
+2026-08-10 below, and one is dismissed as `won't fix` under #222.
+
+Quoted by a dismissal: Declined as a set (#271, 2026-09-05; register #368, docs/code-scanning.md): a validated path segment joined with Path.Combine, and a table walked for the row matching a key, are idioms this code uses on purpose; the rule misreads them. No finding of this rule here is a defect.
+
+The same split as the rule above, on projection rather than on filtering: a
+loop mapping its element on the first line of a body that then does more is
+the idiom, and the rule's projection would move that line out of the loop
+without removing it. Where the body was only the mapping the rewrite was taken,
+which is what the fixed alerts are.
+
+### `cs/catch-of-all-exceptions`
+
+Disposition: sorted by site under #370, which is open as this entry is written
+and rewrites it when it lands: fixed at the two sites in production code, in
+`Apply/CappedApply.cs` and `Apply/ItemByItemApply.cs`, and declined at the four
+sites in the fuzz harness, `EnvelopeFuzz.cs` in the suite.
+
+Quoted by a dismissal: Declined at this site (#271, 2026-09-05; #370; register docs/code-scanning.md): this catch is in a fuzz harness whose subject is what the reader does with bytes nobody wrote, and an exception the reader did not declare is the finding the sweep exists to record rather than an error to narrow away.
+
+The four harness sites catch everything because that is what the harness is
+for: narrowing a clause to the types the reader is known to throw would make
+the sweep blind to exactly the case it exists to find, and the finding it
+records carries the type name and the message. The two apply sites are the
+pair #370 argues rather than sorts. An apply that catches everything is how one
+bad item stops taking the whole run down, which is #54's own rule, and it is
+also how a defect in this plugin becomes a per-item refusal; what the catch is
+for, what it hides and why the answer is the one taken are written there and
+into this entry when it lands.
+
+### `cs/local-not-disposed`
+
+Disposition: fixed, under #370, which is open as this entry is written and
+rewrites it when it lands. Four sites, all `ManualResetEventSlim` in
+`DocumentStoreTests.cs`.
+
+The query is right. That type allocates a kernel event lazily and does so
+exactly when a waiter blocks past its spin count, which is what both cases make
+it do, so the handle is real rather than theoretical and nothing releases it.
+The repair is not a blind `using` and it is not a disposal at the end of the
+method: both events are handed to a stream the store opens on another thread,
+so they may not be disposed while that thread can still touch them, and both
+cases already wait for that thread. The disposal goes after that wait.
+
+### `cs/empty-catch-block`
+
+Disposition: fixed, under #370, which is open as this entry is written and
+rewrites it when it lands. Two sites, both in `Discard` in
+`Storage/DocumentStore.cs`.
+
+The swallow is the behaviour rather than an oversight. `Discard` runs on the
+failing path of a write that has already decided to answer with a refusal, and
+a delete that also fails may not turn that refusal into a different one: a
+leftover in-flight file is written over by the next attempt, which the
+in-flight naming already fixes, and the failure nobody hears of is answered
+one level up by what the write returns. The repair is that sentence written
+inside each block, because the next reader meets an empty block before they
+meet this entry. The query itself excludes a block that carries a comment, so
+the fix is the reader's rather than the tool's, and whether the alert closes on
+it is a reading to take after the change rather than a claim to make here.
+
+### `cs/dispose-not-called-on-throw`
+
+Disposition: declined at both sites, under #370, which is open as this entry
+is written and applies it on the security page when it lands. Two sites, both
+in `OneExchangeAtATimeTests.cs` in the suite.
+
+Quoted by a dismissal: Declined at this site (#271, 2026-09-05; #370; register docs/code-scanning.md): the moment this admission is released is what the test asserts, and a using block would move that moment to the end of the method and leave the test asserting nothing.
+
+At the first site the second `Admit` has to happen while the first place is
+still held, which is the fact the test asserts, and a `using` over the first
+admission would move its release to the end of the method. At the second the
+second release is the subject: the test exists to prove that releasing twice
+releases once, and a `using` would make the compiler write that second release
+rather than the test. What bounds the decline is what would leak: an
+`ExchangeAdmission` holds no handle, its `Dispose` gives a place back to the
+`OneExchangeAtATime` it came from, and at both sites that object is a local of
+the same method, so a throw between the two calls loses a place in an exclusion
+nothing outside the failing test can reach. In the plugin the same shape is
+the failure that type's own comment is written against, which is why this is a
+decline of two sites and not of the query.
+
+### `cs/equality-on-floats`
+
+Disposition: fixed, under #370, which is open as this entry is written and
+rewrites it when it lands. One site, in `ConfigurationDocumentTests.cs` in the
+suite.
+
+The query is right about the class. The comparison holds today because every
+value on both sides is a whole number of seconds small enough to be exact as a
+double, which is a property of the fixtures rather than of the code. The
+repair compares ticks, which are whole numbers on both sides, and removes the
+class rather than the alert.
+
+### `cs/inefficient-containskey`
+
+Disposition: fixed. Two sites under #369, landed as #372 on `9f2678d`; one
+earlier site in the suite rewritten under #182.
+
+A membership test followed by an indexer asks a table twice for one answer,
+and `TryGetPropertyValue` asks once and keeps the distinction the two sites
+were written for: a member that is absent and a member carrying a null value
+are different documents, and the indexer answers null for both.
+
+### `cs/useless-upcast`
+
+Disposition: fixed. One site under #369, landed as #373 on `336aed6`; one
+earlier site closed on 2026-09-03.
+
+The parameter was already the type the cast named and the method had one
+overload, so the cast decided nothing.
+
+### `cs/useless-tostring-call`
+
+Disposition: declined, `won't fix`, under #222 on 2026-08-18. One site, in
+`Peer/PeerText.cs`.
+
+Quoted by a dismissal: No Append overload takes a rune, so removing this call binds to Append(object), which boxes the rune and calls the same ToString inside it. The result is identical and the change is not an improvement. docs/code-scanning.md carries the overload set and what ends this.
+
+`### Appending a rune, alert 115` below carries the overload set the argument
+rests on and what ends it: an overload that takes a rune, or the helper being
+rewritten to encode into a span.
+
+### `MaintainedID`
+
+Disposition: out of #271's scope by the decision there, which names it as not a
+code rule, and open. It ends by itself: the finding is the repository's age,
+which no commit changes, and the first Scorecard run after 2026-11-03 no longer
+raises it.
+
+    gh api repos/Flowfin/jellyfin-plugin-watch-sync --jq '.created_at'
+    2026-08-05T15:09:11Z
+
+Ninety days after that date is 2026-11-03. Nothing in this tree fixes it and
+nothing here dismisses it; an entry is owed because the page carries it.
+
+### `BranchProtectionID`
+
+Disposition: declined, `won't fix`, dismissed on the security page before this
+register existed.
+
+Quoted by a dismissal: One maintainer, so approvers, codeowners, stale-dismissal and last-push-approval cannot be met; a rule nobody can satisfy gets switched off. Up-to-date branches is covered more strongly: the watcher builds the merge locally against the current base and judges that.
+
+### `CIIBestPracticesID`
+
+Disposition: declined, `won't fix`, dismissed on the security page before this
+register existed.
+
+Quoted by a dismissal: This check wants an OpenSSF Best Practices badge, whose criteria include a second reviewer and a vulnerability-response process with a named team. Neither exists for a one-maintainer project. The reasoning is in iderex/operations#1348.
+
+### `CodeReviewID`
+
+Disposition: declined, `won't fix`, dismissed on the security page before this
+register existed.
+
+Quoted by a dismissal: This check wants a change approved by somebody other than its author. There is one maintainer here, and iderex/operations#30 records that the rule is not satisfied rather than pretending it is. Unsatisfiable by construction; the reasoning is in iderex/operations#1348.
+
+### `FuzzingID`
+
+Disposition: declined, `won't fix`, dismissed on the security page before this
+register existed.
+
+Quoted by a dismissal: This check wants a fuzzing harness registered with OSS-Fuzz or equivalent. There is no untrusted input surface here that a fuzzer would reach, and onboarding needs maintainers who can be paged. The reasoning is in iderex/operations#1348.
+
+The tree carries a fuzz harness of its own since that dismissal, over the
+envelope reader, and `docs/fuzz.md` is where it is argued; what the check wants
+is a registration with an outside service, which is a different thing and is
+still not taken.
+
+### `PinnedDependenciesID`
+
+Disposition: fixed. Every reference in the workflows is pinned to a commit,
+which `CONTRIBUTING.md` states under `## Changing a workflow` and the workflow
+audit refuses a departure from.
+
+### `SecurityPolicyID`
+
+Disposition: fixed. `SECURITY.md` is in the tree.
+
+### `TokenPermissionsID`
+
+Disposition: fixed. Every workflow declares `permissions: {}` at the top and
+grants a scope on the job that needs it, which is the second property
+`CONTRIBUTING.md` states under `## Changing a workflow`.
+
 ## Why the call was replaced rather than corrected
 
 The call passed one input, the name of this repository, and took everything else

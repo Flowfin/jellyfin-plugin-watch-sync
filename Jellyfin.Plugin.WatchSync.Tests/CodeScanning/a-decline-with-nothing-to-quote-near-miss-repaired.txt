@@ -1,0 +1,19 @@
+# Fixture text
+
+## The disposition register
+
+### `cs/alpha`
+
+Disposition: declined as a set.
+
+Quoted by a dismissal: The sentence every dismissal of this rule carries.
+
+### `cs/beta`
+
+Disposition: Declined at both sites.
+
+Quoted by a dismissal: The sentence a dismissal of this site carries.
+
+### `cs/gamma`
+
+Disposition: out of scope, and open.

@@ -1,0 +1,36 @@
+# The rule set the security page carried, one line per rule, tool and state.
+# This file stands in for the page inside a suite that reaches no network.
+# CodeScanningRegisterTests holds the disposition register in
+# docs/code-scanning.md to the first column of this file in both directions.
+#
+# Produced by the command below, read on 2026-09-05 with the mainline at 336aed6f37355e1df077c8fe5c18e1cf47b2b257.
+# Re-run it and commit its output when the page moves; nothing here re-reads the page.
+#
+#     for state in open dismissed fixed; do
+#       gh api "repos/Flowfin/jellyfin-plugin-watch-sync/code-scanning/alerts?state=${state}&per_page=100" \
+#         --paginate --jq ".[] | \"\(.rule.id)\t\(.tool.name)\t${state}\""
+#     done | sort -u
+#
+BranchProtectionID	Scorecard	dismissed
+CIIBestPracticesID	Scorecard	dismissed
+CodeReviewID	Scorecard	dismissed
+cs/catch-of-all-exceptions	CodeQL	fixed
+cs/catch-of-all-exceptions	CodeQL	open
+cs/dispose-not-called-on-throw	CodeQL	open
+cs/empty-catch-block	CodeQL	open
+cs/equality-on-floats	CodeQL	open
+cs/inefficient-containskey	CodeQL	fixed
+cs/linq/missed-select	CodeQL	dismissed
+cs/linq/missed-select	CodeQL	fixed
+cs/linq/missed-where	CodeQL	dismissed
+cs/linq/missed-where	CodeQL	fixed
+cs/local-not-disposed	CodeQL	open
+cs/path-combine	CodeQL	dismissed
+cs/path-combine	CodeQL	fixed
+cs/useless-tostring-call	CodeQL	dismissed
+cs/useless-upcast	CodeQL	fixed
+FuzzingID	Scorecard	dismissed
+MaintainedID	Scorecard	open
+PinnedDependenciesID	Scorecard	fixed
+SecurityPolicyID	Scorecard	fixed
+TokenPermissionsID	Scorecard	fixed
