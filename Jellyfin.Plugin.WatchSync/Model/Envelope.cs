@@ -10,9 +10,10 @@ namespace Jellyfin.Plugin.WatchSync.Model;
 ///
 /// Every envelope this plugin sends or reads carries its own version, and this type is what that
 /// sentence means in the tree. <see cref="EnvelopeBounds"/> answers what one envelope may carry
-/// and is asked before anything is read, so that a refusal happens before the allocation; this
-/// answers what one is, which is a whole number above zero under <c>version</c> and whatever
-/// else the envelope that carried it holds.
+/// and is asked before anything is read, so that a refusal happens before the allocation, which
+/// is <see cref="EnvelopeBody"/> for the one of those bounds that can be asked of bytes nobody
+/// has parsed; this answers what one is, which is a whole number above zero under <c>version</c>
+/// and whatever else the envelope that carried it holds.
 ///
 /// The members are kept as they were read rather than as a shape this code declares. Nothing
 /// here interprets a change: what a change is is the match key in #22 and #23 beside the fields
