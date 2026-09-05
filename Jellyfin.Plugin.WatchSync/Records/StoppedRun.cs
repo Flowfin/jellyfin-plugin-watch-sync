@@ -448,8 +448,8 @@ public sealed class StoppedRun
             || decided is null
             || members[HeldWasReadMember] is not JsonValue readValue
             || !readValue.TryGetValue<bool>(out var heldWasRead)
-            || !members.ContainsKey(HeldMember)
-            || !TryReadState(members[HeldMember], out var held)
+            || !members.TryGetPropertyValue(HeldMember, out var heldNode)
+            || !TryReadState(heldNode, out var held)
             || (!heldWasRead && held is not null))
         {
             return false;
