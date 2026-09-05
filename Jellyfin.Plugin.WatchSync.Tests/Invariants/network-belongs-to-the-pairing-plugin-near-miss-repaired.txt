@@ -1,0 +1,22 @@
+// The repair of the near-miss next to it, and nothing else. The same two questions, asked
+// of an interface of this plugin's own instead of of a peer, and answered by whatever is
+// behind it rather than by a wait this side takes. If the guard passes this and refuses
+// its neighbour, what it refused was the call rather than something else about the fixture.
+//
+// It names no type of the pairing plugin either, for the reason its own fixture gives: the
+// adapter #40 asks this board to write is the thing on the other side of this interface,
+// and a fixture that reached for it here would be proving a different rule.
+
+internal sealed class PeerCall
+{
+    private readonly IPeerGateway _peers;
+
+    internal PeerCall(IPeerGateway peers)
+    {
+        _peers = peers;
+    }
+
+    internal bool IsReachable(Guid pairingId) => _peers.LastAttempt(pairingId).Answered;
+
+    internal bool Send(Guid pairingId, string envelope) => _peers.Offer(pairingId, envelope).Accepted;
+}

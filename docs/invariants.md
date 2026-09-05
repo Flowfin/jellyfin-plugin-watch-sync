@@ -40,6 +40,7 @@ without covering the rest.
 | `endpoint-authorised-by-the-server` | #66 | the plugin's own sources | `InvariantGuardTests` |
 | `no-second-chance-match` | #26 | the plugin's own sources | `InvariantGuardTests` |
 | `schedule-not-rewritten` | #55 | the plugin's own sources | `InvariantGuardTests` |
+| `network-belongs-to-the-pairing-plugin` | #53 | the plugin's own sources | `InvariantGuardTests` |
 
 ## What each one is for
 
@@ -245,6 +246,36 @@ nothing to do with the server's schedule. Nothing in the tree carries one today,
 answer if one arrives is a departure naming the call rather than a narrower pattern, because
 a pattern narrowed to a type name is the first rule again.
 
+**`network-belongs-to-the-pairing-plugin`.** No source opens a connection to anything. A peer
+is reached through the pairing plugin, which holds the keys, the trust and the state under
+which a transfer is allowed at all, so a call made from here is a call made outside all three
+and the adapter in #40 is the one route to one.
+
+The cost that decides this is nearer than the boundary, and it is #53's own subject. The
+handler that would make such a call runs on the thread the server raised the event on. A peer
+that refuses a connection fails quickly; a peer that accepts one and then says nothing holds
+that thread for as long as the socket is willing to wait, and what stops is playback on this
+server rather than a sync with a neighbour. That is the failure #53 exists against, and its
+fourth condition asks for a scan rather than for a convention because the call is written by
+somebody making a plugin work rather than by somebody breaking a rule.
+
+The reachability probe is the same mistake wearing the clothes of a precaution, which is why
+`network-socket` is here beside the request-layer rules. Asking whether a peer answers before
+sending it anything is a second wait on the same peer, taken first, and it reads as the
+careful thing to do. What answers that question instead is the failure count the backoff in
+#53 already keeps and the status page in #62 shows.
+
+`network-namespace` is the wider of the five on purpose. The four above it name the types
+this runtime offers today, so a route none of them names goes through the namespace they are
+members of, and that rule is about reaching for the namespace rather than about one type's
+spelling. What it cannot see is a call through a library that wraps all of it, and there is
+none in this tree; the answer if one arrives is a rule naming it rather than a pattern
+widened until it refuses the word `Net`.
+
+It is here before anything sends anything, for the reason `pairing-behind-the-adapter` and
+`schedule-not-rewritten` are: the line gets written on the day somebody has an envelope, a
+peer address and no adapter yet, which is exactly the day it looks like progress.
+
 ## What these patterns cannot see
 
 A pattern reads one line of text. That is enough for the mistakes above as they are
@@ -256,18 +287,19 @@ green run.
 what a green run is worth depends on what those sources hold, and that moves under this
 paragraph without anybody editing it. Every reading below was taken at `79a3a62` except the
 count, which is read after the entry this change adds.
-Four of the twelve invariants that guard carries scan sources holding nothing of the kind
+Five of the thirteen invariants that guard carries scan sources holding nothing of the kind
 the rule is about, and eight scan sources that hold the surface a violation would be
-written on. The twelve are counted from the register rather than from this sentence:
+written on. The thirteen are counted from the register rather than from this sentence:
 
     grep -c ':: InvariantGuardTests$' Jellyfin.Plugin.WatchSync.Tests/Invariants/register.txt
-    12
+    13
 
-The four are `mapping-not-inferred`, `log-holds-no-viewing`,
-`waiting-is-on-the-injected-clock` and `pairing-behind-the-adapter`. Nothing in this plugin
-names a user, logs at all, waits on anything, or names anything of the pairing plugin's:
+The five are `mapping-not-inferred`, `log-holds-no-viewing`,
+`waiting-is-on-the-injected-clock`, `pairing-behind-the-adapter` and
+`network-belongs-to-the-pairing-plugin`. Nothing in this plugin names a user, logs at all,
+waits on anything, names anything of the pairing plugin's, or opens a connection:
 
-    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)\s*\(|\bILogger\b|\bUsername\b|Thread\.Sleep|\bSpinWait\b|Task\.Delay|new\s+(System\.Threading\.)?(Periodic)?Timer\s*\(|\bJellyfin\.Plugin\.ServerPairing\b|\b(IPairedPeers|IPairingKeySource|IPairingKeyStore|IPairingRecordStore|PairingRecord|PairingState|PairingMessage|PeerChannel|PeerReply|KeyMaterial|PairingKeys|OfferedKey)\b' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
+    grep -rnE 'Log(Trace|Debug|Information|Warning|Error|Critical)\s*\(|\bILogger\b|\bUsername\b|Thread\.Sleep|\bSpinWait\b|Task\.Delay|new\s+(System\.Threading\.)?(Periodic)?Timer\s*\(|\bJellyfin\.Plugin\.ServerPairing\b|\b(IPairedPeers|IPairingKeySource|IPairingKeyStore|IPairingRecordStore|PairingRecord|PairingState|PairingMessage|PeerChannel|PeerReply|KeyMaterial|PairingKeys|OfferedKey)\b|\bHttpClient\b|\bIHttpClientFactory\b|\bHttp(Request|Response)Message\b|\b(Socket|TcpClient|UdpClient|ClientWebSocket)\b|\bSystem\.Net\b' --include=*.cs Jellyfin.Plugin.WatchSync/ ; echo "exit=$?"
     exit=1
 
 CORRECTED BY RE-RUNNING IT, FOR THE SECOND TIME AND FOR THE SAME REASON. THIS PARAGRAPH

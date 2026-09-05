@@ -28,3 +28,4 @@ pairing-behind-the-adapter :: 40 :: the plugin's own sources :: InvariantGuardTe
 endpoint-authorised-by-the-server :: 66 :: the plugin's own sources :: InvariantGuardTests
 no-second-chance-match :: 26 :: the plugin's own sources :: InvariantGuardTests
 schedule-not-rewritten :: 55 :: the plugin's own sources :: InvariantGuardTests
+network-belongs-to-the-pairing-plugin :: 53 :: the plugin's own sources :: InvariantGuardTests
