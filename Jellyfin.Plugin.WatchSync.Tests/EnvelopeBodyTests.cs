@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Text;
 using Jellyfin.Plugin.WatchSync.Model;
 using Xunit;
@@ -28,7 +27,7 @@ public class EnvelopeBodyTests
     [Fact]
     public void ABodyAtTheBoundIsRead()
     {
-        var body = Body.Of(Filled(EnvelopeBounds.MaximumBytes));
+        var body = PeerBody.Of(Filled(EnvelopeBounds.MaximumBytes));
 
         var reading = EnvelopeBody.Read(body, null);
 
@@ -46,7 +45,7 @@ public class EnvelopeBodyTests
     [Fact]
     public void ABodyOneBytePastTheBoundIsRefused()
     {
-        var body = Body.Of(Filled(EnvelopeBounds.MaximumBytes + 1));
+        var body = PeerBody.Of(Filled(EnvelopeBounds.MaximumBytes + 1));
 
         var reading = EnvelopeBody.Read(body, null);
 
@@ -66,7 +65,7 @@ public class EnvelopeBodyTests
     [Fact]
     public void NothingIsReadOffABodyThatDeclaresMoreThanTheBound()
     {
-        var body = Body.Of(Filled(EnvelopeBounds.MaximumBytes + 1));
+        var body = PeerBody.Of(Filled(EnvelopeBounds.MaximumBytes + 1));
 
         var reading = EnvelopeBody.Read(body, EnvelopeBounds.MaximumBytes + 1L);
 
@@ -88,7 +87,7 @@ public class EnvelopeBodyTests
     [Fact]
     public void ABodyIsNeverReadMoreThanOneBytePastTheBound()
     {
-        var body = Body.Endless();
+        var body = PeerBody.Endless();
 
         var reading = EnvelopeBody.Read(body, null);
 
@@ -106,7 +105,7 @@ public class EnvelopeBodyTests
     [Fact]
     public void ADeclarationInsideTheBoundDoesNotAdmitABodyPastIt()
     {
-        var body = Body.Of(Filled(EnvelopeBounds.MaximumBytes + 1));
+        var body = PeerBody.Of(Filled(EnvelopeBounds.MaximumBytes + 1));
 
         var reading = EnvelopeBody.Read(body, 10);
 
@@ -124,7 +123,7 @@ public class EnvelopeBodyTests
     [Fact]
     public void BytesThatAreNotTextAreRefusedRatherThanReplaced()
     {
-        var body = Body.Of(new byte[] { 0x7B, 0xC3, 0x28, 0x7D });
+        var body = PeerBody.Of(new byte[] { 0x7B, 0xC3, 0x28, 0x7D });
 
         var reading = EnvelopeBody.Read(body, null);
 
@@ -146,7 +145,7 @@ public class EnvelopeBodyTests
     public void TheTextIsTheCharactersTheBytesCarry()
     {
         var bytes = Encoding.UTF8.GetBytes("{\"version\":1,\"peer\":\"Über\"}");
-        var body = Body.Of(bytes);
+        var body = PeerBody.Of(bytes);
 
         var reading = EnvelopeBody.Read(body, bytes.LongLength);
 
@@ -167,7 +166,7 @@ public class EnvelopeBodyTests
     public void ABodyArrivingAByteAtATimeIsWholeWhenItIsRead()
     {
         var bytes = Encoding.UTF8.GetBytes("{\"version\":1}");
-        var body = Body.Of(bytes, mostPerRead: 1);
+        var body = PeerBody.Of(bytes, mostPerRead: 1);
 
         var reading = EnvelopeBody.Read(body, null);
 
@@ -186,7 +185,7 @@ public class EnvelopeBodyTests
     public void ABodyInsideTheBoundIsTheTextAnEnvelopeIsReadFrom()
     {
         var bytes = Encoding.UTF8.GetBytes("{\"version\":1,\"changes\":[]}");
-        var reading = EnvelopeBody.Read(Body.Of(bytes), bytes.LongLength);
+        var reading = EnvelopeBody.Read(PeerBody.Of(bytes), bytes.LongLength);
 
         var envelope = Envelope.Read(reading.Text!, EnvelopeVersions.Supported);
 
@@ -203,7 +202,7 @@ public class EnvelopeBodyTests
     [Fact]
     public void AnEmptyBodyIsReadAsEmptyText()
     {
-        var reading = EnvelopeBody.Read(Body.Of(_empty), 0);
+        var reading = EnvelopeBody.Read(PeerBody.Of(_empty), 0);
 
         Assert.Equal(EnvelopeBodyAnswer.Read, reading.Answer);
         Assert.Equal(string.Empty, reading.Text);
@@ -218,7 +217,7 @@ public class EnvelopeBodyTests
     public void ADeclarationBelowZeroIsACallersMistake()
     {
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => EnvelopeBody.Read(Body.Of(_empty), -1));
+            () => EnvelopeBody.Read(PeerBody.Of(_empty), -1));
     }
 
     /// <summary>
@@ -237,87 +236,5 @@ public class EnvelopeBodyTests
         Array.Fill(bytes, (byte)'a');
 
         return bytes;
-    }
-
-    /// <summary>
-    /// A body the test hands over, which counts what was taken off it.
-    ///
-    /// It answers with at most <c>mostPerRead</c> bytes per call, because a stream that always
-    /// answers in full hides a reader that stops at its first answer.
-    /// </summary>
-    private sealed class Body : Stream
-    {
-        private readonly byte[]? _bytes;
-        private readonly int _mostPerRead;
-        private int _taken;
-
-        private Body(byte[]? bytes, int mostPerRead)
-        {
-            _bytes = bytes;
-            _mostPerRead = mostPerRead;
-        }
-
-        public int Reads { get; private set; }
-
-        public long BytesHandedOver { get; private set; }
-
-        public override bool CanRead => true;
-
-        public override bool CanSeek => false;
-
-        public override bool CanWrite => false;
-
-        public override long Length => throw new NotSupportedException();
-
-        public override long Position
-        {
-            get => throw new NotSupportedException();
-            set => throw new NotSupportedException();
-        }
-
-        public static Body Of(byte[] bytes, int mostPerRead = int.MaxValue) =>
-            new Body(bytes, mostPerRead);
-
-        public static Body Endless(int mostPerRead = int.MaxValue) =>
-            new Body(null, mostPerRead);
-
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            ArgumentNullException.ThrowIfNull(buffer);
-
-            Reads++;
-
-            var wanted = Math.Min(count, _mostPerRead);
-
-            if (_bytes is not null)
-            {
-                wanted = Math.Min(wanted, _bytes.Length - _taken);
-            }
-
-            if (wanted <= 0)
-            {
-                return 0;
-            }
-
-            for (var i = 0; i < wanted; i++)
-            {
-                buffer[offset + i] = _bytes is null ? (byte)'a' : _bytes[_taken + i];
-            }
-
-            _taken += wanted;
-            BytesHandedOver += wanted;
-
-            return wanted;
-        }
-
-        public override void Flush() => throw new NotSupportedException();
-
-        public override long Seek(long offset, SeekOrigin origin) =>
-            throw new NotSupportedException();
-
-        public override void SetLength(long value) => throw new NotSupportedException();
-
-        public override void Write(byte[] buffer, int offset, int count) =>
-            throw new NotSupportedException();
     }
 }

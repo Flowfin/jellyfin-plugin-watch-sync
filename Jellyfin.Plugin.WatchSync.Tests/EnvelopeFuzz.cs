@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -10,7 +11,8 @@ using Jellyfin.Plugin.WatchSync.Model;
 namespace Jellyfin.Plugin.WatchSync.Tests;
 
 /// <summary>
-/// The fuzz harness against the inbound envelope reader and the bounds beside it, which is #102.
+/// The fuzz harness against the inbound envelope reader, the bounds beside it and the body reader
+/// in front of both, which is #102 and the fifth condition of #19.
 ///
 /// An envelope is the one surface a peer controls. Everything else this plugin reads is its own
 /// store or its own server, so this is where bytes chosen by a machine this operator does not
@@ -86,6 +88,29 @@ internal static class EnvelopeFuzz
         IReadOnlyList<string> Members);
 
     /// <summary>
+    /// What one reading of a BODY looked like from outside the reader.
+    ///
+    /// The body reader is the layer in front of the envelope reader: it decides how much of what a
+    /// peer is sending this side takes at all, before there is any text for anything to parse. The
+    /// oracle judges this rather than the reading itself, for the reason the envelope one is
+    /// judged that way: the plugin's reading cannot be built from here, and a reader that breaks
+    /// one rule on purpose has to be handable to the same judge.
+    /// </summary>
+    /// <param name="Answer">The answer, by name.</param>
+    /// <param name="IsRefused">Whether the reading refuses the body.</param>
+    /// <param name="Text">The body as text, or null where it was refused.</param>
+    /// <param name="Bound">The bound that refused it, or null.</param>
+    /// <param name="DeclaredBytes">The length the peer declared, or null.</param>
+    /// <param name="BytesRead">How many bytes the reading says were taken off the body.</param>
+    internal sealed record BodyObservation(
+        string Answer,
+        bool IsRefused,
+        string? Text,
+        long? Bound,
+        long? DeclaredBytes,
+        long BytesRead);
+
+    /// <summary>
     /// One thing an input made the reader do that the reader's own contract says it may not.
     /// </summary>
     /// <param name="Rule">Which rule the input broke.</param>
@@ -115,10 +140,44 @@ internal static class EnvelopeFuzz
     internal delegate Observation Reader(string body, IReadOnlyList<int> supportedVersions);
 
     /// <summary>
+    /// The body reader under test, taken as a delegate for the same reason as the one above.
+    /// </summary>
+    /// <param name="body">The body, as the transport hands it over.</param>
+    /// <param name="declaredBytes">What the transport says the length is, or null.</param>
+    /// <returns>What the reader answered.</returns>
+    internal delegate BodyObservation BodyReader(Stream body, long? declaredBytes);
+
+    /// <summary>
     /// The reader this plugin ships, seen from outside.
     /// </summary>
     /// <returns>The reader.</returns>
     internal static Reader TheRealReader() => (body, versions) => Observe(Envelope.Read(body, versions));
+
+    /// <summary>
+    /// The body reader this plugin ships, seen from outside.
+    /// </summary>
+    /// <returns>The reader.</returns>
+    internal static BodyReader TheRealBodyReader() =>
+        (body, declared) => Observe(EnvelopeBody.Read(body, declared));
+
+    /// <summary>
+    /// What one reading of a body looks like from outside the reader.
+    /// </summary>
+    /// <param name="reading">The reading.</param>
+    /// <returns>The observation.</returns>
+    /// <exception cref="ArgumentNullException">The reading is null.</exception>
+    internal static BodyObservation Observe(EnvelopeBodyReading reading)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+
+        return new BodyObservation(
+            reading.Answer.ToString(),
+            reading.IsRefused,
+            reading.Text,
+            reading.Bound,
+            reading.DeclaredBytes,
+            reading.BytesRead);
+    }
 
     /// <summary>
     /// What one reading looks like from outside the reader.
@@ -162,10 +221,31 @@ internal static class EnvelopeFuzz
     /// run that judged everything and found none.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException">A negative number of iterations.</exception>
-    internal static Sweep Run(IReadOnlyList<string> seeds, int iterations, int seed, Reader read)
+    internal static Sweep Run(IReadOnlyList<string> seeds, int iterations, int seed, Reader read) =>
+        Run(seeds, iterations, seed, read, TheRealBodyReader());
+
+    /// <summary>
+    /// The same, with the body reader named as well.
+    /// </summary>
+    /// <param name="seeds">The corpus to start from.</param>
+    /// <param name="iterations">How many mutated inputs to judge after the seeds.</param>
+    /// <param name="seed">The number every input of this run is derived from.</param>
+    /// <param name="read">The envelope reader to judge.</param>
+    /// <param name="readBody">The body reader to judge.</param>
+    /// <returns>What the run found and what it kept.</returns>
+    /// <exception cref="ArgumentNullException">The seeds or either reader are null.</exception>
+    /// <exception cref="ArgumentException">An empty corpus.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A negative number of iterations.</exception>
+    internal static Sweep Run(
+        IReadOnlyList<string> seeds,
+        int iterations,
+        int seed,
+        Reader read,
+        BodyReader readBody)
     {
         ArgumentNullException.ThrowIfNull(seeds);
         ArgumentNullException.ThrowIfNull(read);
+        ArgumentNullException.ThrowIfNull(readBody);
         ArgumentOutOfRangeException.ThrowIfNegative(iterations, nameof(iterations));
 
         if (seeds.Count == 0)
@@ -181,16 +261,20 @@ internal static class EnvelopeFuzz
         var random = new Random(seed);
         var inputs = 0;
 
+        // Before anything is derived, because it is a property of the reader rather than of an
+        // input, and a run that met it among ten thousand mutations would report it as one of them.
+        findings.AddRange(JudgeTheCeiling(readBody));
+
         foreach (var body in seeds)
         {
             inputs++;
-            JudgeAndKeep(body, read, findings, kept, seen);
+            JudgeAndKeep(body, read, readBody, findings, kept, seen);
         }
 
         for (var index = 0; index < iterations; index++)
         {
             inputs++;
-            JudgeAndKeep(Mutate(seeds, random), read, findings, kept, seen);
+            JudgeAndKeep(Mutate(seeds, random), read, readBody, findings, kept, seen);
         }
 
         return new Sweep(inputs, findings, kept);
@@ -209,10 +293,25 @@ internal static class EnvelopeFuzz
     /// <param name="read">The reader to judge them with.</param>
     /// <returns>Everything this input broke, and the answer it produced.</returns>
     /// <exception cref="ArgumentNullException">The body or the reader are null.</exception>
-    internal static (IReadOnlyList<Finding> Findings, string Answer) Judge(string body, Reader read)
+    internal static (IReadOnlyList<Finding> Findings, string Answer) Judge(string body, Reader read) =>
+        Judge(body, read, TheRealBodyReader());
+
+    /// <summary>
+    /// The same, with the body reader named as well.
+    /// </summary>
+    /// <param name="body">The bytes to judge.</param>
+    /// <param name="read">The envelope reader to judge them with.</param>
+    /// <param name="readBody">The body reader to judge them with.</param>
+    /// <returns>Everything this input broke, and the answer it produced.</returns>
+    /// <exception cref="ArgumentNullException">The body or either reader are null.</exception>
+    internal static (IReadOnlyList<Finding> Findings, string Answer) Judge(
+        string body,
+        Reader read,
+        BodyReader readBody)
     {
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(read);
+        ArgumentNullException.ThrowIfNull(readBody);
 
         var findings = new List<Finding>();
         Observation? seen;
@@ -242,7 +341,9 @@ internal static class EnvelopeFuzz
 
         var bounds = JudgeTheBounds(body, findings);
 
-        return (findings, AnswerKey(seen, bounds));
+        var bodies = JudgeTheBody(body, readBody, findings);
+
+        return (findings, AnswerKey(seen, bounds, bodies));
     }
 
     /// <summary>
@@ -449,6 +550,263 @@ internal static class EnvelopeFuzz
     }
 
     /// <summary>
+    /// Hands the same bytes to the body reader under the declarations a transport can make, and
+    /// judges what came back against what that reader's own contract promises.
+    ///
+    /// This is the layer in front of everything above. The rules over an envelope are about text
+    /// that is already in memory; these are about how it got there, which is #19's second
+    /// condition and is the half a peer decides. What an input can break here is a rule that says
+    /// a refused body is one this side holds no text of, that a declaration is never believed in
+    /// the direction that admits something, and that what is taken off the stream is bounded by
+    /// the bound rather than by the body.
+    ///
+    /// <para>Four declarations per input, and every one of them costs the length of the input
+    /// rather than the length of the bound. The two shapes that reach the bound in bytes are not
+    /// here: an endless body is judged once per sweep by <see cref="JudgeTheCeiling"/>, because
+    /// reading a quarter of a mebibyte per input would spend the whole budget of a run
+    /// re-answering a question that does not depend on the input.</para>
+    /// </summary>
+    /// <param name="body">The bytes to judge.</param>
+    /// <param name="readBody">The reader to judge them with.</param>
+    /// <param name="findings">Where a broken rule is written.</param>
+    /// <returns>The answers the readings gave, in the order they were taken.</returns>
+    private static string JudgeTheBody(string body, BodyReader readBody, List<Finding> findings)
+    {
+        var bytes = Encoding.UTF8.GetBytes(body);
+        var answers = new List<string>();
+
+        // The declaration this side was handed, which a peer chooses and this rule may never
+        // believe upward. Null is a transport that carries no length; the honest one; one below
+        // the body, which is the shape that would admit a large body under a small number; and one
+        // past the bound, which is the case the whole rule exists for because nothing is read.
+        foreach (var declared in new long?[] { null, bytes.LongLength, 0, EnvelopeBounds.MaximumBytes + 1L })
+        {
+            answers.Add(JudgeOneBody(bytes, declared, readBody, findings));
+        }
+
+        // The same bytes with a lead byte on the end that no continuation follows, which is the
+        // one shape a body derived from text cannot otherwise reach: everything the mutations
+        // produce is a string, and a string encodes to UTF-8 that decodes again.
+        var notText = new byte[bytes.Length + 1];
+        Array.Copy(bytes, notText, bytes.Length);
+        notText[bytes.Length] = 0xC3;
+
+        answers.Add(JudgeOneBody(notText, null, readBody, findings));
+
+        return string.Join('|', answers);
+    }
+
+    /// <summary>
+    /// One reading of one body, judged against the rules the reader's own documentation states.
+    /// </summary>
+    /// <param name="bytes">What the peer sent.</param>
+    /// <param name="declared">What it said about the length, or null.</param>
+    /// <param name="readBody">The reader.</param>
+    /// <param name="findings">Where a broken rule is written.</param>
+    /// <returns>The answer, by name, or what stopped one being given.</returns>
+    private static string JudgeOneBody(
+        byte[] bytes,
+        long? declared,
+        BodyReader readBody,
+        List<Finding> findings)
+    {
+        var bound = (long)EnvelopeBounds.MaximumBytes;
+        var told = Told(bytes, declared);
+
+        // One read past the bound is what an honest reader takes, so the ceiling is well above it
+        // and is there to stop a runaway reader rather than to bound an honest one. A body that
+        // hits it fails as the rule it broke rather than as a reader that threw.
+        var stream = PeerBody.Of(bytes, ceiling: (bound + 1) * 4);
+
+        BodyObservation? seen;
+
+        try
+        {
+            seen = readBody(stream, declared);
+        }
+        catch (PeerBody.ReadPastTheCeiling thrown)
+        {
+            findings.Add(new Finding("body-read-past-the-bound", told, thrown.Message));
+
+            return "past-the-ceiling";
+        }
+        catch (Exception thrown)
+        {
+            findings.Add(new Finding(
+                "body-reader-threw",
+                told,
+                (thrown.GetType().FullName ?? "an exception") + ": " + thrown.Message));
+
+            return "threw";
+        }
+
+        if (seen is null)
+        {
+            findings.Add(new Finding("body-reader-answered-nothing", told, "the reader came back with no reading at all"));
+
+            return "nothing";
+        }
+
+        if (stream.BytesHandedOver > bound + 1)
+        {
+            findings.Add(new Finding(
+                "body-read-past-the-bound",
+                told,
+                string.Create(CultureInfo.InvariantCulture, $"{stream.BytesHandedOver} byte(s) taken off a body bounded at {bound}")));
+        }
+
+        if (seen.IsRefused && seen.Text is not null)
+        {
+            findings.Add(new Finding(
+                "refused-body-carries-text",
+                told,
+                "a refused body carries text a caller can parse"));
+        }
+
+        if (!seen.IsRefused && seen.Text is null)
+        {
+            findings.Add(new Finding(
+                "read-body-carries-no-text",
+                told,
+                "a body that was not refused carries nothing"));
+        }
+
+        if (seen.DeclaredBytes != declared)
+        {
+            findings.Add(new Finding(
+                "the-declaration-was-not-carried",
+                told,
+                string.Create(CultureInfo.InvariantCulture, $"declared {Spelled(declared)}, carried {Spelled(seen.DeclaredBytes)}")));
+        }
+
+        var refusedForLength = string.Equals(seen.Answer, nameof(EnvelopeBodyAnswer.TooManyBytes), StringComparison.Ordinal);
+
+        if (refusedForLength && seen.Bound is null)
+        {
+            findings.Add(new Finding(
+                "too-many-bytes-names-no-bound",
+                told,
+                "the refusal names no bound, so an operator is told a body was too long and never what for"));
+        }
+
+        if (!refusedForLength && seen.Bound is not null)
+        {
+            findings.Add(new Finding(
+                "bound-named-where-no-bound-refused",
+                told,
+                string.Create(CultureInfo.InvariantCulture, $"{seen.Answer} names bound {seen.Bound}")));
+        }
+
+        if (declared > bound && (stream.BytesHandedOver != 0 || seen.BytesRead != 0))
+        {
+            findings.Add(new Finding(
+                "declared-past-the-bound-was-read-anyway",
+                told,
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"the peer declared {declared} and {stream.BytesHandedOver} byte(s) were taken anyway")));
+        }
+
+        // The declaration is folded to zero where there is none, because a null compared against a
+        // number is false in both directions and would take the commonest case out of this rule
+        // while reading as though it covered it.
+        if (refusedForLength && bytes.LongLength <= bound && (declared ?? 0) <= bound)
+        {
+            findings.Add(new Finding(
+                "a-body-inside-the-bound-was-refused-for-its-length",
+                told,
+                string.Create(CultureInfo.InvariantCulture, $"{bytes.LongLength} byte(s) refused against a bound of {bound}")));
+        }
+
+        if (!seen.IsRefused && seen.Text is not null
+            && !Encoding.UTF8.GetBytes(seen.Text).AsSpan().SequenceEqual(bytes))
+        {
+            findings.Add(new Finding(
+                "the-text-is-not-the-bytes-that-arrived",
+                told,
+                "the text answered re-encodes to bytes other than the ones the peer sent"));
+        }
+
+        return seen.Answer;
+    }
+
+    /// <summary>
+    /// The one property a body of a known length cannot ask: that a peer which never stops sending
+    /// cannot make this side hold more than the bound.
+    ///
+    /// It is judged once per sweep rather than once per input, and the reason is written at
+    /// <see cref="JudgeTheBody"/>. What it can catch that a finite body cannot is a reader whose
+    /// stopping condition is the end of the stream rather than the bound, which every input with
+    /// an end passes.
+    /// </summary>
+    /// <param name="readBody">The reader to judge.</param>
+    /// <returns>Everything it broke.</returns>
+    /// <exception cref="ArgumentNullException">The reader is null.</exception>
+    internal static IReadOnlyList<Finding> JudgeTheCeiling(BodyReader readBody)
+    {
+        ArgumentNullException.ThrowIfNull(readBody);
+
+        var bound = (long)EnvelopeBounds.MaximumBytes;
+        var findings = new List<Finding>();
+        var stream = PeerBody.Endless(ceiling: (bound + 1) * 4);
+        const string Told = "a body that never ends, with no declared length";
+
+        BodyObservation? seen;
+
+        try
+        {
+            seen = readBody(stream, null);
+        }
+        catch (PeerBody.ReadPastTheCeiling thrown)
+        {
+            findings.Add(new Finding("body-read-past-the-bound", Told, thrown.Message));
+
+            return findings;
+        }
+        catch (Exception thrown)
+        {
+            findings.Add(new Finding(
+                "body-reader-threw",
+                Told,
+                (thrown.GetType().FullName ?? "an exception") + ": " + thrown.Message));
+
+            return findings;
+        }
+
+        if (stream.BytesHandedOver > bound + 1)
+        {
+            findings.Add(new Finding(
+                "body-read-past-the-bound",
+                Told,
+                string.Create(CultureInfo.InvariantCulture, $"{stream.BytesHandedOver} byte(s) taken off a body bounded at {bound}")));
+        }
+
+        if (seen is null || !seen.IsRefused)
+        {
+            findings.Add(new Finding(
+                "an-endless-body-was-not-refused",
+                Told,
+                seen is null ? "the reader came back with no reading at all" : seen.Answer));
+        }
+
+        return findings;
+    }
+
+    /// <summary>
+    /// What an input is called in a finding about a body, which is what it was rather than the
+    /// bytes themselves: a quarter of a mebibyte of a peer's choosing in a report is a report
+    /// nobody reads.
+    /// </summary>
+    /// <param name="bytes">The bytes.</param>
+    /// <param name="declared">What was declared, or null.</param>
+    /// <returns>The description.</returns>
+    private static string Told(byte[] bytes, long? declared) =>
+        string.Create(CultureInfo.InvariantCulture, $"{bytes.LongLength} byte(s), declared {Spelled(declared)}");
+
+    private static string Spelled(long? value) =>
+        value is long number ? number.ToString(CultureInfo.InvariantCulture) : "nothing";
+
+    /// <summary>
     /// How many changes the body carries, counted as a reader counts them: the members of the
     /// change list where the body is an object carrying an array under that name, and none
     /// otherwise.
@@ -578,9 +936,10 @@ internal static class EnvelopeFuzz
     /// </summary>
     /// <param name="seen">What the reader answered.</param>
     /// <param name="bounds">What the bounds answered.</param>
+    /// <param name="bodies">What the body reader answered, under each declaration.</param>
     /// <returns>The key.</returns>
-    private static string AnswerKey(Observation seen, string bounds) =>
-        string.Create(CultureInfo.InvariantCulture, $"{seen.Answer}/{seen.MissingMember ?? "-"}/{bounds}");
+    private static string AnswerKey(Observation seen, string bounds, string bodies) =>
+        string.Create(CultureInfo.InvariantCulture, $"{seen.Answer}/{seen.MissingMember ?? "-"}/{bounds}/{bodies}");
 
     /// <summary>
     /// Judges one input and keeps it where its answer is one this run has not seen.
@@ -591,18 +950,20 @@ internal static class EnvelopeFuzz
     /// of answers and not of paths.
     /// </summary>
     /// <param name="body">The input.</param>
-    /// <param name="read">The reader.</param>
+    /// <param name="read">The envelope reader.</param>
+    /// <param name="readBody">The body reader.</param>
     /// <param name="findings">Where its findings go.</param>
     /// <param name="kept">The corpus being built.</param>
     /// <param name="seen">The answers already seen.</param>
     private static void JudgeAndKeep(
         string body,
         Reader read,
+        BodyReader readBody,
         List<Finding> findings,
         List<string> kept,
         HashSet<string> seen)
     {
-        var judged = Judge(body, read);
+        var judged = Judge(body, read, readBody);
 
         findings.AddRange(judged.Findings);
 
