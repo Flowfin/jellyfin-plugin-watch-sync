@@ -122,12 +122,15 @@ Disposition: sorted by site under #370: fixed at the two sites in production
 code, in `Apply/CappedApply.cs` and `Apply/ItemByItemApply.cs`, and declined at
 the four sites in the fuzz harness, `EnvelopeFuzz.cs` in the suite.
 
-Quoted by a dismissal: Declined at this site (#271, 2026-09-05; #370; register docs/code-scanning.md): this catch is in a fuzz harness whose subject is what the reader does with bytes nobody wrote, and an exception the reader did not declare is the finding the sweep exists to record rather than an error to narrow away.
+Quoted by a dismissal: Declined at this site (#271, 2026-09-05; #370; register docs/code-scanning.md): a fuzz harness exists to record whatever the reader throws on bytes nobody wrote, and an exception the reader did not declare is the finding rather than an error to narrow away.
 
 The four harness sites catch everything because that is what the harness is
 for: narrowing a clause to the types the reader is known to throw would make
 the sweep blind to exactly the case it exists to find, and the finding it
-records carries the type name and the message.
+records carries the type name and the message. The sentence above is the
+length it is because the security page accepts a dismissal comment of at most
+two hundred and eighty characters, which was read from the page's own refusal
+of a longer one on 2026-09-05.
 
 The two apply sites are argued rather than sorted, because the same clause is
 #54's own rule and is also the shape the query is about. What the catch is for:
@@ -161,11 +164,16 @@ Disposition: fixed, under #370. Four sites, all `ManualResetEventSlim` in
 The query is right. That type allocates a kernel event lazily and does so
 exactly when a waiter blocks past its spin count, which is what both cases make
 it do, so the handle is real rather than theoretical and nothing released it.
-The repair is not a blind `using` and it is not a disposal at the end of the
-method: both events are handed to a stream the store drives on another thread,
-so they may not be disposed while that thread can still touch them, and both
-cases already wait for that thread. The disposal goes after that wait, and the
-sentence saying why is written at the site.
+Both events are handed to a stream the store drives on another thread, so they
+may not be disposed while that thread can still touch them, and the first note
+on #271 argued from that against a `using` and for a disposal written after
+the wait. That repair landed first and raised four alerts of
+`cs/dispose-not-called-on-throw` at the disposal lines, because the second of
+two explicit disposals is missed if the first throws. The repair that stands is
+the `using` declaration for both events: on every path where the assertions
+held, the method's end is after the wait for that thread, which is the same
+moment the explicit disposal ran, and on a path where one failed the test is
+already red before anything is disposed. The sentence saying so is at the site.
 ### `cs/empty-catch-block`
 
 Disposition: fixed, under #370. Two sites, both in `Discard` in
@@ -183,8 +191,12 @@ is the reader's rather than the tool's, and whether the alert closes on it is
 a reading to take after the mainline is scanned.
 ### `cs/dispose-not-called-on-throw`
 
-Disposition: declined at both sites, under #370. Two sites, both in
-`OneExchangeAtATimeTests.cs` in the suite.
+Disposition: declined at both sites, under #370, and dismissed on the security
+page on 2026-09-05 carrying the sentence below. Two sites, both in
+`OneExchangeAtATimeTests.cs` in the suite. Four more alerts of this rule were
+raised on 2026-09-05 at the disposal lines the first repair of
+`cs/local-not-disposed` added, and they are closed by the second repair of that
+rule rather than declined; the entry above carries it.
 
 Quoted by a dismissal: Declined at this site (#271, 2026-09-05; #370; register docs/code-scanning.md): the moment this admission is released is what the test asserts, and a using block would move that moment to the end of the method and leave the test asserting nothing.
 
