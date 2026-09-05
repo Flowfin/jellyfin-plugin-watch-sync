@@ -407,6 +407,23 @@ jobs:
         with:
           dotnet-target: "net9.0"
 
+      - name: Refuse an archive carrying anything but the plugin's own files
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        # The packager copies what build.yaml lists and writes meta.json beside it, and
+        # nothing so far has read a byte of what ended up inside the zip. A test
+        # assembly or a stray file from the output directory shipped in a plugin
+        # archive is loaded onto somebody's server, and the first anybody hears of it
+        # is a server behaving differently from the one it was tested on. The checker
+        # lists every entry, refuses each one that is not an artifact build.yaml
+        # declares, meta.json or the declared image, by name, and refuses an archive
+        # that does not carry every declared artifact, so an empty or wrong-shaped
+        # archive fails rather than passing a refusal that found nothing to refuse.
+        # ArchiveEntriesGateTests holds this step to both packaging routes.
+        run: |
+          set -euo pipefail
+          python3 .github/check-archive-entries.py --archive "${ARTIFACT}" --manifest build.yaml
+
       - name: Put the manifest beside the package
         id: assets
         env:

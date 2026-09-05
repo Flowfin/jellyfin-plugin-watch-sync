@@ -91,15 +91,6 @@ jobs:
           fi
           dotnet restore "${project}" --locked-mode
 
-      - name: Build the plugin package
-        id: jprm
-        # The packager the release route calls, at the same commit and with the
-        # same framework, so what is built here is what a release would build.
-        # PackagingGateTests holds the pin and the framework to that route.
-        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
-        with:
-          dotnet-target: "net9.0"
-
       - name: Refuse an archive carrying anything but the plugin's own files
         env:
           ARTIFACT: ${{ steps.jprm.outputs.artifact }}
@@ -116,6 +107,15 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/check-archive-entries.py --archive "${ARTIFACT}" --manifest build.yaml
+
+      - name: Build the plugin package
+        id: jprm
+        # The packager the release route calls, at the same commit and with the
+        # same framework, so what is built here is what a release would build.
+        # PackagingGateTests holds the pin and the framework to that route.
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net9.0"
 
       - name: Prove the archive check refuses what it is written for
         # The step above is green on every archive the packager has produced here,

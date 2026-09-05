@@ -1,0 +1,9 @@
+# A manifest for the proof that the archive check refuses what it is written for.
+# It declares two artifacts, one of them in a folder, so the proof covers a
+# directory entry the packager writes for a folder it had to create as well as
+# one it never had reason to. It is a fixture: nothing packages from it.
+name: "Fixture"
+version: "0.0.0.0"
+artifacts:
+- "Plugin.dll"
+- "lib/Plugin.Helper.dll"
