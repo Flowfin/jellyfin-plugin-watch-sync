@@ -425,12 +425,12 @@ public sealed class AgreedRecords
     {
         watermark = Watermark.NoneYet;
 
-        if (!fields.ContainsKey(WatermarkMember))
+        if (!fields.TryGetPropertyValue(WatermarkMember, out var watermarkNode))
         {
             return true;
         }
 
-        if (fields[WatermarkMember] is not JsonObject members
+        if (watermarkNode is not JsonObject members
             || members[WatermarkPointMember] is not JsonValue pointValue
             || !pointValue.TryGetValue<string>(out var point)
             || !TryReadMoment(members, WatermarkConfirmedAtMember, out var confirmedAt))
