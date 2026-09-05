@@ -19,7 +19,7 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 /// The verdict is made by `.github/check-component-licences.py`, which runs on a runner and
 /// never here: a fact that shelled out to it would make this suite need Python on every
 /// machine it runs on, which is the headless rule's own subject. So what is held here is the
-/// route rather than the verdict — that the packaging run makes the check, that the run
+/// route rather than the verdict: that the packaging run makes the check, that the run
 /// proves the check bites, and that the register the check reads says what a register has to
 /// say. Each of those is one deletion away from a packaging run that produces an inventory
 /// and asks nothing of it, in silence.
