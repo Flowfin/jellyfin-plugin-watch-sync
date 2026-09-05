@@ -136,3 +136,15 @@ second-chance-on-a-non-match :: no-second-chance-match :: 26 :: MatchAnswer\s*\.
 # repair #55 refused when it decided which of the two homes wins.
 schedule-task-manager :: schedule-not-rewritten :: 55 :: \bITaskManager\b :: reaches the server's own record of when each task runs :: GetDefaultTriggers, which the server asks once and an operator may then override
 schedule-triggers-assigned :: schedule-not-rewritten :: 55 :: \.Triggers\s*=(?!=) :: writes the schedule the server saved for a task :: GetDefaultTriggers, which the server asks once and an operator may then override
+
+# A peer is reached through the pairing plugin, which holds the keys, the trust and the state
+# a transfer is allowed under, so a call opened from here is a call opened outside all three.
+# #53 is where it is argued, and the cost it names is nearer than the boundary: the handler
+# that would make one runs on the thread the server raised the event on, so a peer that
+# accepts a connection and then says nothing stops playback on this server rather than a sync
+# with a neighbour.
+network-http-client :: network-belongs-to-the-pairing-plugin :: 53 :: \bHttpClient\b :: opens a connection to a peer from this plugin :: the adapter in #40, which asks the pairing plugin to carry it
+network-http-client-factory :: network-belongs-to-the-pairing-plugin :: 53 :: \bIHttpClientFactory\b :: takes the server's own way of making one :: the adapter in #40, which asks the pairing plugin to carry it
+network-http-message :: network-belongs-to-the-pairing-plugin :: 53 :: \bHttp(Request|Response)Message\b :: builds or reads a request of its own :: the adapter in #40, which asks the pairing plugin to carry it
+network-socket :: network-belongs-to-the-pairing-plugin :: 53 :: \b(Socket|TcpClient|UdpClient|ClientWebSocket)\b :: reaches a peer under the request layer, which a reachability probe is the usual excuse for :: the adapter in #40, and the failure count #62 shows an operator
+network-namespace :: network-belongs-to-the-pairing-plugin :: 53 :: \bSystem\.Net\b :: reaches for the namespace the four rules above are members of, which is the route none of them names :: the adapter in #40, which asks the pairing plugin to carry it
