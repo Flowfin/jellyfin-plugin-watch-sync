@@ -18,10 +18,15 @@ moment somebody makes it. Each one was argued in an issue before it was a patter
 the entry names that issue so the argument is one link away rather than lost behind the
 regular expression that came out of it.
 
-An invariant is carried by one or more rules. Storage identity is five, one for each
-way a key can be derived from where a file is kept. A separate identifier per way is
-what lets a finding say which mistake was made, and lets a departure cover one call
-without covering the rest.
+An invariant is carried by one or more rules. Storage identity is carried by one for each
+way a key can be derived from where a file is kept, and how many that is is read rather
+than written here:
+
+    grep -vc '^#\|^$' Jellyfin.Plugin.WatchSync.Tests/Matching/storage-identity-vocabulary.txt
+    5
+
+A separate identifier per way is what lets a finding say which mistake was made, and lets
+a departure cover one call without covering the rest.
 
 ## The register
 
@@ -275,6 +280,31 @@ widened until it refuses the word `Net`.
 It is here before anything sends anything, for the reason `pairing-behind-the-adapter` and
 `schedule-not-rewritten` are: the line gets written on the day somebody has an envelope, a
 peer address and no adapter yet, which is exactly the day it looks like progress.
+
+## The numbers on this page
+
+A count on this page is pasted under the command that produced it, and the paste is re-run
+rather than trusted. `InvariantDocumentCountTests` reads this file, finds every transcript
+whose command counts the lines of one tracked file, counts them again, and refuses a number
+that no longer reproduces. Three neighbouring mistakes are refused with it: a command naming
+a file this tree does not carry, a pattern matching no line of the file it names and so
+answering the same number whatever that file holds, and a command the reader cannot
+interpret, which is refused rather than skipped so that no figure passes by being
+unrecognisable.
+
+It exists because the count under `## Departures` was wrong twice in the same direction, in
+a paragraph that already said a count in a document is what this page has been wrong about.
+The first time was a sentence that outlived its subject; the second, #361, was a number that
+was right when it was typed. Nothing here caught either.
+
+WHAT IT DOES NOT HOLD, so that a green run over this page is not read as more than it is. A
+figure written in prose with no command under it is unread, and one such figure stands
+below: how many of the invariants scan sources that could hold a violation is a judgement
+about each of them, and no count answers it. A command handed to the reader with nothing
+pasted under it asserts no number and is not a subject. And the command is interpreted
+rather than executed, over one named file, so the recursive reaches across the sources that
+this page also pastes are outside what it reads. Those stay where this page leaves
+everything else it cannot machine-hold: with somebody reading it.
 
 ## What these patterns cannot see
 
@@ -645,11 +675,16 @@ dispensation: an entry whose file no longer carries the call it was written for 
 refused as dangling, so it leaves with the line it covered.
 
 THE PLUGIN DECLARED NONE WHEN THIS PAGE WAS WRITTEN, AND THIS SENTENCE WENT ON SAYING SO
-AFTER THAT STOPPED BEING TRUE. It declares six. The number is not written here, because a
-count in a document is the thing this page has already been wrong about once:
+AFTER THAT STOPPED BEING TRUE. IT THEN SAID SIX WHILE THE FILE DECLARED NINE, WHICH IS #361
+AND IS THE SAME MISTAKE ONE EDIT LATER, IN THE PARAGRAPH THAT NAMES IT. No count stands here
+now, and the clause that split one into a group and a remainder is gone with it. The split
+was the worse half: it went stale for a second reason as well as the first, because the
+departures are declared for more reasons than it named, and a sentence dividing them by
+number reads as an account of the file rather than as a number that can be behind:
 
     git grep -c '^Jellyfin' -- Jellyfin.Plugin.WatchSync.Tests/Invariants/exceptions.txt
 
-Five are the adapter #20 asks for and are argued above; the other is the type that declares
-the three match answers. Each entry carries its reason on its own line, and that file is the
-list to read rather than a number in this one.
+Nothing is pasted under that command, deliberately. An answer written here is a figure
+again, and the one on this page that no command stood behind is what this section is a
+repair of. Each entry carries its reason on its own line, and that file is the list to read
+rather than a number in this one.
