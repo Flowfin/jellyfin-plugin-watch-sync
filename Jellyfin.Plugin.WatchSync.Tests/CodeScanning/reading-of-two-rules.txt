@@ -1,0 +1,4 @@
+# A reading of two rules, for the near-miss proofs in CodeScanningRegisterTests.
+#     (the command is the one in page-rules.txt; this file is a fixture, not a reading of the page)
+cs/alpha	CodeQL	open
+cs/beta	CodeQL	dismissed

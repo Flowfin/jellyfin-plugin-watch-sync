@@ -1,0 +1,17 @@
+# Fixture text
+
+## The disposition register
+
+### `cs/alpha`
+
+Disposition: declined as a set.
+
+### `cs/beta`
+
+Disposition: Declined at both sites.
+
+Quoted by a dismissal:
+
+### `cs/gamma`
+
+A heading with prose under it and no disposition line.

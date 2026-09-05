@@ -1,0 +1,25 @@
+# Fixture text
+
+## The disposition register
+
+Two entries.
+
+### What the suite reads
+
+Not an entry: the heading carries no rule in backticks.
+
+### `cs/alpha`
+
+Disposition: fixed.
+
+### `cs/beta`
+
+Disposition: declined as a set.
+
+Quoted by a dismissal: The sentence every dismissal of this rule carries.
+
+## A later section
+
+### `cs/delta`
+
+Disposition: declined. This heading is under a later section and is not an entry.
