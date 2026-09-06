@@ -15,6 +15,10 @@ entry they need is the one that says their existing history will be treated
 differently. An assembler that emitted the fragments in file order would put that entry
 wherever its ordinal happened to fall.
 
+It also ends every set of notes with the command that checks a downloaded archive against
+the provenance the release build signed for it, because the page somebody is reading when
+they decide whether to trust a binary is the release, not this repository's runbook.
+
 What it refuses is what would make the notes wrong, and no more. Whether a fragment is
 well formed in every respect is held by `ChangelogFragmentTests` in the suite, against
 the same document; a second full copy of those rules here would be a format with two
@@ -53,6 +57,15 @@ FIELD_SECTION = "## The fields"
 # the suite carries them as constants; a fact in that suite holds these two lines to it.
 CHANGED = "changed"
 UNCHANGED = "unchanged"
+
+# The command an operator runs to check a downloaded archive against the provenance the
+# release build signed for it. It is written into every release's notes because that is
+# where somebody deciding whether to trust a binary is already reading; a command that
+# lives only in this repository's runbook is one they would have to know to go and look
+# for. `docs/RELEASING.md` carries the same line and a fact in the suite holds the two to
+# each other, so neither can be reworded on its own.
+VERIFICATION_HEADING = "## Checking what you downloaded"
+VERIFICATION_COMMAND = "gh attestation verify <archive>.zip --repo <owner>/<repository>"
 
 HEADER_LINE = re.compile(r"^(?P<name>[A-Za-z][A-Za-z-]*):[ \t]*(?P<value>.*)$")
 FRAGMENT_NAME = re.compile(r"^(?P<ordinal>[0-9]{4})-(?P<slug>[a-z0-9]+(?:-[a-z0-9]+)*)\.md$")
@@ -219,6 +232,29 @@ def render(entries):
             out.append("")
             out.append("(" + header.get("Issue", "no issue named") + ")")
             out.append("")
+
+    # Last, and on every release rather than on the ones somebody remembered. What goes
+    # here is what an operator can check for themselves about the files attached beside
+    # these notes, which is a different question from what changed and belongs after it.
+    out.append(VERIFICATION_HEADING)
+    out.append("")
+    out.append(
+        "The archive attached below was produced by the run that published this "
+        "release, and that run signed a build provenance statement for it, keyless, in "
+        "a job that checks nothing out and runs no build tooling. Check what you "
+        "downloaded against the statement rather than against this page:"
+    )
+    out.append("")
+    out.append("    " + VERIFICATION_COMMAND)
+    out.append("")
+    out.append(
+        "`components.cdx.json`, attached beside the archive, lists the components the "
+        "release was compiled from with their versions and licences. It describes the "
+        "closure the project declares rather than the entries of the archive, so a "
+        "package that only supplied a reference assembly or an analyser is listed as "
+        "well."
+    )
+    out.append("")
 
     return "\n".join(out).rstrip("\n") + "\n"
 

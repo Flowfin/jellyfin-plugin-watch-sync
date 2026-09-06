@@ -128,6 +128,13 @@ checked against it:
 gh attestation verify <archive>.zip --repo <owner>/<repository>
 ```
 
+That line is also the last section of every release's notes, written there by
+`.github/assemble-release-notes.py`, because the page an operator is reading when they
+decide whether to trust a binary is the release rather than this file. The two are one
+string and `ReleaseNotesTests` refuses either of them being reworded on its own, so a
+command corrected here and left stale there is a red gate instead of an operator running
+something that does not work.
+
 ## The manifest the run generates
 
 THIS SECTION SAID NOTHING HERE WROTE A PLUGIN CATALOG. A run generates one now, and

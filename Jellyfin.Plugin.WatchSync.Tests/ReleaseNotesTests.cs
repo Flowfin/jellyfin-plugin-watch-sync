@@ -146,10 +146,53 @@ public class ReleaseNotesTests
     }
 
     /// <summary>
+    /// Every release's notes end with the command that checks a downloaded archive against
+    /// the provenance the release build signed for it, which is the second condition of #118.
+    /// It is emitted unconditionally rather than out of a fragment, because a section a
+    /// writer has to remember is one a release goes out without.
+    /// </summary>
+    [Fact]
+    public void TheNotesCarryTheCommandThatChecksTheArchive()
+    {
+        var assembler = ReleaseNotesRoute.Assembly();
+
+        Assert.Contains(ReleaseNotesRoute.VerificationHeading, assembler, StringComparison.Ordinal);
+        Assert.Contains(ReleaseNotesRoute.VerificationCommand, assembler, StringComparison.Ordinal);
+        Assert.Contains("+ VERIFICATION_COMMAND)", assembler, StringComparison.Ordinal);
+        Assert.Contains("out.append(VERIFICATION_HEADING)", assembler, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The notes and the runbook name one command. An operator meets it in the release and
+    /// whoever publishes meets it in `docs/RELEASING.md`, and a correction made in one of the
+    /// two leaves the other sending somebody a line that does not work, with neither copy
+    /// looking wrong on its own.
+    /// </summary>
+    [Fact]
+    public void TheNotesAndTheRunbookNameOneVerificationCommand()
+    {
+        var assembler = ReleaseNotesRoute.Assembly();
+        var runbook = ReleaseNotesRoute.Runbook();
+
+        Assert.Contains(ReleaseNotesRoute.VerificationCommand, assembler, StringComparison.Ordinal);
+        Assert.Contains(ReleaseNotesRoute.VerificationCommand, runbook, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// The files this class reads.
     /// </summary>
     internal static class ReleaseNotesRoute
     {
+        /// <summary>
+        /// The heading the verification section carries in the notes.
+        /// </summary>
+        internal const string VerificationHeading = "## Checking what you downloaded";
+
+        /// <summary>
+        /// The one command both the notes and the runbook hand an operator.
+        /// </summary>
+        internal const string VerificationCommand = "gh attestation verify <archive>.zip --repo <owner>/<repository>";
+
         /// <summary>
         /// The assembler, as the publish route and the proof both name it.
         /// </summary>
@@ -172,6 +215,12 @@ public class ReleaseNotesTests
         /// </summary>
         /// <returns>Its text.</returns>
         internal static string Assembly() => Read(Assembler);
+
+        /// <summary>
+        /// The runbook whoever publishes a release reads.
+        /// </summary>
+        /// <returns>Its text.</returns>
+        internal static string Runbook() => Read("docs/RELEASING.md");
 
         /// <summary>
         /// Reads a repository-relative file.
