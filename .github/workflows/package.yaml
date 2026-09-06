@@ -16,12 +16,14 @@
 # drifting apart, so moving one pin without the other reddens the suite instead
 # of leaving one route packaging bytes another never built.
 #
-# What it does not do is package the second server line. build.yaml declares two
-# lines and the packager stamps the archive with the manifest's top level
-# targetAbi rather than with the framework it was told to build, so a second call
-# with a second framework produces an archive that claims the line it cannot run
-# on. That reading is on #101 and it is what the remaining half of that issue
-# costs.
+# What it does not do is package the second server line, and it says so in its
+# log. build.yaml declares two lines and the packager stamps the archive with the
+# manifest's top level targetAbi rather than with the framework it was told to
+# build, so a second call with a second framework and the same manifest produces an
+# archive that claims the line it cannot run on. The second line is packaged by
+# the release route on its own tag, from its own manifest, which is #375; this run
+# packages exactly one line, the one build.yaml names, and a step below prints
+# which so a green run is never read as having packaged both.
 name: package
 
 on:
@@ -91,11 +93,29 @@ jobs:
           fi
           dotnet restore "${project}" --locked-mode
 
+      - name: Say which line this run packages
+        # Exactly one line, the one build.yaml names at its top level. The release
+        # route derives its line from the tag and swaps the manifest to match; this
+        # route has no tag and packages the default manifest as it stands, so the
+        # other line is not measured here and the log says so rather than leaving a
+        # green run to be read as both.
+        run: |
+          set -euo pipefail
+          framework="$(sed -n 's/^framework:[[:space:]]*"\([^"]*\)".*/\1/p' build.yaml)"
+          abi="$(sed -n 's/^targetAbi:[[:space:]]*"\([^"]*\)".*/\1/p' build.yaml)"
+          if [ -z "${framework}" ] || [ -z "${abi}" ]; then
+            echo "::error::build.yaml declares no top level framework and targetAbi pair, so this run cannot say which line it packages."
+            exit 1
+          fi
+          echo "::notice::This run packages one server line, ${framework} for ABI ${abi}, the pair build.yaml names at its top level. The other line is packaged by the release route on its own tag and is not measured here."
+
       - name: Build the plugin package
         id: jprm
-        # The packager the release route calls, at the same commit and with the
-        # same framework, so what is built here is what a release would build.
-        # PackagingGateTests holds the pin and the framework to that route.
+        # The packager the release route calls, at the same commit, with the framework
+        # build.yaml names at its top level. The release route hands the packager the
+        # framework its gate derived from the tag, which for a tag with no line segment
+        # is this same value. PackagingGateTests holds the pin and the framework to
+        # that route.
         uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
         with:
           dotnet-target: "net9.0"
