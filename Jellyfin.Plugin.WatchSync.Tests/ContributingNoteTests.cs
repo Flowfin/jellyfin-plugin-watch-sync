@@ -131,24 +131,22 @@ public class ContributingNoteTests
     }
 
     /// <summary>
-    /// The note says what it does not carry, and names what that is waiting for.
+    /// The note sends a contributor to the command that runs what the gate runs.
     ///
-    /// #114's first condition is a local command that runs the legs the gate runs. Two of the four
-    /// contexts the mainline requires are produced by a workflow in another repository, so what
-    /// they run is not in this tree to reproduce, and a command written anyway would cover less
-    /// than a contributor reading it would assume. This fact refuses the deletion of that
-    /// admission, which is the direction such a section is edited in: somebody adds a command,
-    /// removes the paragraph saying it is incomplete, and the note then promises the thing it
-    /// still cannot do.
+    /// The fact that stood here refused the deletion of the section saying the note carried no
+    /// such command, and named the two issues that section was waiting for. The command exists, so
+    /// what is left to hold is that the note points at it and that the admissions beside it
+    /// survive. That half is <c>LocalGateTests</c>, which is also where the register is held to
+    /// the workflows, and it is one fact rather than two because the pointer and what the pointer
+    /// promises are the same edit.
     /// </summary>
     [Fact]
-    public void TheNoteSaysWhatItDoesNotCarryAndWhatThatWaitsFor()
+    public void TheNoteSendsAContributorToTheLocalGate()
     {
         var text = Text(HeadlessGuardTests.HeadlessGuard.RepositoryRoot());
 
-        Assert.Contains("What this note does not carry yet", text, StringComparison.Ordinal);
-        Assert.Contains("#90", text, StringComparison.Ordinal);
-        Assert.Contains("#105", text, StringComparison.Ordinal);
+        Assert.Contains("## The one command that runs what the gate runs", text, StringComparison.Ordinal);
+        Assert.Contains("python gate.py", text, StringComparison.Ordinal);
     }
 
     /// <summary>

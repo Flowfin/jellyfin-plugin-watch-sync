@@ -147,17 +147,52 @@ The rule, what each refusal replaces, and what the scan cannot see are in
 not restated here, because a second copy of a rule drifts from the one that is
 enforced and a reader cannot tell which of the two they are holding.
 
-## What this note does not carry yet
+## The one command that runs what the gate runs
 
-The one local command that runs the legs the gate runs, in the same order, so that
-a contributor who runs it green is not surprised. It is not here because two of
-the four contexts the mainline requires are produced by a workflow in another
-repository, so what they run is not in this tree to reproduce:
+    python gate.py
+
+It runs the steps of the four jobs that produce the contexts a merge waits for,
+against the working tree, and stops at the first leg that fails.
+
+What it runs is read out of the workflow rather than copied into a script, so a
+step edited there is a step this run executes as edited. `gate.txt` is where the
+legs and their steps are declared, in the order they run and with a reason beside
+every step deliberately kept out, and both the command and the suite refuse a job
+whose steps are not exactly the ones it names. A step added to one of those jobs
+with no line beside it is a refusal rather than a leg that quietly stops being
+covered.
+
+It needs Python with PyYAML, `bash`, and the two .NET SDKs the project targets.
+The audit leg needs `uv`, which supplies `uvx`, and it runs zizmor at the version
+`.github/workflows/zizmor.yml` pins rather than at whichever is newest.
+
+## What the local gate does not cover
+
+A green run of it is not the gate, and the ways it is not are worth reading
+before one is trusted.
+
+Which contexts a merge waits for is a repository setting, and no file here reads
+it. The four legs are that set as it was read when they were written:
 
     gh api repos/Flowfin/jellyfin-plugin-watch-sync/rulesets/20464507 --jq '[.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context]'
-    ["call / build","call / test","Reject Trojan Source Unicode","Audit workflows (zizmor)"]
+    ["build","test","Reject Trojan Source Unicode","Audit workflows (zizmor)"]
 
-Building here and naming the contexts this repository produces is #90, and which
-names those contexts take is #105. Until then a contributor runs `dotnet test` and
-the zizmor invocation above, and the gate can still surprise them. That is the
-honest state of it rather than a command that covers less than it claims to.
+A context added to that setting tomorrow is a leg `gate.txt` does not carry, and
+nothing in this tree will say so.
+
+Everything else the forge runs on a pull request is outside the command. The
+suite on three operating systems, the coverage floors, the packaging route, the
+code scanning and the pull-request hygiene checks are none of them a leg here,
+and none of them is required today, so a green local run says nothing about any
+of them.
+
+A leg that cannot run at all is a failure rather than an omission, and the
+accounting the run prints at the end names every leg with its verdict and every
+step kept out with the reason, so a run that covered less than the whole set
+cannot be read as one that covered it and found nothing.
+
+On the machine this was written on that accounting is red for a reason that is
+not the tree's: there is no .NET 9 runtime installed, so the `net9.0` half of the
+suite cannot launch, while the gate installs both SDKs and runs both. Install the
+missing runtime or read that leg's verdict on the forge; do not read the local
+red as the tree's.
