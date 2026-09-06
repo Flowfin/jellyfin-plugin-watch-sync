@@ -1,0 +1,58 @@
+# A slice of the publish route carrying one mistake: the merge gate's inventory step was
+# copied across verbatim, so the inventory is written into a directory of its own at the
+# workspace root and the upload names that literal. Everything else here is what the route
+# holds today.
+#
+# The run this produces builds the plugin, writes an inventory and uploads four paths. Three
+# of them are in the packager's output directory and the fourth is at the workspace root, so
+# the upload roots the artifact at the workspace and the archive arrives in the release job
+# under artifacts/ instead of beside it. The release job's ./*.zip then matches nothing, and
+# the run stops after the tag has been pushed.
+
+  build:
+    name: Build package
+    steps:
+      - name: Build the plugin package
+        id: jprm
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net9.0"
+
+      - name: Write the component inventory beside the package
+        id: inventory
+        env:
+          INVENTORY_DIRECTORY: inventory
+        run: |
+          set -euo pipefail
+          mkdir -p "${INVENTORY_DIRECTORY}"
+          dotnet tool install --global CycloneDX --version 6.2.0
+          export PATH="${HOME}/.dotnet/tools:${PATH}"
+          dotnet-CycloneDX "Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj" \
+            --output-format Json \
+            --output "${INVENTORY_DIRECTORY}" \
+            --filename components.cdx.json \
+            --set-nuget-purl \
+            --exclude-test-projects \
+            --disable-package-restore
+
+      - name: Put the manifest beside the package
+        id: assets
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          directory="$(dirname "${ARTIFACT}")"
+          cp build.yaml "${directory}/build.yaml"
+          echo "manifest=${directory}/build.yaml" >> "${GITHUB_OUTPUT}"
+
+      - name: Hand the package to the later jobs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-artifact
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ steps.jprm.outputs.artifact }}
+            ${{ steps.jprm.outputs.artifact }}.meta.json
+            ${{ steps.assets.outputs.manifest }}
+            inventory/components.cdx.json

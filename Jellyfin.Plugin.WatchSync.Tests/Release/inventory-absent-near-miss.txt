@@ -1,0 +1,34 @@
+# A slice of the publish route with the inventory step deleted, which is what tidying a
+# workflow does to a step whose output nothing in the file below it reads by name. The archive
+# is where it belongs, the manifest travels, the run is green, and the release publishes a
+# binary with no list of what went into it.
+
+  build:
+    name: Build package
+    steps:
+      - name: Build the plugin package
+        id: jprm
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net9.0"
+
+      - name: Put the manifest beside the package
+        id: assets
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          directory="$(dirname "${ARTIFACT}")"
+          cp build.yaml "${directory}/build.yaml"
+          echo "manifest=${directory}/build.yaml" >> "${GITHUB_OUTPUT}"
+
+      - name: Hand the package to the later jobs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-artifact
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ steps.jprm.outputs.artifact }}
+            ${{ steps.jprm.outputs.artifact }}.meta.json
+            ${{ steps.assets.outputs.manifest }}

@@ -543,6 +543,42 @@ jobs:
           set -euo pipefail
           python3 .github/check-archive-entries.py --archive "${ARTIFACT}" --manifest build.yaml
 
+      - name: Write the component inventory beside the package
+        id: inventory
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        # An operator installing a binary into a server that holds their household's
+        # data should be able to read what is in it without trusting a claim. The merge
+        # gate has written this inventory since #101 and attaches it to the run, where
+        # it expires with the run; nothing carried one to a release, so the file an
+        # operator can actually reach did not exist.
+        #
+        # The same tool, the same version and the same arguments as the gate's step, on
+        # purpose: the release route is not a second answer to what went into the
+        # package. CycloneDX is a NuGet global tool, so it is pinned by version, which
+        # is the pin a NuGet package has. It reads the locked restore above rather than
+        # fetching its own, so the inventory describes the closure this release was
+        # compiled from and no package is pulled in merely to describe it.
+        #
+        # It is written into the packager's output directory rather than one of its own,
+        # for the reason the manifest is copied there below: the upload roots the
+        # artifact at the deepest directory its paths share, so a file at the workspace
+        # root moves the archive a directory down in the download, where the release
+        # job's ./*.zip finds nothing and the run stops on a tag that cannot be reused.
+        run: |
+          set -euo pipefail
+          directory="$(dirname "${ARTIFACT}")"
+          dotnet tool install --global CycloneDX --version 6.2.0
+          export PATH="${HOME}/.dotnet/tools:${PATH}"
+          dotnet-CycloneDX "Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj" \
+            --output-format Json \
+            --output "${directory}" \
+            --filename components.cdx.json \
+            --set-nuget-purl \
+            --exclude-test-projects \
+            --disable-package-restore
+          echo "inventory=${directory}/components.cdx.json" >> "${GITHUB_OUTPUT}"
+
       - name: Put the manifest beside the package
         id: assets
         env:
@@ -564,18 +600,19 @@ jobs:
         env:
           ARTIFACT: ${{ steps.jprm.outputs.artifact }}
           MANIFEST: ${{ steps.assets.outputs.manifest }}
+          INVENTORY: ${{ steps.inventory.outputs.inventory }}
         # if-no-files-found on the upload below fires only when no pattern matches at
         # all, so a missing metadata file would ride through as a warning and leave the
         # release one asset short. Named here, one file at a time.
         run: |
           set -euo pipefail
-          for file in "${ARTIFACT}" "${ARTIFACT}.meta.json" "${MANIFEST}"; do
+          for file in "${ARTIFACT}" "${ARTIFACT}.meta.json" "${MANIFEST}" "${INVENTORY}"; do
             if [ ! -f "${file}" ]; then
-              echo "::error::The packaging step did not produce ${file}. The archive, the metadata written beside it and the manifest the package was built from are all release assets."
+              echo "::error::The packaging step did not produce ${file}. The archive, the metadata written beside it, the manifest the package was built from and the component inventory are all release assets."
               exit 1
             fi
           done
-          ls -l "${ARTIFACT}" "${ARTIFACT}.meta.json" "${MANIFEST}"
+          ls -l "${ARTIFACT}" "${ARTIFACT}.meta.json" "${MANIFEST}" "${INVENTORY}"
 
       - name: Hand the package to the later jobs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -583,15 +620,19 @@ jobs:
           name: build-artifact
           retention-days: 30
           if-no-files-found: error
-          # The archive, the metadata the packager writes beside it, and the manifest
-          # the package was built from. The metadata and the manifest travel with the
-          # release so a catalog entry, and a repair of one, can be written from the
-          # package that actually shipped instead of from a file read back out of the
-          # tree at a later commit.
+          # The archive, the metadata the packager writes beside it, the manifest the
+          # package was built from and the component inventory of what went into it.
+          # The metadata and the manifest travel with the release so a catalog entry,
+          # and a repair of one, can be written from the package that actually shipped
+          # instead of from a file read back out of the tree at a later commit. The
+          # inventory travels for the same reason from the other direction: what is in
+          # the binary somebody downloaded is answered by a file published beside it
+          # rather than by rebuilding the graph from a tree at a later commit.
           path: |
             ${{ steps.jprm.outputs.artifact }}
             ${{ steps.jprm.outputs.artifact }}.meta.json
             ${{ steps.assets.outputs.manifest }}
+            ${{ steps.inventory.outputs.inventory }}
 
   attest:
     name: Attest build provenance
@@ -742,6 +783,15 @@ jobs:
           # in a job that goes on to publish a release one asset short.
           if [ ! -f ./build.yaml ]; then
             echo "::error::The manifest the package was built from is not among the downloaded files, so the release would carry the archive without it."
+            exit 1
+          fi
+
+          # The component inventory, asked for here for the same reason and by the same
+          # kind of name. A release that publishes the archive without it is one an
+          # operator can install and cannot read the contents of, and that is the state
+          # this route was in before it carried one at all.
+          if [ ! -f ./components.cdx.json ]; then
+            echo "::error::The component inventory is not among the downloaded files, so the release would carry the archive without the list of what went into it."
             exit 1
           fi
 

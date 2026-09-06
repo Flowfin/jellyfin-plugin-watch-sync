@@ -77,11 +77,12 @@ serialising them by hand is what keeps the release order readable.
 ## What the run produces
 
 The workflow builds the plugin from the tagged commit, creates the GitHub release
-for the tag, and attaches five files:
+for the tag, and attaches six files:
 
 - the plugin archive
 - the packaging metadata written beside it, `<archive>.zip.meta.json`
 - `build.yaml`, the manifest the package was built from
+- `components.cdx.json`, the component inventory of what went into the archive
 - one `.md5` file, the checksum of the archive
 - one `.sha256` file for the same archive
 
@@ -97,16 +98,27 @@ argued.
 
 The `.md5` is the value a Jellyfin catalog serves as the plugin checksum. There is
 exactly one per release so that no generator can pair a checksum with the wrong
-file. The archive is the only file with a checksum beside it; the metadata and the
-manifest are read rather than installed, and adding a second sidecar is what the
-single `.md5` above exists to prevent.
+file. The archive is the only file with a checksum beside it; the metadata, the
+manifest and the inventory are read rather than installed, and adding a second
+sidecar is what the single `.md5` above exists to prevent.
 
 The manifest is attached because a catalog entry for this release, and any repair of
 one, is written from the version, the ABI and the framework the package was built
 with. Read back out of the tree later those are the values of a different commit.
-The three inputs are checked for existence by name before the release job runs, and
-the manifest is asked for again after the download, so a release short of one of them
-is not a state this route can reach.
+
+The inventory is attached for the same reason read from the other end. It is a
+CycloneDX list of every component the locked restore pulled in, written by the same
+tool, at the same version and with the same arguments as the merge gate's step, so
+the release route is not a second answer to what went into the package. What it
+answers is what somebody who downloaded the binary has in front of them, and a list
+that lives only in a workflow run expires with the run. It describes the closure the
+project declares rather than the entries of the archive, so a package that supplied
+only a reference assembly or an analyser is listed as well; that is the safe
+direction and it is the same bound the gate's inventory carries.
+
+The four inputs are checked for existence by name before the release job runs, and
+the manifest and the inventory are asked for again after the download, so a release
+short of one of them is not a state this route can reach.
 
 The run also signs a build provenance statement for the archive, in a separate job
 that downloads the archive and runs no build tooling. A downloaded archive can be
