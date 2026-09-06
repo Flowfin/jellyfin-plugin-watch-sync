@@ -16,9 +16,17 @@
 # making the call and `build` is the job inside the thing being called - so
 # reproducing the old string from a workflow that calls nothing would mean naming
 # a local job `call` to keep a check run claiming a mechanism this change
-# removes. The required set on master still names the old two contexts until
-# #105 moves it; see that issue for the order, which uses this pull request's own
-# head as the proof that the replacements are green before the swap.
+# removes. THIS PARAGRAPH SAID THE REQUIRED SET ON MASTER STILL NAMED THE OLD TWO
+# CONTEXTS UNTIL #105 MOVED IT, AND POINTED AT THAT ISSUE FOR THE ORDER. The set
+# names the two this repository produces:
+#
+#     gh api repos/Flowfin/jellyfin-plugin-watch-sync/rulesets/20464507 \
+#       --jq '[.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context]'
+#     ["build","test","Reject Trojan Source Unicode","Audit workflows (zizmor)"]
+#
+# So the swap that sentence was written ahead of has been made, and the name of
+# the job below is a required context rather than one waiting to become one. The
+# order it was made in is on #90; #105 is where the required set is chosen.
 #
 # There is deliberately no path filter here. A workflow a filter skips reports no
 # check run at all, so the context is absent rather than green and a merge waits
@@ -97,21 +105,31 @@ jobs:
         # compiled on the way through.
         #
         # WHAT THAT DOES NOT MEAN IS THAT EVERY WARNING IN THIS SOLUTION IS AN
-        # ERROR, and #90's second condition is met for the plugin rather than
-        # for both projects. The plugin project declares TreatWarningsAsErrors
-        # and the test project does not, so the suite's own analyzer warnings
-        # are warnings here and this step is green over them. Counted on master
-        # at 4127f3faa482c17796f94bf46d7c19606fe07fe4, over both targets:
+        # ERROR BY ANYTHING THIS FILE DOES. Which warnings are errors is declared
+        # in the project files, and this step is green over whatever they leave
+        # as a warning.
         #
-        #     dotnet build Jellyfin.Plugin.WatchSync.sln --nologo -t:Rebuild 2>&1 \
-        #       | grep -oE 'warning [A-Za-z0-9]+' | sort | uniq -c | sort -rn
-        #          28 warning xUnit1031
-        #           4 warning xUnit2031
-        #           4 warning xUnit2012
+        # THIS PARAGRAPH SAID THE TEST PROJECT DID NOT DECLARE
+        # TreatWarningsAsErrors, that the suite's own analyzer warnings were green
+        # here, and that repairing them was what was left of #90's second
+        # condition. It counted twenty-eight xUnit1031, four xUnit2031 and four
+        # xUnit2012 on master at 4127f3faa482c17796f94bf46d7c19606fe07fe4. That
+        # was the tree it was written against, and d94ed1b ended it two days
+        # before this file landed, so the paragraph arrived with its count
+        # already spent. Both projects declare the property, and the solution
+        # builds with no warning:
         #
-        # Repairing those and declaring the property on the test project is a
-        # second topic and is what is left of that condition. It is written into
-        # #90 rather than only here.
+        #     git grep -c TreatWarningsAsErrors -- \
+        #       Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj \
+        #       Jellyfin.Plugin.WatchSync.Tests/Jellyfin.Plugin.WatchSync.Tests.csproj
+        #     Jellyfin.Plugin.WatchSync.Tests/Jellyfin.Plugin.WatchSync.Tests.csproj:1
+        #     Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj:1
+        #
+        #     dotnet build Jellyfin.Plugin.WatchSync.sln --nologo -t:Rebuild
+        #     0 Warning(s)
+        #
+        # A count of zero is a fact about this tree and says nothing about whether
+        # the refusal is switched on, which is what the step below is for.
         run: dotnet build Jellyfin.Plugin.WatchSync.sln --nologo
 
       - name: Prove a warning fails this build

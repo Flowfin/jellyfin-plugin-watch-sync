@@ -8,8 +8,10 @@
 # covers.
 #
 # The job below is named `test` rather than `call / test`, for the reason written
-# at the same place in build.yaml. The required set on master still names the old
-# two contexts until #105 moves it.
+# at the same place in build.yaml. THAT PLACE ALSO CARRIED THE SENTENCE SAYING THE
+# REQUIRED SET STILL NAMED THE OLD TWO CONTEXTS, and the reading that replaced it
+# is there rather than copied here, because a second copy of a required set drifts
+# against the one that decides a merge.
 #
 # There is deliberately no path filter here, for the reason build.yaml gives at
 # the same place: a workflow a filter skips reports no check run at all, so the
