@@ -506,11 +506,20 @@ public sealed class DocumentStore
     /// neither is writing over the other's bytes while both are outside the gate. It restarts at
     /// one in a new process, so a file left behind by a killed one is written over rather than
     /// accumulated beside.
+    ///
+    /// <para>It refuses the name on a line of its own, although the one caller it has today
+    /// composed the document path out of the same name a few lines earlier and was refused there
+    /// first. That is the order of two statements in another method and not a property of this
+    /// one: a second caller, or the two lines moving apart, would leave this method composing a
+    /// path out of a name nobody refused. Each of the two paths this store composes therefore
+    /// rests on a guard in its own method.</para>
     /// </summary>
     /// <param name="name">The document's name.</param>
     /// <returns>The path of the file this attempt writes.</returns>
     private string InFlightPathFor(string name)
     {
+        RefuseANameThisStoreMayNotCompose(name);
+
         var attempt = Interlocked.Increment(ref _attempts);
 
         return Path.Combine(

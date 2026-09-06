@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
@@ -336,13 +337,7 @@ public sealed class DocumentStoreTests : IDisposable
     /// </summary>
     /// <param name="name">The name a caller asked for.</param>
     [Theory]
-    [InlineData("../outside")]
-    [InlineData("..\\outside")]
-    [InlineData("agreed/../../outside")]
-    [InlineData("c:outside")]
-    [InlineData("Agreed")]
-    [InlineData("agreed.json")]
-    [InlineData("")]
+    [MemberData(nameof(NamesThisStoreMayNotCompose))]
     public void ANameThisStoreMayNotComposeIsRefused(string name)
     {
         var store = Store();
@@ -351,6 +346,50 @@ public sealed class DocumentStoreTests : IDisposable
         Assert.ThrowsAny<ArgumentException>(() => store.Write(name, _ => Document(("who", "nobody"))));
         Assert.Empty(Directory.Exists(StorePath) ? Directory.GetFiles(StorePath) : Array.Empty<string>());
     }
+
+    /// <summary>
+    /// The in-flight path refuses the same names the document path refuses, on a line of its own.
+    ///
+    /// A write composes the document path before it composes the in-flight path out of the same
+    /// name, so through the write the refusal has thrown before the second path exists. That is
+    /// the order of two lines in one method and not a property of the in-flight path: a second
+    /// caller, or those two lines moving apart, would leave it composing a name nobody refused.
+    /// So this reaches the method directly, past the order, with every name the document path
+    /// refuses, and the list is one list so the two cannot drift.
+    /// </summary>
+    /// <param name="name">The name a caller asked for.</param>
+    [Theory]
+    [MemberData(nameof(NamesThisStoreMayNotCompose))]
+    public void TheInFlightPathRefusesWhatTheDocumentPathRefuses(string name)
+    {
+        var store = Store();
+        var inFlightPathFor = typeof(DocumentStore).GetMethod(
+            "InFlightPathFor",
+            BindingFlags.NonPublic | BindingFlags.Instance);
+
+        Assert.NotNull(inFlightPathFor);
+
+        var thrown = Assert.Throws<TargetInvocationException>(() => inFlightPathFor.Invoke(store, new object[] { name }));
+
+        Assert.IsAssignableFrom<ArgumentException>(thrown.InnerException);
+        Assert.Empty(Directory.Exists(StorePath) ? Directory.GetFiles(StorePath) : Array.Empty<string>());
+    }
+
+    /// <summary>
+    /// The names the store may not compose a path out of: each separator either platform reads,
+    /// the drive letter, the two dots, a capital, a suffix and nothing at all.
+    /// </summary>
+    /// <returns>One row per name.</returns>
+    public static TheoryData<string> NamesThisStoreMayNotCompose() => new TheoryData<string>
+    {
+        "../outside",
+        "..\\outside",
+        "agreed/../../outside",
+        "c:outside",
+        "Agreed",
+        "agreed.json",
+        string.Empty,
+    };
 
     /// <summary>
     /// Whether a write finished inside the time it was given, without blocking the caller on it.
