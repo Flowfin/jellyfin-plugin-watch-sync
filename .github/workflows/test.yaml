@@ -1,12 +1,28 @@
-name: '🧪 Test Plugin'
+# Runs this repository's own suite, once per server line, in this repository.
+#
+# This file called jellyfin/jellyfin-meta-plugins until #90. What that call ran
+# was `dotnet restore`, `dotnet build --configuration Release` and `dotnet test`,
+# with the checkout keeping the run token in .git/config and with the arguments
+# decided in a tree this repository pins but does not hold. The suite it ran was
+# this one, so what changes here is where the run is decided rather than what it
+# covers.
+#
+# The job below is named `test` rather than `call / test`, for the reason written
+# at the same place in build.yaml. The required set on master still names the old
+# two contexts until #105 moves it.
+#
+# There is deliberately no path filter here, for the reason build.yaml gives at
+# the same place: a workflow a filter skips reports no check run at all, so the
+# context is absent rather than green and the merge waits for a verdict that
+# never arrives.
+#
+# This is not the whole of what runs the suite. `Suite on three operating
+# systems` runs it on Linux, macOS and Windows, under two imposed time zones and
+# from a standard account, and it is the workflow that answers portability and
+# elevation. This one is the required verdict on one platform, and a green mark
+# here says the suite passed on ubuntu-latest and nothing more.
+name: test
 
-# There is deliberately no path filter here. The check run this workflow
-# produces is one the ruleset on master requires, and a workflow a filter skips
-# reports no check run at all, so the context is absent rather than green and
-# the merge waits for a verdict that never arrives. A change touching only
-# Markdown is the case that hits it every time. The cost of the missing filter
-# is a suite run on documentation changes; the cost of having it was every such
-# change being unmergeable.
 on:
   push:
     branches:
@@ -16,22 +32,59 @@ on:
       - master
   workflow_dispatch:
 
-# Deny by default at the workflow level; the job below grants only the scopes
-# it needs. The shared workflow this calls declares no permissions of its own,
-# so what the caller grants is the whole of what it gets.
+# Deny by default at the workflow level; the job grants only what it needs.
 permissions: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  call:
+  test:
+    # The check context is this name. The ruleset matches the literal string, so
+    # a rename removes a required check rather than renaming one. Change it
+    # deliberately or not at all, and keep every matrix value out of it.
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
-      # Checkout and restore only.
+      # Checkout and restore only. The suite reads the checkout through
+      # git ls-files, which needs the repository and not the credential.
       contents: read
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/test.yaml@eb99033a7ff644881b014bc0b4169916c854a68b # master, 2026-07-29
-    with:
-      # The plugin targets one framework per supported server line, so both SDKs have
-      # to be present or the target the shared workflow was not told about fails to
-      # build. The shared workflow passes this string straight to the setup action,
-      # which reads one version per line.
-      dotnet-version: |
-        9.0.x
-        10.0.x
+    steps:
+      - name: Check out the commit under review
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing here pushes, so do not leave the token in .git/config. The
+          # shared workflow this replaced took the default and kept it.
+          persist-credentials: false
+
+      - name: Set up .NET
+        # One SDK per server line, because the suite builds and runs once per
+        # target. Installing only the newer one leaves the older leg unrunnable,
+        # which reads as a suite that was not measured rather than as one that
+        # failed.
+        #
+        # No dependency cache, for the reason build.yaml gives.
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Report the processors this run measures
+        # The suite runs its collections in parallel and nothing in this
+        # repository sets a thread cap, so the run takes the runner's own default
+        # and that default is derived from the processors the machine has. A
+        # passed run on four of them and a passed run on thirty-two look
+        # identical afterwards, and only the first says anything about a small
+        # machine. This reports and refuses nothing.
+        run: |
+          set -euo pipefail
+          echo "logical processors: $(getconf _NPROCESSORS_ONLN)"
+
+      - name: Run the suite on every declared target
+        # No configuration, no filter and no verbosity argument that would hide a
+        # skipped fact. The projects declare both targets, so this is two runs of
+        # the suite and the summary names each one.
+        run: dotnet test Jellyfin.Plugin.WatchSync.sln --nologo
