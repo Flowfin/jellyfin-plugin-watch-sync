@@ -1,0 +1,37 @@
+# The legs the local gate runs, one line per step of the workflow jobs that
+# produce the contexts a merge waits for.
+#
+#     <leg> :: <workflow> :: <job id> :: run|skip :: <step name> :: <reason, when skipped>
+#
+# The order of the legs and of the steps inside one is the order of this file,
+# and `gate.py` reads the commands out of the workflow rather than out of here,
+# so a step edited in the workflow is a step the local run executes as edited.
+# What this file decides is which steps are in and which are deliberately out;
+# `LocalGateTests` refuses a job whose `run:` steps are not exactly the ones
+# named below, in either direction, and `gate.py` refuses the same thing at the
+# moment it runs.
+#
+# WHICH CONTEXTS A MERGE WAITS FOR IS A REPOSITORY SETTING AND NO FILE HERE
+# READS IT. The four jobs below were the required set when this landed, read
+# with the command CONTRIBUTING.md quotes. A context added to that setting
+# tomorrow is a leg this file does not carry and nothing in the tree will say
+# so.
+#
+# The order is this file's own, because the gate runs its jobs at the same time
+# and has none to copy. The tree scan is first because it costs seconds and a
+# tree carrying a bidirectional override should stop everything else. The build
+# is before the suite because a suite run over a tree that does not compile is
+# not a second opinion. The audit is last because it is the only leg that
+# fetches a tool over the network, so a contributor with none still gets three
+# verdicts and a refusal naming the fourth.
+
+unicode :: .github/workflows/unicode-guard.yml :: bidi :: run :: Reject bidirectional / invisible Unicode control characters
+
+build :: .github/workflows/build.yaml :: build :: run :: Build every declared target
+build :: .github/workflows/build.yaml :: build :: run :: Prove a warning fails this build
+
+test :: .github/workflows/test.yaml :: test :: run :: Report the processors this run measures
+test :: .github/workflows/test.yaml :: test :: run :: Run the suite on every declared target
+
+zizmor :: .github/workflows/zizmor.yml :: zizmor :: skip :: Audit workflows (SARIF for code scanning) :: it writes results.sarif for the code-scanning tab and always exits 0, so it is an upload rather than a verdict, and running it here would leave a file in the checkout that nothing removes
+zizmor :: .github/workflows/zizmor.yml :: zizmor :: run :: Fail on actionable findings
