@@ -1,0 +1,53 @@
+# The repair of the fixture beside this one. The inventory is written into the directory the
+# packager wrote its archive to, derived from the packager's own output rather than typed, and
+# the step hands that location on as an output. Every path the upload names is then in one
+# directory and the download is flat.
+
+  build:
+    name: Build package
+    steps:
+      - name: Build the plugin package
+        id: jprm
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net9.0"
+
+      - name: Write the component inventory beside the package
+        id: inventory
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          directory="$(dirname "${ARTIFACT}")"
+          dotnet tool install --global CycloneDX --version 6.2.0
+          export PATH="${HOME}/.dotnet/tools:${PATH}"
+          dotnet-CycloneDX "Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj" \
+            --output-format Json \
+            --output "${directory}" \
+            --filename components.cdx.json \
+            --set-nuget-purl \
+            --exclude-test-projects \
+            --disable-package-restore
+          echo "inventory=${directory}/components.cdx.json" >> "${GITHUB_OUTPUT}"
+
+      - name: Put the manifest beside the package
+        id: assets
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          directory="$(dirname "${ARTIFACT}")"
+          cp build.yaml "${directory}/build.yaml"
+          echo "manifest=${directory}/build.yaml" >> "${GITHUB_OUTPUT}"
+
+      - name: Hand the package to the later jobs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-artifact
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            ${{ steps.jprm.outputs.artifact }}
+            ${{ steps.jprm.outputs.artifact }}.meta.json
+            ${{ steps.assets.outputs.manifest }}
+            ${{ steps.inventory.outputs.inventory }}
