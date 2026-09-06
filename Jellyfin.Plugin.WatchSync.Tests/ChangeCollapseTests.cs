@@ -67,6 +67,13 @@ public class ChangeCollapseTests
     ///
     /// The two runs feed the same two hours at two report rates, so the assertion is that the
     /// count does not follow the number of reports rather than that it is small on one fixture.
+    ///
+    /// The count is read while the playback is still running, before the completion arrives.
+    /// Read only at the end, it followed the completion rather than the collapse: a completion
+    /// answers every outstanding position, so the list is swept to one entry on the last call
+    /// whether or not anything collapsed on the reports before it, and this fact passed over a
+    /// rule with the per-field collapse taken out of it entirely. The end state is asserted
+    /// after it, because it is the state a peer reads, and it is not what holds the count.
     /// </summary>
     [Theory]
     [InlineData(10)]
@@ -84,6 +91,12 @@ public class ChangeCollapseTests
                 list,
                 Change(SyncedField.PlaybackPositionTicks, Reading(position: Seconds(seconds)), _evening.AddSeconds(seconds)));
         }
+
+        var standing = Assert.Single(list);
+
+        Assert.Equal(SyncedField.PlaybackPositionTicks, standing.Field);
+        Assert.Equal(Seconds(reports * secondsBetweenReports), standing.Observed.PlaybackPositionTicks);
+        Assert.Equal(_evening.AddSeconds(secondsBetweenReports), standing.FirstObservedAt);
 
         list = ChangeCollapse.Record(
             list,
