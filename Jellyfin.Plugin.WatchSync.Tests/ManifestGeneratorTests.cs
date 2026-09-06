@@ -95,6 +95,7 @@ public class ManifestGeneratorTests
     [InlineData(".github/manifest-fixtures/a-single-release.json")]
     [InlineData(".github/manifest-fixtures/two-channels.json")]
     [InlineData(".github/manifest-fixtures/one-channel-only.json")]
+    [InlineData(".github/manifest-fixtures/two-lines-of-one-version.json")]
     public void TheGeneratorIsProvenOnEveryReleaseRun(string fixture)
     {
         var publish = ManifestRoute.Publish();
@@ -118,6 +119,8 @@ public class ManifestGeneratorTests
     [InlineData(".github/manifest-fixtures/assets-checksum-of-another-file")]
     [InlineData(".github/manifest-fixtures/assets-the-checksum-is-not-a-digest")]
     [InlineData(".github/manifest-fixtures/assets-one-version-twice")]
+    [InlineData(".github/manifest-fixtures/assets-two-lines")]
+    [InlineData(".github/manifest-fixtures/assets-two-lines-one-abi")]
     public void EveryAssetTreeTheProofNamesIsInTheTree(string tree)
     {
         var publish = ManifestRoute.Publish();

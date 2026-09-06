@@ -20,10 +20,15 @@ name: Publish Release
 # published under either suffix, because two releases claiming one version with
 # different bytes is a catalog offering whichever of them it read last.
 #
-# What this workflow publishes is one package for the one server line build.yaml names
-# in `framework` and `targetAbi`. A repository that ships two server lines needs a
-# second manifest and a second route; this file does not provide one, and the checks
-# below refuse to guess.
+# What this workflow publishes is one package for one server line per tag, which is
+# the shape decided on #117. The line is a segment of the tag, read before the channel
+# is: a tag with no segment publishes the line build.yaml names at its top level, and
+# `-jf12-` in front of the channel suffix publishes the 12.0 line from build-jf12.yaml.
+# The packager discovers its manifest by the name build.yaml in the tree it is handed,
+# so the build job puts the tagged line's manifest under that name before anything
+# reads the tree, and proves on the archive it produced that the swap happened. One
+# release per line, each carrying one archive and one checksum sidecar, is what keeps
+# the single `.md5` rule below true by construction.
 on:
   push:
     tags:
@@ -31,6 +36,10 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+.[0-9]+-stable"
       - "[0-9]+.[0-9]+.[0-9]+-prerelease"
       - "[0-9]+.[0-9]+.[0-9]+.[0-9]+-prerelease"
+      - "[0-9]+.[0-9]+.[0-9]+-jf12-stable"
+      - "[0-9]+.[0-9]+.[0-9]+.[0-9]+-jf12-stable"
+      - "[0-9]+.[0-9]+.[0-9]+-jf12-prerelease"
+      - "[0-9]+.[0-9]+.[0-9]+.[0-9]+-jf12-prerelease"
 
 # Deny by default. Each job opts into the smallest scope it needs.
 permissions: {}
@@ -58,6 +67,13 @@ jobs:
       # here rather than written into that step, so the two cannot drift into a
       # pre-release tag publishing an ordinary release.
       prerelease: ${{ steps.metadata.outputs.prerelease }}
+      # The server line, as the three literals the later jobs need: the framework the
+      # packager builds, the manifest it has to find under the name build.yaml, and the
+      # tag segment the release job asks the history for. Derived here from the tag,
+      # once, so no job can build one line and stamp the other.
+      framework: ${{ steps.metadata.outputs.framework }}
+      manifest: ${{ steps.metadata.outputs.manifest }}
+      infix: ${{ steps.metadata.outputs.infix }}
     steps:
       - name: Check out the tagged commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -111,7 +127,6 @@ jobs:
         env:
           # Space separated list of branches a release may be cut from.
           RELEASE_REFS: "master"
-          EXPECTED_FRAMEWORK: "net9.0"
         run: |
           set -euo pipefail
 
@@ -137,17 +152,53 @@ jobs:
           # after the tag has been pushed. ReleaseChannelTests holds the two lists to
           # each other so that mismatch is a red suite instead.
           tag="${GITHUB_REF_NAME}"
+
+          # The line is read off the tag before the channel is. A segment between the
+          # version and the channel suffix names the server line, and no segment is the
+          # line build.yaml names at its top level. Every segment the trigger accepts
+          # needs an arm here and a row in the table below, and ReleaseLineTests holds
+          # the three to each other so a line opened in one of them is a red suite.
+          line=""
           case "${tag}" in
-            *-stable) numeric="${tag%-stable}" ; prerelease=false ;;
-            *-prerelease) numeric="${tag%-prerelease}" ; prerelease=true ;;
+            *-jf12-*) line="jf12" ;;
+          esac
+          infix="${line:+-${line}}"
+          version_and_channel="${tag}"
+          if [ -n "${line}" ]; then
+            version_and_channel="${tag%-${line}-*}-${tag##*-}"
+          fi
+
+          case "${version_and_channel}" in
+            *-stable) numeric="${version_and_channel%-stable}" ; prerelease=false ;;
+            *-prerelease) numeric="${version_and_channel%-prerelease}" ; prerelease=true ;;
             *)
               echo "::error::Tag ${tag} does not end in -stable or -prerelease."
               exit 1
               ;;
           esac
 
-          if [ ! -f build.yaml ]; then
-            echo "::error::build.yaml is missing from the repository root. The packaging step reads all plugin metadata from it."
+          # A segment no arm above reads is left inside the numeric part. Refused by name
+          # here, so a tag for a line this workflow does not publish stops on the sentence
+          # that says so rather than on the version comparison below.
+          if [[ ! "${numeric}" =~ ^[0-9]+(\.[0-9]+){2,3}$ ]]; then
+            echo "::error::Tag ${tag} carries a segment between its version and its channel that names no server line this workflow publishes. The lines are the arms of the case above."
+            exit 1
+          fi
+
+          # One row per line: the framework the packager builds and the manifest that
+          # declares it. This table is the only place the two are written; every job
+          # after this one takes them from the outputs above rather than naming either.
+          case "${line}" in
+            "")   expected_framework="net9.0"  ; manifest="build.yaml" ;;
+            jf12) expected_framework="net10.0" ; manifest="build-jf12.yaml" ;;
+            *)
+              echo "::error::Tag ${tag} names the line ${line}, which has no row in this workflow's line table, so there is no manifest to package it from."
+              exit 1
+              ;;
+          esac
+
+          if [ ! -f "${manifest}" ]; then
+            echo "::error::${manifest} is missing from the repository root. It is the manifest of the line the tag names, and the packaging step reads all plugin metadata from it."
             exit 1
           fi
 
@@ -166,7 +217,7 @@ jobs:
           fi
 
           read_scalar() {
-            awk -v key="$1" -f "${RUNNER_TEMP}/manifest/read_scalar.awk" build.yaml
+            awk -v key="$1" -f "${RUNNER_TEMP}/manifest/read_scalar.awk" "${manifest}"
           }
 
           # changelog is in this list because the packaging tool reads build_cfg
@@ -175,8 +226,8 @@ jobs:
           # far past the point where the tag is spent.
           missing=0
           for key in name guid version targetAbi framework owner overview description category artifacts changelog; do
-            if ! grep -Eq "^${key}:" build.yaml; then
-              echo "::error::build.yaml has no top level '${key}' field. A catalog entry built from this package would be incomplete."
+            if ! grep -Eq "^${key}:" "${manifest}"; then
+              echo "::error::${manifest} has no top level '${key}' field. A catalog entry built from this package would be incomplete."
               missing=1
             fi
           done
@@ -186,40 +237,40 @@ jobs:
 
           # `image` names a file that is copied into the archive. The packaging tool
           # exits on a missing one, again after the build.
-          if grep -Eq "^image:" build.yaml; then
+          if grep -Eq "^image:" "${manifest}"; then
             image="$(read_scalar image)"
             if [ ! -f "${image}" ]; then
-              echo "::error::build.yaml declares image '${image}', which is not in the repository. The packaging step copies that file into the archive and fails without it."
+              echo "::error::${manifest} declares image '${image}', which is not in the repository. The packaging step copies that file into the archive and fails without it."
               exit 1
             fi
           fi
 
           version="$(read_scalar version)"
           if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-            echo "::error::build.yaml version '${version}' is not three or four numeric parts (X.Y.Z or X.Y.Z.W)."
+            echo "::error::${manifest} version '${version}' is not three or four numeric parts (X.Y.Z or X.Y.Z.W)."
             exit 1
           fi
 
           if [ "${version}" != "${numeric}" ]; then
-            echo "::error::Tag ${tag} carries version ${numeric} but build.yaml declares ${version}. Bump build.yaml, or tag the version that is in it."
+            echo "::error::Tag ${tag} carries version ${numeric} but ${manifest} declares ${version}. Bump ${manifest}, or tag the version that is in it."
             exit 1
           fi
 
           abi="$(read_scalar targetAbi)"
           if [[ ! "${abi}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::build.yaml targetAbi '${abi}' is not four numeric parts (A.B.C.D). Jellyfin compares this value to decide whether to offer the plugin at all."
+            echo "::error::${manifest} targetAbi '${abi}' is not four numeric parts (A.B.C.D). Jellyfin compares this value to decide whether to offer the plugin at all."
             exit 1
           fi
 
           framework="$(read_scalar framework)"
-          if [ "${framework}" != "${EXPECTED_FRAMEWORK}" ]; then
-            echo "::error::build.yaml framework '${framework}' does not match the target this workflow builds (${EXPECTED_FRAMEWORK}). Either the manifest names a runtime the project is not compiled for, or the workflow was filled in for a different server line."
+          if [ "${framework}" != "${expected_framework}" ]; then
+            echo "::error::${manifest} framework '${framework}' does not match the target the line table above builds for this tag (${expected_framework}). Either the manifest names a runtime the project is not compiled for, or the table row and the manifest disagree about which server line this is."
             exit 1
           fi
 
           guid="$(read_scalar guid)"
           if [[ ! "${guid}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
-            echo "::error::build.yaml guid '${guid}' is not a UUID. It must be the plugin's own, permanent id."
+            echo "::error::${manifest} guid '${guid}' is not a UUID. It must be the plugin's own, permanent id."
             exit 1
           fi
 
@@ -243,7 +294,10 @@ jobs:
 
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
-          echo "Publishing version ${version} from tag ${tag}, prerelease=${prerelease}."
+          echo "framework=${expected_framework}" >> "$GITHUB_OUTPUT"
+          echo "manifest=${manifest}" >> "$GITHUB_OUTPUT"
+          echo "infix=${infix}" >> "$GITHUB_OUTPUT"
+          echo "Publishing version ${version} from tag ${tag}, prerelease=${prerelease}, built for ${expected_framework} from ${manifest}."
 
       - name: Assemble the release notes from the changelog fragments
         env:
@@ -311,16 +365,58 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
+      - name: Put the tagged line's manifest where the packager reads it
+        env:
+          MANIFEST: ${{ needs.gate.outputs.manifest }}
+          EXPECTED_FRAMEWORK: ${{ needs.gate.outputs.framework }}
+        # The packager takes no manifest argument. It discovers one inside the path by
+        # name, and build.yaml is that name, so the second line's manifest reaches it
+        # only by being build.yaml at the moment it runs. That is a step and not a file,
+        # and a step whose silent failure is a 12.0 archive stamped with the 10.11 ABI,
+        # which installs on a server it cannot run on. So the swap is made first, before
+        # any step below reads the tree, and it is read back rather than trusted: what
+        # stands at build.yaml afterwards has to be byte for byte the manifest the tag
+        # names and has to declare the framework the gate derived. The step after the
+        # packager reads the same fact off the metadata the packager wrote, which is
+        # the other end of the same swap.
+        run: |
+          set -euo pipefail
+          if [ ! -f "${MANIFEST}" ]; then
+            echo "::error::${MANIFEST} is not in the tagged commit, so the line the tag names has no manifest to package from."
+            exit 1
+          fi
+          if [ "${MANIFEST}" != "build.yaml" ]; then
+            rm build.yaml
+            cp "${MANIFEST}" build.yaml
+          fi
+          if ! cmp -s build.yaml "${MANIFEST}"; then
+            echo "::error::build.yaml is not ${MANIFEST} after the swap, so the packager would read a manifest of a line other than the one the tag names."
+            exit 1
+          fi
+          declared="$(sed -n 's/^framework:[[:space:]]*"\([^"]*\)".*/\1/p' build.yaml)"
+          if [ "${declared}" != "${EXPECTED_FRAMEWORK}" ]; then
+            echo "::error::build.yaml declares the framework '${declared}' after the swap and the gate derived ${EXPECTED_FRAMEWORK} from the tag, so the manifest in front of the packager is not the tagged line's."
+            exit 1
+          fi
+          echo "Packaging ${EXPECTED_FRAMEWORK} from ${MANIFEST}, standing at build.yaml."
+
       - name: Set up .NET
+        # Both SDKs, for the same reason the merge gate's packaging installs both: the
+        # plugin declares both server lines in one project, and a restore that evaluates
+        # it needs the SDK of each. Which line is built is the framework the gate derived
+        # from the tag and handed to the packager below, not a choice made here.
+        #
         # No dependency cache in the publish path. A cache entry written by another
         # run must never be able to reach the bytes that get released.
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: "9.0.x"
+          dotnet-version: |
+            9.0.x
+            10.0.x
 
       - name: Check the project is built for the target in the manifest
         env:
-          EXPECTED_FRAMEWORK: "net9.0"
+          EXPECTED_FRAMEWORK: ${{ needs.gate.outputs.framework }}
         # Asked of MSBuild rather than read out of the project file, because the target
         # frameworks are often set in Directory.Build.props or behind a property. The
         # packaging step runs `dotnet publish -f <target>`, and a target the project
@@ -370,7 +466,7 @@ jobs:
       - name: Check the assembly version matches the manifest
         env:
           MANIFEST_VERSION: ${{ needs.gate.outputs.version }}
-          EXPECTED_FRAMEWORK: "net9.0"
+          EXPECTED_FRAMEWORK: ${{ needs.gate.outputs.framework }}
         # The gate proved the tag and the manifest agree. Nothing so far has looked at
         # the number that ends up inside the DLL, and a project that sets AssemblyVersion
         # by hand can ship a plugin whose assembly says one thing while the catalog entry
@@ -405,7 +501,30 @@ jobs:
         # gate job has already proven that value equals the tag.
         uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
         with:
-          dotnet-target: "net9.0"
+          dotnet-target: "${{ needs.gate.outputs.framework }}"
+
+      - name: Prove the archive is stamped with the tagged line
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+          MANIFEST: ${{ needs.gate.outputs.manifest }}
+        # The packager stamps the metadata it writes beside the archive with the top
+        # level targetAbi of the manifest it read. That stamp is read back and held to
+        # the manifest the tag names: a swap that did not happen, or a packager that
+        # read a file other than build.yaml, leaves an archive claiming the other line,
+        # and this is the point where that is a failed run rather than a release.
+        run: |
+          set -euo pipefail
+          stamped="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["targetAbi"])' "${ARTIFACT}.meta.json")"
+          declared="$(sed -n 's/^targetAbi:[[:space:]]*"\([^"]*\)".*/\1/p' "${MANIFEST}")"
+          if [ -z "${declared}" ]; then
+            echo "::error::${MANIFEST} declares no top level targetAbi to hold the archive to."
+            exit 1
+          fi
+          if [ "${stamped}" != "${declared}" ]; then
+            echo "::error::The packager stamped the archive with targetAbi ${stamped} and the manifest the tag names, ${MANIFEST}, declares ${declared}. The archive claims a server line it was not built for and is not released."
+            exit 1
+          fi
+          echo "The archive is stamped ${stamped}, which is what ${MANIFEST} declares."
 
       - name: Refuse an archive carrying anything but the plugin's own files
         env:
@@ -548,6 +667,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.gate.outputs.version }}
+          INFIX: ${{ needs.gate.outputs.infix }}
         # The upload step below replaces an asset of the same name without complaint,
         # so a second run on the same tag would swap the bytes of a version people have
         # already installed and report success. Asked before anything is written, and
@@ -559,6 +679,10 @@ jobs:
         # reads one of them offers bytes the other channel's operators never saw. A
         # version is therefore spent by whichever channel published it first, and
         # promoting a pre-release means raising the version rather than retagging it.
+        #
+        # Both channels of THIS line. The other line publishes the same version under
+        # its own tag segment, one release per line, which is the shape #117 decided,
+        # so the segment the gate read off the tag is part of every candidate asked for.
         run: |
           set -euo pipefail
 
@@ -571,7 +695,7 @@ jobs:
           }
 
           for suffix in stable prerelease; do
-            candidate="${VERSION}-${suffix}"
+            candidate="${VERSION}${INFIX}-${suffix}"
             code="$(exists "${candidate}")"
             case "${code}" in
               404)
@@ -680,8 +804,12 @@ jobs:
       - name: Prove the generator refuses what it is written for
         # The step below is green on every history that has never carried one of these
         # states, so on its own it says nothing about whether the generator can refuse.
-        # Seven runs over the fixtures beside it, each arm named rather than the file
-        # being asserted to exist, with the repair run after the two that have one.
+        # One run per arm over the fixtures beside it, each arm named rather than the
+        # file being asserted to exist, with the repairs run after the arms that have
+        # one. The last pair is the two-line history #117 decided: one version on two
+        # server lines passes when each release is stamped with its own ABI, and is
+        # refused when both carry one ABI, which is what a manifest swap that did not
+        # happen in the build job would have published.
         run: |
           set -euo pipefail
           generator=.github/generate-manifest.py
@@ -702,10 +830,12 @@ jobs:
           refuses stable "${fixtures}/assets-checksum-of-another-file" "${fixtures}/a-single-release.json"
           refuses stable "${fixtures}/assets-the-checksum-is-not-a-digest" "${fixtures}/a-single-release.json"
           refuses stable "${fixtures}/assets-one-version-twice" "${fixtures}/one-version-claimed-twice.json"
+          refuses stable "${fixtures}/assets-two-lines-one-abi" "${fixtures}/two-lines-of-one-version.json"
           passes stable "${fixtures}/assets" "${fixtures}/a-single-release.json"
           passes stable "${fixtures}/assets" "${fixtures}/two-channels.json"
           passes prerelease "${fixtures}/assets" "${fixtures}/one-channel-only.json"
-          echo "The generator refused all seven of its arms and passed all three repairs."
+          passes stable "${fixtures}/assets-two-lines" "${fixtures}/two-lines-of-one-version.json"
+          echo "The generator refused every arm it is written for and passed every repair."
 
       - name: Read the release history
         env:

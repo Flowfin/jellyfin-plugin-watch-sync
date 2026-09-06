@@ -63,7 +63,11 @@ wrong in a way an operator finds by failing to install:
   short of a field a version entry needs;
 - a checksum sidecar whose digest is not an MD5, or that names a file other than the
   archive it sits beside;
-- two releases in the channel claiming one version.
+- two releases in the channel claiming one version for one ABI. The same version on
+  two server lines is two releases, one per line, each stamped with its own ABI, which
+  is the shape #117 decided and is rendered as two entries; the same version stamped
+  with one ABI twice is what a second line packaged from the first line's manifest
+  would publish, and it is refused.
 
 A channel with no releases in it is NOT a refusal. A project with a stable release and
 no pre-release is the ordinary state on the day it first ships, and its pre-release
@@ -93,10 +97,13 @@ import sys
 # than a second one.
 CHANNELS = ("stable", "prerelease")
 
-# A tag as this project writes one: the plugin version, then the channel. The numeric
-# part is what a server installs and the suffix lives only in the tag and the release
-# name.
-TAG = re.compile(r"^(?P<version>[0-9]+(?:\.[0-9]+){2,3})-(?P<channel>[a-z]+)$")
+# A tag as this project writes one: the plugin version, an optional server line
+# segment, then the channel. The numeric part is what a server installs, the line
+# segment says which server line the release was built for and is read by the
+# publish route alone, and the channel suffix lives only in the tag and the release
+# name. Nothing here reads the segment: which line a version entry is for is the
+# `targetAbi` the packaging metadata carries, which is the value a server compares.
+TAG = re.compile(r"^(?P<version>[0-9]+(?:\.[0-9]+){2,3})(?:-(?P<line>jf[0-9]+))?-(?P<channel>[a-z]+)$")
 
 # What `md5sum` writes: the digest, whitespace, then the name of the file it was taken
 # over, which the binary-mode spelling prefixes with an asterisk. Both halves are read.
@@ -359,18 +366,24 @@ def manifest_of(directory, releases, channel):
         tag = tag_of(release)
         entry, metadata = version_entry(directory, release, tag, assets_of(release))
         entries.append(entry)
-        identities.append((ordered(entry["version"]), tag, metadata))
+        identities.append((ordered(entry["version"]), ordered(entry["targetAbi"]), tag, metadata))
 
+    # One version per server line. The same version on two lines is two releases,
+    # each stamped with its own ABI, which is the shape #117 decided; two releases
+    # stamped with one ABI under one version is either a version spent twice or a
+    # second line's archive that was packaged from the first line's manifest, and a
+    # server offered either installs whichever the catalog happens to list first.
     claimed = {}
     for entry in entries:
         version = entry["version"]
-        if version in claimed:
+        abi = entry["targetAbi"]
+        if (version, abi) in claimed:
             refuse(
-                f"two releases in the {channel} channel claim the version {version}. "
-                "A server offered two sets of bytes under one number installs whichever "
-                "the catalog happens to list first."
+                f"two releases in the {channel} channel claim the version {version} "
+                f"for the ABI {abi}. A server offered two sets of bytes under one "
+                "number for one line installs whichever the catalog happens to list first."
             )
-        claimed[version] = True
+        claimed[(version, abi)] = True
 
     if not entries:
         # Not a refusal. A project with a stable release and no pre-release is the
@@ -378,10 +391,13 @@ def manifest_of(directory, releases, channel):
         # channel serves an index with no versions rather than nothing at all.
         return []
 
-    entries.sort(key=lambda entry: ordered(entry["version"]), reverse=True)
-    identities.sort(key=lambda identity: identity[0], reverse=True)
+    # Newest version first, and within one version the newest server line first, so
+    # two runs over one history render the same order whatever order the API answered
+    # in and the identity is read from one release rather than from whichever came last.
+    entries.sort(key=lambda entry: (ordered(entry["version"]), ordered(entry["targetAbi"])), reverse=True)
+    identities.sort(key=lambda identity: (identity[0], identity[1]), reverse=True)
 
-    newest = identities[0][2]
+    newest = identities[0][3]
 
     missing = [field for field in IDENTITY_FIELDS if not newest.get(field)]
     if missing:

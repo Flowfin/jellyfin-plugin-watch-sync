@@ -63,8 +63,16 @@ public class PackagingGateTests
     }
 
     /// <summary>
-    /// Every call builds the framework the manifest names beside the ABI it stamps. A call
-    /// passing the other line's framework is the archive that claims a server it cannot run on.
+    /// Every call builds the framework the manifest it reads names beside the ABI it stamps. A
+    /// call passing the other line's framework is the archive that claims a server it cannot
+    /// run on.
+    ///
+    /// Two shapes satisfy it. A call naming a literal builds the line build.yaml names, because
+    /// that is the manifest standing at the name the packager reads. The release route names no
+    /// literal: its gate derives the framework from the tag and swaps the matching manifest to
+    /// that name first, and ReleaseLineTests holds each row of that table to the manifest it
+    /// names. So the release call is held here to taking the gate's output and there to what
+    /// the output can be, and a literal reappearing on it is refused by both.
     /// </summary>
     [Fact]
     public void EveryPackagerCallBuildsTheFrameworkTheManifestDeclares()
@@ -74,9 +82,20 @@ public class PackagingGateTests
 
         Assert.All(
             calls,
-            call => Assert.True(
-                string.Equals(call.Framework, declared, StringComparison.Ordinal),
-                $"{call.Workflow} packages {call.Framework} while build.yaml declares {declared} beside the ABI the packager stamps, so that archive would claim a server line it was not built for."));
+            call =>
+            {
+                if (call.Workflow.EndsWith("publish.yaml", StringComparison.Ordinal))
+                {
+                    Assert.True(
+                        string.Equals(call.Framework, ReleaseLineTests.ReleaseLines.FrameworkFromTheGate, StringComparison.Ordinal),
+                        $"{call.Workflow} packages {call.Framework} rather than the framework its gate derived from the tag, so a tag naming the other line would build this one.");
+                    return;
+                }
+
+                Assert.True(
+                    string.Equals(call.Framework, declared, StringComparison.Ordinal),
+                    $"{call.Workflow} packages {call.Framework} while build.yaml declares {declared} beside the ABI the packager stamps, so that archive would claim a server line it was not built for.");
+            });
     }
 
     /// <summary>

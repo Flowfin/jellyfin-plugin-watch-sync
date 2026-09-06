@@ -1,0 +1,40 @@
+---
+name: "Watch Sync"
+guid: "aa15847e-2417-4fa7-889c-4c1960d2efec"
+imageUrl: "https://raw.githubusercontent.com/Flowfin/jellyfin-plugin-watch-sync/master/img/logo.png"
+version: "0.1.0.0"
+# The manifest of the 12.0 server line, and the one difference from build.yaml is this
+# pair. The publish route puts this file at the name build.yaml before the packager
+# runs on a tag carrying the -jf12- segment, because the packager discovers its manifest
+# by that name and takes no argument for it. Everything below the pair is build.yaml's
+# line for line, which ReleaseLineTests refuses drifting, so a version bump touching one
+# of the two files is a red suite rather than two lines at two versions.
+targetAbi: "12.0.0.0"
+framework: "net10.0"
+# One entry per server line this plugin supports. The ABI is the version of the server
+# assemblies the target actually compiled against, so it is not a preference written by
+# hand: BuildTargetsTests reads it off the referenced assembly under each target and
+# refuses this file disagreeing, which is what a package bump that nobody wrote down
+# here would produce.
+targets:
+- framework: "net9.0"
+  targetAbi: "10.11.11.0"
+- framework: "net10.0"
+  targetAbi: "12.0.0.0"
+overview: "Moves watch history between Jellyfin servers that the same operator has paired."
+description: >
+  Watch Sync carries the state a server holds about what has been watched
+  between servers that the same operator has paired, for the users that
+  operator has mapped to each other.
+
+  Two refusals stand and are not settings. No media file is ever copied:
+  only the watched state moves, never a byte of the item it is about.
+  Nothing moves except between servers the same operator has paired, and a
+  pairing that is absent, disabled or revoked stops the transfer rather
+  than falling back to anything.
+category: "General"
+owner: "Flowfin"
+artifacts:
+- "Jellyfin.Plugin.WatchSync.dll"
+changelog: >
+  changelog
