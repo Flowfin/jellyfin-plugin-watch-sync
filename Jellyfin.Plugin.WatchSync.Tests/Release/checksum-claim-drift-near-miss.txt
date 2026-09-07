@@ -1,0 +1,26 @@
+# The step as the mainline carried it until #385: two sidecars, both over the archive, under a
+# sentence saying every other asset gets a sha256 instead. Nothing about the route is wrong
+# here and nothing fails; what is wrong is the paragraph a later change reads before deciding
+# what to write beside a new asset, and it states a rule the route does not keep. The next
+# asset is added by somebody who read it, so the drift produces a wrong action rather than a
+# wrong sentence, which is why this arm is about the text and not about the sidecars.
+
+      - name: Write the checksums
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          # Exactly one archive, therefore exactly one .md5. The MD5 sidecar is the
+          # value a Jellyfin catalog serves as the plugin checksum, and a catalog
+          # generator that picks a checksum by filename will pick the wrong one the
+          # moment a second .md5 exists. Every other asset gets a sha256 instead.
+          zips=(./*.zip)
+          if [ "${#zips[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one plugin archive, found ${#zips[@]}."
+            exit 1
+          fi
+
+          zip="${zips[0]#./}"
+          md5sum "${zip}" > "${zip%.zip}.md5"
+          sha256sum "${zip}" > "${zip%.zip}.sha256"
+          ls -l

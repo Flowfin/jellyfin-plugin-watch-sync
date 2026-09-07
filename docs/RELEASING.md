@@ -98,9 +98,22 @@ argued.
 
 The `.md5` is the value a Jellyfin catalog serves as the plugin checksum. There is
 exactly one per release so that no generator can pair a checksum with the wrong
-file. The archive is the only file with a checksum beside it; the metadata, the
-manifest and the inventory are read rather than installed, and adding a second
-sidecar is what the single `.md5` above exists to prevent.
+file.
+
+The archive is the only file with a checksum beside it, one .md5 and one .sha256.
+The metadata, the manifest and the inventory are read rather than installed, and a
+sidecar written by the run that wrote the file it describes proves transport and
+nothing else, so none of the three carries one. That sentence is one string here and
+in the checksum step of `.github/workflows/publish.yaml`, and `ReleaseChecksumTests`
+refuses either copy being reworded on its own, or the step writing a sidecar for
+anything but the archive. Until #385 the step's comment claimed a sha256 for every
+other asset and wrote none, which is the drift that made the sentence one string
+rather than two paraphrases: the next asset is added by somebody who read it.
+
+The provenance statement's subject is `./*.zip` and this answer does not widen it.
+A subject reaches a file the release attests to, no asset gained a sidecar here, and
+the statement covers the one file an operator installs. Widening it is what a later
+change would owe an argument for.
 
 The manifest is attached because a catalog entry for this release, and any repair of
 one, is written from the version, the ABI and the framework the package was built

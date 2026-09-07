@@ -1,0 +1,25 @@
+# The repair of the slice beside this one: the two extra sidecars gone, the sentence replaced
+# by what the route does, and the archive left as the one file with a checksum beside it. This
+# is the shape the release route carries.
+
+      - name: Write the checksums
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          # Exactly one archive, therefore exactly one .md5. The MD5 sidecar is the
+          # value a Jellyfin catalog serves as the plugin checksum, and a catalog
+          # generator that picks a checksum by filename will pick the wrong one the
+          # moment a second .md5 exists.
+          #
+          # The archive is the only file with a checksum beside it, one .md5 and one .sha256.
+          zips=(./*.zip)
+          if [ "${#zips[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one plugin archive, found ${#zips[@]}."
+            exit 1
+          fi
+
+          zip="${zips[0]#./}"
+          md5sum "${zip}" > "${zip%.zip}.md5"
+          sha256sum "${zip}" > "${zip%.zip}.sha256"
+          ls -l
