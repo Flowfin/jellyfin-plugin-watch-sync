@@ -1,0 +1,29 @@
+# A slice of the release job with the sentence the step used to carry actually carried out:
+# a sha256 beside the manifest and beside the inventory as well as beside the archive. It is
+# the change somebody makes when they read the claim and repair the route to match it, and it
+# is refused here because the decision went the other way. The two extra sidecars are two more
+# assets on a route whose own rule is that a release short of one asset must not publish, they
+# are read rather than installed, and a sidecar written by the run that wrote the file it
+# describes proves transport and nothing else.
+
+      - name: Write the checksums
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          # Exactly one archive, therefore exactly one .md5. The MD5 sidecar is the
+          # value a Jellyfin catalog serves as the plugin checksum, and a catalog
+          # generator that picks a checksum by filename will pick the wrong one the
+          # moment a second .md5 exists. Every other asset gets a sha256 instead.
+          zips=(./*.zip)
+          if [ "${#zips[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one plugin archive, found ${#zips[@]}."
+            exit 1
+          fi
+
+          zip="${zips[0]#./}"
+          md5sum "${zip}" > "${zip%.zip}.md5"
+          sha256sum "${zip}" > "${zip%.zip}.sha256"
+          sha256sum build.yaml > build.yaml.sha256
+          sha256sum components.cdx.json > components.cdx.json.sha256
+          ls -l

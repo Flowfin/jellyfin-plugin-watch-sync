@@ -765,7 +765,17 @@ jobs:
           # Exactly one archive, therefore exactly one .md5. The MD5 sidecar is the
           # value a Jellyfin catalog serves as the plugin checksum, and a catalog
           # generator that picks a checksum by filename will pick the wrong one the
-          # moment a second .md5 exists. Every other asset gets a sha256 instead.
+          # moment a second .md5 exists.
+          #
+          # The archive is the only file with a checksum beside it, one .md5 and one .sha256.
+          # The metadata, the manifest and the inventory are read rather than installed, and a
+          # sidecar written by the run that wrote the file it describes proves transport and
+          # nothing else, so none of the three carries one. That sentence is one string here
+          # and in docs/RELEASING.md, and ReleaseChecksumTests refuses either copy being
+          # reworded on its own, or this step writing a sidecar for anything but the archive.
+          #
+          # The provenance statement's subject stays ./*.zip and the answer above does not
+          # widen it: no asset gained a sidecar, so there is no second file to reach for.
           zips=(./*.zip)
           if [ "${#zips[@]}" -ne 1 ]; then
             echo "::error::Expected exactly one plugin archive, found ${#zips[@]}."
