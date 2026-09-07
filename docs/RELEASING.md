@@ -121,13 +121,22 @@ with. Read back out of the tree later those are the values of a different commit
 
 The inventory is attached for the same reason read from the other end. It is a
 CycloneDX list of every component the locked restore pulled in, written by the same
-tool, at the same version and with the same arguments as the merge gate's step, so
+tool, at the same version and with the same options as the merge gate's step, so
 the release route is not a second answer to what went into the package. What it
 answers is what somebody who downloaded the binary has in front of them, and a list
 that lives only in a workflow run expires with the run. It describes the closure the
 project declares rather than the entries of the archive, so a package that supplied
 only a reference assembly or an analyser is listed as well; that is the safe
 direction and it is the same bound the gate's inventory carries.
+
+The framework each call passes is its own line's and narrows nothing, which the gate
+measured at its own step rather than assuming: the restore is on disk and
+`--disable-package-restore` is set, so the tool reads an assets file carrying every
+declared target and a call per line produces the same component set. It is passed on
+both routes so that a call says which line it was written for, and so that a restore
+per target later narrows both rather than one. `ReleaseInventoryTests` holds the two
+call sites to one option set; until that guard existed the sentence above claimed a
+sameness that the gate's own `--framework` had already broken.
 
 The four inputs are checked for existence by name before the release job runs, and
 the manifest and the inventory are asked for again after the download, so a release

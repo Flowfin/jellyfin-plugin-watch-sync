@@ -547,18 +547,30 @@ jobs:
         id: inventory
         env:
           ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+          FRAMEWORK: ${{ needs.gate.outputs.framework }}
         # An operator installing a binary into a server that holds their household's
         # data should be able to read what is in it without trusting a claim. The merge
         # gate has written this inventory since #101 and attaches it to the run, where
         # it expires with the run; nothing carried one to a release, so the file an
         # operator can actually reach did not exist.
         #
-        # The same tool, the same version and the same arguments as the gate's step, on
+        # The same tool, the same version and the same options as the gate's step, on
         # purpose: the release route is not a second answer to what went into the
         # package. CycloneDX is a NuGet global tool, so it is pinned by version, which
         # is the pin a NuGet package has. It reads the locked restore above rather than
         # fetching its own, so the inventory describes the closure this release was
         # compiled from and no package is pulled in merely to describe it.
+        #
+        # THE FRAMEWORK IS THIS RELEASE'S OWN LINE AND IT DOES NOT NARROW THE CLOSURE.
+        # The gate measured that at its own step: the restore is already on disk and
+        # `--disable-package-restore` is set, so the tool reads an assets file carrying
+        # every declared target and a call per line produces the same component set with
+        # both lines' server packages in each. It is passed here because a tag publishes
+        # one line and a call that names none says the run is for both, and because a
+        # restore per target later would narrow the gate's two calls and leave this one
+        # silently answering for the union. The option set is held equal across the two
+        # routes by `ReleaseInventoryTests`, which is the guard that was absent when the
+        # gate gained this argument on #101 and this sentence went on claiming sameness.
         #
         # It is written into the packager's output directory rather than one of its own,
         # for the reason the manifest is copied there below: the upload roots the
@@ -571,6 +583,7 @@ jobs:
           dotnet tool install --global CycloneDX --version 6.2.0
           export PATH="${HOME}/.dotnet/tools:${PATH}"
           dotnet-CycloneDX "Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj" \
+            --framework "${FRAMEWORK}" \
             --output-format Json \
             --output "${directory}" \
             --filename components.cdx.json \

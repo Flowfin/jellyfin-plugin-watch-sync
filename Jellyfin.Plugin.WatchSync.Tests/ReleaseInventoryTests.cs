@@ -136,6 +136,82 @@ public class ReleaseInventoryTests
     }
 
     /// <summary>
+    /// One option set across both packaging routes. The version fact above holds the tool and its
+    /// pin; nothing held what the tool was told, and the two drifted apart the day the gate gained
+    /// `--framework` on #101 while the release route and the runbook went on saying the options
+    /// were the same. The names are compared and never the values, because the framework's value
+    /// is each route's own line and the whole point of passing it is that the two differ.
+    /// </summary>
+    [Fact]
+    public void BothPackagingRoutesCallTheToolWithOneOptionSet()
+    {
+        var gate = InventoryStep.OptionsOfEveryCall(InventoryStep.WorkflowText(InventoryStep.MergeGate));
+        var release = InventoryStep.OptionsOfEveryCall(InventoryStep.WorkflowText(InventoryStep.PublishRoute));
+
+        Assert.NotEmpty(gate);
+        Assert.NotEmpty(release);
+
+        var sets = gate.Concat(release).ToList();
+
+        Assert.All(
+            sets,
+            options => Assert.True(
+                options.SequenceEqual(sets[0], StringComparer.Ordinal),
+                $"One {InventoryStep.Tool} call passes [{string.Join(", ", options)}] and another passes [{string.Join(", ", sets[0])}], so the two packaging routes are two answers to what went into the package while every run stays green."));
+    }
+
+    /// <summary>
+    /// Every call says which server line it was written for. A tag publishes one line and the gate
+    /// packages both, so a call naming no framework is a call answering for the union. It narrows
+    /// nothing today, which the gate measured at its own step; what it buys is that a restore per
+    /// target later narrows every call rather than all but one.
+    /// </summary>
+    [Fact]
+    public void EveryInventoryCallNamesTheLineItIsWrittenFor()
+    {
+        foreach (var workflow in new[] { InventoryStep.MergeGate, InventoryStep.PublishRoute })
+        {
+            var calls = InventoryStep.OptionsOfEveryCall(InventoryStep.WorkflowText(workflow));
+
+            Assert.NotEmpty(calls);
+            Assert.All(
+                calls,
+                options => Assert.True(
+                    options.Contains(InventoryStep.Framework, StringComparer.Ordinal),
+                    $"{workflow} calls {InventoryStep.Tool} without {InventoryStep.Framework}, so the inventory beside a one-line archive does not say which line it is about."));
+        }
+    }
+
+    /// <summary>
+    /// The guard proven by the state the mainline was actually in: the release route's call with
+    /// the framework taken off it, which is every file produced, a green run, and an inventory that
+    /// names no line beside an archive built for one.
+    /// </summary>
+    [Fact]
+    public void TheGuardRefusesACallThatNamesNoLineAndPassesItsRepair()
+    {
+        var mistake = InventoryStep.OptionsOfEveryCall(InventoryStep.Fixture("inventory-line-unnamed-near-miss.txt"));
+
+        Assert.Single(mistake);
+        Assert.DoesNotContain(InventoryStep.Framework, mistake[0], StringComparer.Ordinal);
+
+        var repaired = InventoryStep.OptionsOfEveryCall(InventoryStep.Fixture("inventory-line-unnamed-near-miss-repaired.txt"));
+
+        Assert.Single(repaired);
+        Assert.Contains(InventoryStep.Framework, repaired[0], StringComparer.Ordinal);
+
+        // The repair is the option and nothing else: what separates the two fixtures is one name.
+        Assert.Equal(
+            mistake[0].Concat(new[] { InventoryStep.Framework }).OrderBy(option => option, StringComparer.Ordinal).ToList(),
+            repaired[0]);
+
+        // And the repair is the shape the release route ships, rather than a spelling of its own.
+        Assert.Equal(
+            InventoryStep.OptionsOfEveryCall(InventoryStep.WorkflowText(InventoryStep.PublishRoute))[0],
+            repaired[0]);
+    }
+
+    /// <summary>
     /// The step deleted while tidying the release route, which leaves the file valid, the archive
     /// where it belongs and every other check green.
     /// </summary>
@@ -189,6 +265,11 @@ public class ReleaseInventoryTests
         /// The file the inventory is written to on both routes.
         /// </summary>
         internal const string Document = "components.cdx.json";
+
+        /// <summary>
+        /// The option naming the server line a call is written for.
+        /// </summary>
+        internal const string Framework = "--framework";
 
         /// <summary>
         /// The route that publishes a release.
@@ -277,6 +358,52 @@ public class ReleaseInventoryTests
             var pin = Regex.Match(text, @"dotnet tool install --global CycloneDX --version (?<version>[0-9][A-Za-z0-9.\-]*)");
 
             return pin.Success ? pin.Groups["version"].Value : string.Empty;
+        }
+
+        /// <summary>
+        /// The option names each call to the tool passes, one sorted set per call, in the order the
+        /// calls appear. The call is followed across the shell's line continuations rather than
+        /// read as one line, because that is how both routes spell it and a reader that stopped at
+        /// the first newline would find every call passing nothing at all.
+        /// </summary>
+        /// <param name="text">The workflow text.</param>
+        /// <returns>The option names per call.</returns>
+        internal static IReadOnlyList<IReadOnlyList<string>> OptionsOfEveryCall(string text)
+        {
+            var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+            var calls = new List<IReadOnlyList<string>>();
+
+            for (var index = 0; index < lines.Length; index++)
+            {
+                if (!lines[index].TrimStart().StartsWith(Tool, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var options = new List<string>();
+                var line = index;
+
+                // The invocation runs to the first line that does not hand on to the next.
+                while (line < lines.Length)
+                {
+                    foreach (Match option in Regex.Matches(lines[line], @"(?<![A-Za-z0-9-])--[a-z][a-z0-9-]*"))
+                    {
+                        options.Add(option.Value);
+                    }
+
+                    if (!lines[line].TrimEnd().EndsWith("\\", StringComparison.Ordinal))
+                    {
+                        break;
+                    }
+
+                    line++;
+                }
+
+                calls.Add(options.OrderBy(option => option, StringComparer.Ordinal).ToList());
+                index = line;
+            }
+
+            return calls;
         }
 
         /// <summary>
