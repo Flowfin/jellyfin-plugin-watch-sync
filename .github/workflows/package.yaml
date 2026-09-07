@@ -16,14 +16,19 @@
 # drifting apart, so moving one pin without the other reddens the suite instead
 # of leaving one route packaging bytes another never built.
 #
-# What it does not do is package the second server line, and it says so in its
-# log. build.yaml declares two lines and the packager stamps the archive with the
-# manifest's top level targetAbi rather than with the framework it was told to
-# build, so a second call with a second framework and the same manifest produces an
-# archive that claims the line it cannot run on. The second line is packaged by
-# the release route on its own tag, from its own manifest, which is #375; this run
-# packages exactly one line, the one build.yaml names, and a step below prints
-# which so a green run is never read as having packaged both.
+# It packages both server lines, one archive and one inventory each. The packager
+# stamps the archive with the top level targetAbi of the manifest standing at
+# build.yaml rather than with the framework it was told to build, so a second call
+# with a second framework and the same manifest would produce an archive claiming
+# the line it cannot run on. What makes two lines possible here is a manifest per
+# line, which #375 landed: the second call is preceded by the same swap the release
+# route makes for a tagged line, read back before the packager sees it.
+#
+# The two archives are named alike, because the manifests agree on the plugin's name
+# and version and ReleaseLineTests refuses them disagreeing on either. So the first
+# is moved under its own line before the second call rather than after it, and a run
+# that packaged one archive over the other would be a run reporting two packages and
+# holding one.
 name: package
 
 on:
@@ -93,29 +98,36 @@ jobs:
           fi
           dotnet restore "${project}" --locked-mode
 
-      - name: Say which line this run packages
-        # Exactly one line, the one build.yaml names at its top level. The release
-        # route derives its line from the tag and swaps the manifest to match; this
-        # route has no tag and packages the default manifest as it stands, so the
-        # other line is not measured here and the log says so rather than leaving a
-        # green run to be read as both.
+      - name: Say which lines this run packages
+        # Both lines the manifest set declares, each from its own manifest. The packager
+        # stamps the archive with the top level targetAbi of whatever manifest stands at
+        # build.yaml, so a line is packaged by putting its manifest there and not by
+        # passing a framework, and this step is where the pairs are read and printed
+        # before either call. A manifest missing here is a refusal rather than a run that
+        # quietly packages one line.
         run: |
           set -euo pipefail
-          framework="$(sed -n 's/^framework:[[:space:]]*"\([^"]*\)".*/\1/p' build.yaml)"
-          abi="$(sed -n 's/^targetAbi:[[:space:]]*"\([^"]*\)".*/\1/p' build.yaml)"
-          if [ -z "${framework}" ] || [ -z "${abi}" ]; then
-            echo "::error::build.yaml declares no top level framework and targetAbi pair, so this run cannot say which line it packages."
-            exit 1
-          fi
-          echo "::notice::This run packages one server line, ${framework} for ABI ${abi}, the pair build.yaml names at its top level. The other line is packaged by the release route on its own tag and is not measured here."
+          for manifest in build.yaml build-jf12.yaml; do
+            if [ ! -f "${manifest}" ]; then
+              echo "::error::${manifest} is not in this checkout, so the line it declares has no manifest to package from."
+              exit 1
+            fi
+            framework="$(sed -n 's/^framework:[[:space:]]*"\([^"]*\)".*/\1/p' "${manifest}")"
+            abi="$(sed -n 's/^targetAbi:[[:space:]]*"\([^"]*\)".*/\1/p' "${manifest}")"
+            if [ -z "${framework}" ] || [ -z "${abi}" ]; then
+              echo "::error::${manifest} declares no top level framework and targetAbi pair, so this run cannot say which line it would package from it."
+              exit 1
+            fi
+            echo "::notice::This run packages ${framework} for ABI ${abi}, the pair ${manifest} names at its top level."
+          done
 
-      - name: Build the plugin package
+      - name: Build the plugin package for the line build.yaml names
         id: jprm
         # The packager the release route calls, at the same commit, with the framework
         # build.yaml names at its top level. The release route hands the packager the
         # framework its gate derived from the tag, which for a tag with no line segment
-        # is this same value. PackagingGateTests holds the pin and the framework to
-        # that route.
+        # is this same value. PackagingGateTests holds the pin and holds every call to
+        # the framework of the manifest standing at build.yaml when it runs.
         uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
         with:
           dotnet-target: "net9.0"
@@ -132,15 +144,144 @@ jobs:
         # declares, meta.json or the declared image, by name, and refuses an archive
         # that does not carry every declared artifact, so an empty or wrong-shaped
         # archive fails rather than passing a refusal that found nothing to refuse.
-        # ArchiveEntriesGateTests holds this step to both packaging routes.
+        # ArchiveEntriesGateTests holds this step to both packaging routes and to every
+        # packager call on this one.
         run: |
           set -euo pipefail
           python3 .github/check-archive-entries.py --archive "${ARTIFACT}" --manifest build.yaml
 
+      - name: Write the component inventory for the line build.yaml names
+        # CycloneDX is a NuGet global tool, so it is pinned by version, which is
+        # the pin a NuGet package has. It reads the restore above rather than
+        # fetching its own, so the inventory describes the locked closure and no
+        # package can be pulled in merely to describe the bill of materials.
+        #
+        # One inventory per archive rather than one per run, written under its own line's
+        # directory so a reader holding one package has a file that is about that package
+        # rather than one shared between two.
+        #
+        # WHAT THE FRAMEWORK ARGUMENT DOES NOT DO, MEASURED RATHER THAN ASSUMED. The tool
+        # declares `--framework` as the target to use and says every target is aggregated
+        # when it is told none. It does not narrow the closure here: the restore is already
+        # on disk and `--disable-package-restore` is set, so it reads an assets file that
+        # carries every declared target, and a run per line produces the same sixty seven
+        # components with both lines' server packages in each. So the two inventories are
+        # per archive by placement and name and are the same set of components, and each
+        # describes what the project declares rather than what its own line resolves. That
+        # is the safe direction, because it lists more than the archive carries and never
+        # less, and it is the bound the single inventory already had. What would narrow it
+        # is a restore per target that the tool then reads, which is not what this does.
+        env:
+          INVENTORY_DIRECTORY: inventory/net9.0
+        run: |
+          set -euo pipefail
+          mkdir -p "${INVENTORY_DIRECTORY}"
+          dotnet tool install --global CycloneDX --version 6.2.0
+          export PATH="${HOME}/.dotnet/tools:${PATH}"
+          dotnet-CycloneDX "Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj" \
+            --framework net9.0 \
+            --output-format Json \
+            --output "${INVENTORY_DIRECTORY}" \
+            --filename components.cdx.json \
+            --set-nuget-purl \
+            --exclude-test-projects \
+            --disable-package-restore
+
+      - name: Put the first line's package where the second call cannot overwrite it
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        # The two manifests agree on the plugin's name and version, which ReleaseLineTests
+        # refuses them disagreeing on, so the packager names both archives identically and
+        # the second call would write over the first in the same output directory. The
+        # archive is moved under its own line before the second call rather than after it,
+        # because a run that packaged the second line over the first would report two
+        # packages and hold one.
+        run: |
+          set -euo pipefail
+          mkdir -p packages/net9.0
+          mv "${ARTIFACT}" "${ARTIFACT}.meta.json" packages/net9.0/
+          ls -l packages/net9.0
+
+      - name: Put the second line's manifest where the packager reads it
+        env:
+          MANIFEST: build-jf12.yaml
+          EXPECTED_FRAMEWORK: net10.0
+        # The packager takes no manifest argument. It discovers one inside the path by
+        # name, and build.yaml is that name, so the second line's manifest reaches it only
+        # by being build.yaml at the moment it runs. This is the same swap the release
+        # route makes for a tagged line, and its silent failure is the same: a 12.0 archive
+        # stamped with the 10.11 ABI, which installs on a server it cannot run on. So it is
+        # read back rather than trusted, byte for byte and on the framework it declares.
+        run: |
+          set -euo pipefail
+          if [ ! -f "${MANIFEST}" ]; then
+            echo "::error::${MANIFEST} is not in this checkout, so the second line has no manifest to package from."
+            exit 1
+          fi
+          rm build.yaml
+          cp "${MANIFEST}" build.yaml
+          if ! cmp -s build.yaml "${MANIFEST}"; then
+            echo "::error::build.yaml is not ${MANIFEST} after the swap, so the packager would read a manifest of a line other than the second one."
+            exit 1
+          fi
+          declared="$(sed -n 's/^framework:[[:space:]]*"\([^"]*\)".*/\1/p' build.yaml)"
+          if [ "${declared}" != "${EXPECTED_FRAMEWORK}" ]; then
+            echo "::error::build.yaml declares the framework '${declared}' after the swap and this call packages ${EXPECTED_FRAMEWORK}, so the manifest in front of the packager is not the second line's."
+            exit 1
+          fi
+          echo "Packaging ${EXPECTED_FRAMEWORK} from ${MANIFEST}, standing at build.yaml."
+
+      - name: Build the plugin package for the second line
+        id: jprm-second
+        # The same packager at the same commit, over the manifest the step above put at
+        # build.yaml. The framework here and the framework that manifest declares are one
+        # value, and PackagingGateTests refuses them being two.
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net10.0"
+
+      - name: Refuse an archive carrying anything but the plugin's own files
+        env:
+          ARTIFACT: ${{ steps.jprm-second.outputs.artifact }}
+        # The second line's archive, read against the manifest that produced it, which is
+        # the one now standing at build.yaml. A check that ran on one archive and not the
+        # other would leave half of what this run publishes unread.
+        run: |
+          set -euo pipefail
+          python3 .github/check-archive-entries.py --archive "${ARTIFACT}" --manifest build.yaml
+
+      - name: Write the component inventory for the second line
+        # The second archive's inventory, written under its own directory. What the
+        # framework argument does and does not do is measured at the step above and is not
+        # restated here.
+        env:
+          INVENTORY_DIRECTORY: inventory/net10.0
+        run: |
+          set -euo pipefail
+          mkdir -p "${INVENTORY_DIRECTORY}"
+          export PATH="${HOME}/.dotnet/tools:${PATH}"
+          dotnet-CycloneDX "Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj" \
+            --framework net10.0 \
+            --output-format Json \
+            --output "${INVENTORY_DIRECTORY}" \
+            --filename components.cdx.json \
+            --set-nuget-purl \
+            --exclude-test-projects \
+            --disable-package-restore
+
+      - name: Put the second line's package beside the first
+        env:
+          ARTIFACT: ${{ steps.jprm-second.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          mkdir -p packages/net10.0
+          mv "${ARTIFACT}" "${ARTIFACT}.meta.json" packages/net10.0/
+          ls -l packages/net10.0
+
       - name: Prove the archive check refuses what it is written for
-        # The step above is green on every archive the packager has produced here,
-        # which is every archive that ever carried only the plugin, so on its own it
-        # says nothing about whether it can refuse. Five archives built in the run
+        # The steps above are green on every archive the packager has produced here,
+        # which is every archive that ever carried only the plugin, so on their own they
+        # say nothing about whether they can refuse. Five archives built in the run
         # against the fixture manifest beside the checker, each arm named, with the
         # one that has to pass run last.
         run: |
@@ -177,47 +318,31 @@ jobs:
           python3 "${checker}" --archive "${work}/the-plugins-own-files.zip" --manifest "${manifest}"
           echo "The archive check refused all four of its arms and passed the plugin's own files."
 
-      - name: Write the component inventory
-        # CycloneDX is a NuGet global tool, so it is pinned by version, which is
-        # the pin a NuGet package has. It reads the restore above rather than
-        # fetching its own, so the inventory describes the locked closure and no
-        # package can be pulled in merely to describe the bill of materials.
-        env:
-          INVENTORY_DIRECTORY: inventory
-        run: |
-          set -euo pipefail
-          mkdir -p "${INVENTORY_DIRECTORY}"
-          dotnet tool install --global CycloneDX --version 6.2.0
-          export PATH="${HOME}/.dotnet/tools:${PATH}"
-          dotnet-CycloneDX "Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj" \
-            --output-format Json \
-            --output "${INVENTORY_DIRECTORY}" \
-            --filename components.cdx.json \
-            --set-nuget-purl \
-            --exclude-test-projects \
-            --disable-package-restore
-
-      - name: Check the run produced both
-        env:
-          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
-          INVENTORY: inventory/components.cdx.json
+      - name: Check the run produced a package and an inventory for every line
         # if-no-files-found on the upload below fires only when no pattern
         # matches at all, so a missing inventory would ride through as a warning
         # and leave the run looking like one that produced both. Named here, one
-        # file at a time.
+        # line at a time, and the archive is asked for by shape rather than by name
+        # because the name is the packager's to choose.
         run: |
           set -euo pipefail
-          for file in "${ARTIFACT}" "${ARTIFACT}.meta.json" "${INVENTORY}"; do
-            if [ ! -f "${file}" ]; then
-              echo "::error::This run did not produce ${file}. The archive, the metadata written beside it and the component inventory are all outputs of packaging."
+          shopt -s nullglob
+          for framework in net9.0 net10.0; do
+            zips=("packages/${framework}"/*.zip)
+            if [ "${#zips[@]}" -ne 1 ]; then
+              echo "::error::This run collected ${#zips[@]} archives for ${framework}. One line packages to one archive, and a run that holds none or two has not packaged that line."
               exit 1
             fi
+            for file in "${zips[0]}" "${zips[0]}.meta.json" "inventory/${framework}/components.cdx.json"; do
+              if [ ! -f "${file}" ]; then
+                echo "::error::This run did not produce ${file}. The archive, the metadata written beside it and the component inventory are all outputs of packaging one line."
+                exit 1
+              fi
+            done
+            ls -l "${zips[0]}" "${zips[0]}.meta.json" "inventory/${framework}/components.cdx.json"
           done
-          ls -l "${ARTIFACT}" "${ARTIFACT}.meta.json" "${INVENTORY}"
 
-      - name: Check the licence of every component in the inventory
-        env:
-          INVENTORY: inventory/components.cdx.json
+      - name: Check the licence of every component in every inventory
         # The inventory records what is in the build and never asks what any of
         # it may be distributed under. This does, against the licence this
         # repository itself ships under, which the check reads out of LICENSE
@@ -225,9 +350,18 @@ jobs:
         # identifier for is declared in .github/component-licences.txt with where
         # its licence was read, and a declaration covering nothing is refused, so
         # a dependency bump takes the reading with it.
+        #
+        # Both inventories, because the run writes one per archive and a check reading one
+        # of two would leave a file it publishes unjudged. The two hold the same components
+        # today, which the step that writes them records and which is a fact about the tool
+        # rather than a rule: a run whose inventories diverge is one this loop already
+        # covers.
         run: |
           set -euo pipefail
-          python3 .github/check-component-licences.py < "${INVENTORY}"
+          for framework in net9.0 net10.0; do
+            echo "Checking the components of ${framework}."
+            python3 .github/check-component-licences.py < "inventory/${framework}/components.cdx.json"
+          done
 
       - name: Prove the licence check refuses what it is written for
         # The step above is green on every graph that has never carried a bad
@@ -254,13 +388,12 @@ jobs:
           refuses "${fixtures}/every-licence-permitted.cdx.json" "${fixtures}/the-unstated-licence-read.txt"
           echo "The licence check refused all three of its arms and passed both repairs."
 
-      - name: Attach the package and its inventory to the run
+      - name: Attach every package and its inventory to the run
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: package-and-inventory
+          name: packages-and-inventories
           retention-days: 30
           if-no-files-found: error
           path: |
-            ${{ steps.jprm.outputs.artifact }}
-            ${{ steps.jprm.outputs.artifact }}.meta.json
-            inventory/components.cdx.json
+            packages/
+            inventory/

@@ -47,6 +47,36 @@ public class ArchiveEntriesGateTests
     }
 
     /// <summary>
+    /// Every archive a route produces is read, and not only the first. The merge gate calls the
+    /// packager once per server line since #101, so a route with one of these steps and two
+    /// calls looks into one archive and publishes two, with the unread one being exactly the
+    /// line nobody was watching.
+    /// </summary>
+    /// <param name="workflow">A route that packages.</param>
+    [Theory]
+    [InlineData(".github/workflows/package.yaml")]
+    [InlineData(".github/workflows/publish.yaml")]
+    public void EveryArchiveTheRouteProducesIsReadIntoAndNotOnlyTheFirst(string workflow)
+    {
+        var text = ArchiveGate.WorkflowText(workflow);
+        var gates = ArchiveGate.ReadAll(text);
+        var calls = ArchiveGate.PackagerCalls(text);
+
+        Assert.True(
+            gates.Count == calls,
+            $"{workflow} calls the packager {calls} times and carries {gates.Count} `{ArchiveGate.StepName}` steps. One archive is produced per call, so an archive without its own step is one that ships unread.");
+
+        Assert.All(
+            gates,
+            gate =>
+            {
+                Assert.True(gate.RunsTheChecker);
+                Assert.True(gate.ReadsThePackagerOutput);
+                Assert.True(gate.AfterThePackager);
+            });
+    }
+
+    /// <summary>
     /// The checker names what it refuses, in both directions: an entry that is not the plugin's
     /// own, and a declared artifact the archive does not carry. A checker refusing in silence
     /// would be a red run nobody can act on.
@@ -155,9 +185,13 @@ public class ArchiveEntriesGateTests
         private const string Packager = "uses: oddstr13/jellyfin-plugin-repository-manager@";
 
         /// <summary>
-        /// The expression that names the archive the packager produced.
+        /// The expression that names the archive a packager call produced. Read as a shape rather
+        /// than as one step's name, because the merge gate calls the packager once per server line
+        /// and only the first of those calls is `jprm`.
         /// </summary>
-        private const string PackagerOutput = "${{ steps.jprm.outputs.artifact }}";
+        private static readonly Regex PackagerOutput = new Regex(
+            "\\$\\{\\{ steps\\.[A-Za-z0-9_-]+\\.outputs\\.artifact \\}\\}",
+            RegexOptions.None);
 
         private ArchiveGate(bool hasStep, bool runsTheChecker, bool readsThePackagerOutput, bool afterThePackager)
         {
@@ -215,14 +249,55 @@ public class ArchiveEntriesGateTests
         /// <returns>The gate.</returns>
         internal static ArchiveGate Read(string text)
         {
+            var all = ReadAll(text);
+
+            return all.Count > 0 ? all[0] : new ArchiveGate(false, false, false, false);
+        }
+
+        /// <summary>
+        /// Counts the packager calls in the text, which is how many archives the route produces
+        /// and therefore how many of these steps it owes.
+        /// </summary>
+        /// <param name="text">The workflow text.</param>
+        /// <returns>The number of calls.</returns>
+        internal static int PackagerCalls(string text) =>
+            Regex.Matches(
+                text.Replace("\r\n", "\n", StringComparison.Ordinal),
+                "(?m)^[ ]+" + Regex.Escape(Packager)).Count;
+
+        /// <summary>
+        /// Reads every occurrence of the step out of workflow text, in file order. A route that
+        /// packages more than one line carries one of these per archive, and a reader that stopped
+        /// at the first would report on one archive while the run publishes two.
+        /// </summary>
+        /// <param name="text">The workflow text.</param>
+        /// <returns>The occurrences.</returns>
+        internal static IReadOnlyList<ArchiveGate> ReadAll(string text)
+        {
             var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+            var gates = new List<ArchiveGate>();
 
-            var start = Array.FindIndex(lines, line => Regex.IsMatch(line, "^[ ]+- name: " + Regex.Escape(StepName) + "[ \t]*$"));
-
-            if (start < 0)
+            for (var start = 0; start < lines.Length; start++)
             {
-                return new ArchiveGate(false, false, false, false);
+                if (!Regex.IsMatch(lines[start], "^[ ]+- name: " + Regex.Escape(StepName) + "[ \t]*$"))
+                {
+                    continue;
+                }
+
+                gates.Add(ReadAt(lines, start));
             }
+
+            return gates;
+        }
+
+        /// <summary>
+        /// Reads the occurrence whose name is on the line given.
+        /// </summary>
+        /// <param name="lines">The workflow's lines.</param>
+        /// <param name="start">The index of the step's name line.</param>
+        /// <returns>The occurrence.</returns>
+        private static ArchiveGate ReadAt(string[] lines, int start)
+        {
 
             // The step's lines run until the next step at the same indentation.
             var indent = lines[start].Length - lines[start].TrimStart().Length;
@@ -246,12 +321,12 @@ public class ArchiveEntriesGateTests
                 body.Add(line);
             }
 
-            var packager = Array.FindIndex(lines, line => line.TrimStart().StartsWith(Packager, StringComparison.Ordinal));
+            var packager = Array.FindLastIndex(lines, Math.Max(start - 1, 0), line => line.TrimStart().StartsWith(Packager, StringComparison.Ordinal));
 
             return new ArchiveGate(
                 true,
                 body.Any(line => line.Contains(Checker, StringComparison.Ordinal) && line.Contains("--archive", StringComparison.Ordinal)),
-                body.Any(line => line.Contains(PackagerOutput, StringComparison.Ordinal)),
+                body.Any(line => PackagerOutput.IsMatch(line)),
                 packager >= 0 && packager < start);
         }
     }
