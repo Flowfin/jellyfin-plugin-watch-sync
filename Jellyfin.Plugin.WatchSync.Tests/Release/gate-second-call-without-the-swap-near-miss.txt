@@ -1,0 +1,27 @@
+# A slice of the merge gate with the second line added the way the issue's own sentence reads:
+# a second call with a second framework. There is no swap in front of it, so both calls read
+# the manifest standing at build.yaml, and the packager stamps the archive with that manifest's
+# top level targetAbi rather than with the framework it was told to build. The run produces two
+# archives, both check out, both carry an inventory, and the second one is compiled for the
+# 12.0 line and stamped 10.11.11.0. It installs on a server it cannot run on, and nothing in
+# the run says so.
+
+      - name: Build the plugin package for the line build.yaml names
+        id: jprm
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net9.0"
+
+      - name: Put the first line's package where the second call cannot overwrite it
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          mkdir -p packages/net9.0
+          mv "${ARTIFACT}" "${ARTIFACT}.meta.json" packages/net9.0/
+
+      - name: Build the plugin package for the second line
+        id: jprm-second
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net10.0"

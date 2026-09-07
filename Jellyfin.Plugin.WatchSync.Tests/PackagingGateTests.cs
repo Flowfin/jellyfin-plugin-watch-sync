@@ -8,8 +8,8 @@ using Xunit;
 namespace Jellyfin.Plugin.WatchSync.Tests;
 
 /// <summary>
-/// Holds every call to the packaging tool in this repository to one commit and to the one
-/// framework the manifest declares at its top level.
+/// Holds every call to the packaging tool in this repository to one commit and to the
+/// framework declared by the manifest standing in front of it.
 ///
 /// Two routes call it and both are files here: the merge gate packages on every pull request,
 /// and the release packages what it ships. The failure this refuses is them drifting apart: a
@@ -24,11 +24,19 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 ///
 /// The framework rule is the sharper of the two and it is not tidiness. The packager writes
 /// the metadata that travels with the archive out of the manifest's top level `targetAbi`
-/// rather than out of the framework it was told to build, so a second call passing the other
-/// server line produces an archive compiled for that line and stamped with this one. That is a
-/// plugin claiming a server it cannot run on, arriving from the packaging rather than from
-/// anybody writing a wrong number. What retires this rule is a manifest per line, which is the
-/// reading on #101 and the remaining half of that issue.
+/// rather than out of the framework it was told to build, so a call passing a framework the
+/// manifest in front of it does not declare produces an archive compiled for one line and
+/// stamped with the other. That is a plugin claiming a server it cannot run on, arriving from
+/// the packaging rather than from anybody writing a wrong number.
+///
+/// <para>
+/// UNTIL #101 THAT RULE WAS A RULE ABOUT ONE MANIFEST, and it read every gate call against
+/// `build.yaml` because there was one call and one manifest. #375 landed a manifest per line
+/// and the gate now packages both, so what a call is held to is the manifest that stands at
+/// `build.yaml` when it runs, which is `build.yaml` itself until a step swaps another there.
+/// A second call added with no swap in front of it is exactly the archive the rule is about,
+/// and it is the near-miss below.
+/// </para>
 /// </summary>
 public class PackagingGateTests
 {
@@ -63,38 +71,122 @@ public class PackagingGateTests
 
     /// <summary>
     /// Every call builds the framework the manifest it reads names beside the ABI it stamps. A
-    /// call passing the other line's framework is the archive that claims a server it cannot
-    /// run on.
+    /// call passing a framework that manifest does not declare is the archive that claims a
+    /// server it cannot run on.
     ///
-    /// Two shapes satisfy it. A call naming a literal builds the line build.yaml names, because
-    /// that is the manifest standing at the name the packager reads. The release route names no
-    /// literal: its gate derives the framework from the tag and swaps the matching manifest to
-    /// that name first, and ReleaseLineTests holds each row of that table to the manifest it
-    /// names. So the release call is held here to taking the gate's output and there to what
-    /// the output can be, and a literal reappearing on it is refused by both.
+    /// Two shapes satisfy it. A call on a route that swaps by name is held to the manifest
+    /// standing at `build.yaml` when it runs, which the reader follows step by step. The
+    /// release route names no manifest a reader here can resolve: its gate derives the
+    /// framework from the tag and swaps the matching manifest to that name first, and
+    /// ReleaseLineTests holds each row of that table to the manifest it names. So the release
+    /// call is held here to taking the gate's output and there to what the output can be, and a
+    /// literal reappearing on it is refused by both.
     /// </summary>
     [Fact]
     public void EveryPackagerCallBuildsTheFrameworkTheManifestDeclares()
     {
-        var declared = BuildTargetsTests.BuildFacts.ScalarAtColumnZero(BuildTargetsTests.BuildFacts.ManifestText(), "framework");
-        var calls = PackagerCall.InThisRepository();
+        Assert.All(PackagerCall.InThisRepository(), call => AssertTheCallMatchesItsManifest(call));
+    }
 
-        Assert.All(
-            calls,
-            call =>
-            {
-                if (call.Workflow.EndsWith("publish.yaml", StringComparison.Ordinal))
-                {
-                    Assert.True(
-                        string.Equals(call.Framework, ReleaseLineTests.ReleaseLines.FrameworkFromTheGate, StringComparison.Ordinal),
-                        $"{call.Workflow} packages {call.Framework} rather than the framework its gate derived from the tag, so a tag naming the other line would build this one.");
-                    return;
-                }
+    /// <summary>
+    /// The merge gate packages every line the manifest set declares, one call each. This is
+    /// #101's first condition: a pull request that breaks the packaging of either line fails on
+    /// the change that made it rather than on a tag three weeks later, and a gate covering one
+    /// of two lines leaves the other one packaged for the first time by a release.
+    /// </summary>
+    [Fact]
+    public void TheMergeGatePackagesEveryLineTheManifestsDeclare()
+    {
+        var declared = BuildTargetsTests.BuildFacts.DeclaredTargets()
+            .Select(target => target.Framework)
+            .OrderBy(framework => framework, StringComparer.Ordinal)
+            .ToList();
 
-                Assert.True(
-                    string.Equals(call.Framework, declared, StringComparison.Ordinal),
-                    $"{call.Workflow} packages {call.Framework} while build.yaml declares {declared} beside the ABI the packager stamps, so that archive would claim a server line it was not built for.");
-            });
+        var packaged = PackagerCall.InThisRepository()
+            .Where(call => call.Workflow.EndsWith(PackagerCall.MergeGate, StringComparison.Ordinal))
+            .Select(call => call.Framework)
+            .OrderBy(framework => framework, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            declared.SequenceEqual(packaged, StringComparer.Ordinal),
+            $"The manifests declare the lines {string.Join(", ", declared)} and the merge gate packages {string.Join(", ", packaged)}. A line the gate does not package is a line a pull request cannot break visibly.");
+    }
+
+    /// <summary>
+    /// The guard proven by the mistake the packager invites: a second call added for the other
+    /// line with no manifest swap in front of it. Everything about that run is green - two
+    /// archives are produced, both check out against the manifest, both carry an inventory -
+    /// and the second one is compiled for the 12.0 line and stamped with the 10.11 ABI, which
+    /// installs on a server it cannot run on. Its repair is the swap.
+    /// </summary>
+    [Fact]
+    public void TheGuardRefusesASecondCallWithNoSwapInFrontOfItAndPassesItsRepair()
+    {
+        var mistake = PackagerCall.In(
+            PackagerCall.MergeGate,
+            PackagerCall.Fixture("gate-second-call-without-the-swap-near-miss.txt"));
+
+        Assert.Equal(2, mistake.Count);
+        Assert.All(mistake, call => Assert.Equal(PackagerCall.DefaultManifest, call.Manifest));
+
+        Assert.NotEqual(
+            BuildTargetsTests.BuildFacts.ScalarAtColumnZero(
+                PackagerCall.ManifestText(mistake[1].Manifest),
+                "framework"),
+            mistake[1].Framework);
+
+        var repaired = PackagerCall.In(
+            PackagerCall.MergeGate,
+            PackagerCall.Fixture("gate-second-call-without-the-swap-near-miss-repaired.txt"));
+
+        Assert.Equal(2, repaired.Count);
+        Assert.Equal("build.yaml", repaired[0].Manifest);
+        Assert.Equal("build-jf12.yaml", repaired[1].Manifest);
+        Assert.All(repaired, call => AssertTheCallMatchesItsManifest(call));
+    }
+
+    /// <summary>
+    /// The guard proven by the state this repository was in before #101's first condition: one
+    /// call, one line, and a second line nothing on a pull request builds. It is the shape a
+    /// green gate hides best, because nothing about a run that packages one line looks like a
+    /// run that was meant to package two.
+    /// </summary>
+    [Fact]
+    public void TheGuardRefusesAGateThatPackagesOneOfTwoLines()
+    {
+        var packaged = PackagerCall.In(
+            PackagerCall.MergeGate,
+            PackagerCall.Fixture("gate-one-line-near-miss.txt"));
+
+        Assert.Single(packaged);
+        Assert.NotEqual(
+            BuildTargetsTests.BuildFacts.DeclaredTargets().Count,
+            packaged.Count);
+    }
+
+    /// <summary>
+    /// Holds one call to the framework its manifest declares, in the shape the facts above
+    /// share, so the near-miss is judged by the rule rather than by a copy of it.
+    /// </summary>
+    /// <param name="call">The call.</param>
+    private static void AssertTheCallMatchesItsManifest(PackagerCall call)
+    {
+        if (call.Workflow.EndsWith("publish.yaml", StringComparison.Ordinal))
+        {
+            Assert.True(
+                string.Equals(call.Framework, ReleaseLineTests.ReleaseLines.FrameworkFromTheGate, StringComparison.Ordinal),
+                $"{call.Workflow} packages {call.Framework} rather than the framework its gate derived from the tag, so a tag naming the other line would build this one.");
+            return;
+        }
+
+        var declared = BuildTargetsTests.BuildFacts.ScalarAtColumnZero(
+            PackagerCall.ManifestText(call.Manifest),
+            "framework");
+
+        Assert.True(
+            string.Equals(call.Framework, declared, StringComparison.Ordinal),
+            $"{call.Workflow} packages {call.Framework} while {call.Manifest}, the manifest standing at build.yaml when that call runs, declares {declared} beside the ABI the packager stamps, so that archive would claim a server line it was not built for.");
     }
 
     /// <summary>
@@ -103,6 +195,17 @@ public class PackagingGateTests
     /// </summary>
     internal sealed class PackagerCall
     {
+        /// <summary>
+        /// The route that packages on every pull request.
+        /// </summary>
+        internal const string MergeGate = "package.yaml";
+
+        /// <summary>
+        /// The manifest the packager finds by name. Every other manifest reaches it by standing
+        /// here for the length of a call.
+        /// </summary>
+        internal const string DefaultManifest = "build.yaml";
+
         /// <summary>
         /// The action, without its version, so a call is found whichever commit it is pinned to.
         /// </summary>
@@ -115,14 +218,24 @@ public class PackagingGateTests
         /// in a file its readers read by eye.
         /// </summary>
         private static readonly Regex Call = new Regex(
-            "(?m)^[ ]+uses: " + Regex.Escape(Action) + "@(?<commit>[0-9a-fA-F]{40})[^\n]*\n(?:[^\n]*\n){0,4}?[ ]+dotnet-target: \"(?<framework>[^\"]+)\"",
-            RegexOptions.None);
+            "^[ ]+uses: " + Regex.Escape(Action) + "@(?<commit>[0-9a-fA-F]{40})[^\n]*\n(?:[^\n]*\n){0,4}?[ ]+dotnet-target: \"(?<framework>[^\"]+)\"",
+            RegexOptions.Multiline);
 
-        private PackagerCall(string workflow, string commit, string framework)
+        /// <summary>
+        /// The swap, as the step that makes it declares the manifest it puts at the name the
+        /// packager reads. A value that is not a file name is a manifest this reader cannot
+        /// resolve, which is the release route's shape and is judged there instead.
+        /// </summary>
+        private static readonly Regex Swap = new Regex(
+            "^[ ]+MANIFEST: (?<manifest>[A-Za-z0-9][A-Za-z0-9._-]*\\.ya?ml)[ \t]*$",
+            RegexOptions.Multiline);
+
+        private PackagerCall(string workflow, string commit, string framework, string manifest)
         {
             Workflow = workflow;
             Commit = commit;
             Framework = framework;
+            Manifest = manifest;
         }
 
         /// <summary>
@@ -141,6 +254,93 @@ public class PackagingGateTests
         internal string Framework { get; }
 
         /// <summary>
+        /// Gets the manifest standing at the name the packager reads when the call runs, which is
+        /// the default until a step above the call swaps another one there.
+        /// </summary>
+        internal string Manifest { get; }
+
+        /// <summary>
+        /// Reads a manifest this repository ships rather than a copy of it.
+        /// </summary>
+        /// <param name="manifest">The file name at the repository root.</param>
+        /// <returns>Its text.</returns>
+        internal static string ManifestText(string manifest)
+        {
+            var path = Path.Combine(HeadlessGuardTests.HeadlessGuard.RepositoryRoot(), manifest);
+
+            Assert.True(File.Exists(path), $"{manifest} is named as the manifest a packager call reads and is not at the repository root, so that call would package whatever stands at {DefaultManifest} instead.");
+
+            return File.ReadAllText(path);
+        }
+
+        /// <summary>
+        /// Reads a fixture from the tracked file rather than from a copy in the output directory,
+        /// because a copy proves the state of the file on the day it was written.
+        /// </summary>
+        /// <param name="name">The file name.</param>
+        /// <returns>The fixture text.</returns>
+        internal static string Fixture(string name) =>
+            File.ReadAllText(Path.Combine(
+                HeadlessGuardTests.HeadlessGuard.RepositoryRoot(),
+                "Jellyfin.Plugin.WatchSync.Tests",
+                "Release",
+                name));
+
+        /// <summary>
+        /// Reads every call out of one workflow's text, in file order, each carrying the manifest
+        /// standing in front of it.
+        /// </summary>
+        /// <param name="workflow">The path the calls are reported under.</param>
+        /// <param name="text">The workflow text.</param>
+        /// <returns>The calls.</returns>
+        internal static IReadOnlyList<PackagerCall> In(string workflow, string text)
+        {
+            var normalised = text.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+            // A file naming the action with no framework beside it is a call this reader
+            // cannot judge rather than a file with no call, and passing it would leave the
+            // rule silent about exactly the shape it exists for.
+            var found = Call.Matches(normalised).Count;
+            var named = Regex.Matches(normalised, "^[ ]+uses: " + Regex.Escape(Action) + "@", RegexOptions.Multiline).Count;
+
+            Assert.True(
+                found == named,
+                $"{workflow} calls the packager {named} times and {found} of those pass a target framework this reader could read. A call with no `dotnet-target` builds whatever the manifest defaults to and is not held by these rules.");
+
+            var events = new List<(int Index, string Manifest, Match Call)>();
+
+            foreach (Match swap in Swap.Matches(normalised))
+            {
+                events.Add((swap.Index, swap.Groups["manifest"].Value, null!));
+            }
+
+            foreach (Match call in Call.Matches(normalised))
+            {
+                events.Add((call.Index, string.Empty, call));
+            }
+
+            var calls = new List<PackagerCall>();
+            var standing = DefaultManifest;
+
+            foreach (var entry in events.OrderBy(entry => entry.Index))
+            {
+                if (entry.Call is null)
+                {
+                    standing = entry.Manifest;
+                    continue;
+                }
+
+                calls.Add(new PackagerCall(
+                    workflow,
+                    entry.Call.Groups["commit"].Value,
+                    entry.Call.Groups["framework"].Value,
+                    standing));
+            }
+
+            return calls;
+        }
+
+        /// <summary>
         /// Reads every call in the workflows this repository ships.
         /// </summary>
         /// <returns>The calls, in the order the files are read.</returns>
@@ -155,23 +355,9 @@ public class PackagingGateTests
 
             foreach (var file in Directory.EnumerateFiles(directory).OrderBy(path => path, StringComparer.Ordinal))
             {
-                var text = File.ReadAllText(file);
                 var relative = Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/');
 
-                // A file naming the action with no framework beside it is a call this reader
-                // cannot judge rather than a file with no call, and passing it would leave the
-                // rule silent about exactly the shape it exists for.
-                var found = Call.Matches(text).Count;
-                var named = Regex.Matches(text, "(?m)^[ ]+uses: " + Regex.Escape(Action) + "@").Count;
-
-                Assert.True(
-                    found == named,
-                    $"{relative} calls the packager {named} times and {found} of those pass a target framework this reader could read. A call with no `dotnet-target` builds whatever the manifest defaults to and is not held by these rules.");
-
-                foreach (Match match in Call.Matches(text))
-                {
-                    calls.Add(new PackagerCall(relative, match.Groups["commit"].Value, match.Groups["framework"].Value));
-                }
+                calls.AddRange(In(relative, File.ReadAllText(file)));
             }
 
             Assert.NotEmpty(calls);

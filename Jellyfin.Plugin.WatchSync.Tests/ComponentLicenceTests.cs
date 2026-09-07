@@ -27,20 +27,34 @@ namespace Jellyfin.Plugin.WatchSync.Tests;
 public class ComponentLicenceTests
 {
     /// <summary>
-    /// The packaging run makes the check, over the inventory it has just written. This is the
+    /// The packaging run makes the check, over the inventories it has just written. This is the
     /// one that catches the step being removed or renamed away, which would leave the
-    /// inventory produced and unjudged again with every other check on this repository green.
+    /// inventories produced and unjudged again with every other check on this repository green.
+    ///
+    /// It is per line since #101. The gate packages one archive per server line and writes one
+    /// inventory per archive, the two closures differ because the lines reference different
+    /// server packages, and a check that read one of them would leave a component that reaches
+    /// only the other line unjudged.
     /// </summary>
     [Fact]
-    public void ThePackagingRunChecksTheLicenceOfEveryComponent()
+    public void ThePackagingRunChecksTheLicenceOfEveryComponentOfEveryLine()
     {
         var package = ComponentLicenceRoute.Package();
 
-        Assert.Contains("INVENTORY: inventory/components.cdx.json", package, StringComparison.Ordinal);
         Assert.Contains(
-            "python3 " + ComponentLicenceRoute.Checker + " < \"${INVENTORY}\"",
+            "python3 " + ComponentLicenceRoute.Checker + " < \"inventory/${framework}/components.cdx.json\"",
             package,
             StringComparison.Ordinal);
+
+        var lines = ComponentLicenceRoute.FrameworksTheCheckWalks(package);
+        var declared = BuildTargetsTests.BuildFacts.DeclaredTargets()
+            .Select(target => target.Framework)
+            .OrderBy(framework => framework, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            declared.SequenceEqual(lines, StringComparer.Ordinal),
+            $"The manifests declare the lines {string.Join(", ", declared)} and the licence check walks {string.Join(", ", lines)}. An inventory nothing reads is a bill of materials nobody asked a question of.");
     }
 
     /// <summary>
@@ -205,6 +219,29 @@ public class ComponentLicenceTests
         /// </summary>
         /// <returns>Its text.</returns>
         internal static string CheckerText() => Read(Checker);
+
+        /// <summary>
+        /// The server lines the licence check walks, read off the loop that runs it rather than
+        /// typed here, so a line dropped from that loop is a line this fact reports as unwalked.
+        /// </summary>
+        /// <param name="package">The merge gate's text.</param>
+        /// <returns>The frameworks, sorted.</returns>
+        internal static IReadOnlyList<string> FrameworksTheCheckWalks(string package)
+        {
+            var loop = System.Text.RegularExpressions.Regex.Match(
+                package.Replace("\r\n", "\n", StringComparison.Ordinal),
+                "for framework in (?<lines>[^;\n]+); do\n(?:[^\n]*\n)*?[^\n]*" + System.Text.RegularExpressions.Regex.Escape(Checker) + "[^\n]*\n");
+
+            if (!loop.Success)
+            {
+                return new List<string>();
+            }
+
+            return loop.Groups["lines"].Value
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .OrderBy(framework => framework, StringComparer.Ordinal)
+                .ToList();
+        }
 
         /// <summary>
         /// The declarations in the register, without its comments and blank lines.

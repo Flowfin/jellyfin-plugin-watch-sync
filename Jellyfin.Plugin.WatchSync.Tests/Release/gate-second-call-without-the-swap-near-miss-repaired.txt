@@ -1,0 +1,37 @@
+# The repair of the slice beside this one: the second line's manifest is put at the name the
+# packager reads before the second call, and read back before the packager sees it. Each call
+# then builds the framework the manifest in front of it declares, which is the same swap the
+# release route makes for a tagged line.
+
+      - name: Build the plugin package for the line build.yaml names
+        id: jprm
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net9.0"
+
+      - name: Put the first line's package where the second call cannot overwrite it
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          mkdir -p packages/net9.0
+          mv "${ARTIFACT}" "${ARTIFACT}.meta.json" packages/net9.0/
+
+      - name: Put the second line's manifest where the packager reads it
+        env:
+          MANIFEST: build-jf12.yaml
+          EXPECTED_FRAMEWORK: net10.0
+        run: |
+          set -euo pipefail
+          rm build.yaml
+          cp "${MANIFEST}" build.yaml
+          if ! cmp -s build.yaml "${MANIFEST}"; then
+            echo "::error::build.yaml is not ${MANIFEST} after the swap, so the packager would read a manifest of a line other than the second one."
+            exit 1
+          fi
+
+      - name: Build the plugin package for the second line
+        id: jprm-second
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net10.0"

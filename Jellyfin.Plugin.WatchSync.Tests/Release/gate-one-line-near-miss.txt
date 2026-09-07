@@ -1,0 +1,16 @@
+# The merge gate as it stood before #101's first condition: one call, for the line build.yaml
+# names, and a second declared line that no pull request builds. Nothing about this run looks
+# wrong, which is the point of the arm - a gate covering one of two lines is green, says so in
+# its log, and leaves the other line packaged for the first time by a release.
+
+      - name: Say which line this run packages
+        run: |
+          set -euo pipefail
+          framework="$(sed -n 's/^framework:[[:space:]]*"\([^"]*\)".*/\1/p' build.yaml)"
+          echo "::notice::This run packages one server line, ${framework}."
+
+      - name: Build the plugin package
+        id: jprm
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net9.0"
