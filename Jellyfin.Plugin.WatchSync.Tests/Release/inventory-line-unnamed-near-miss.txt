@@ -1,0 +1,35 @@
+# The release route as it stood between #118 landing the inventory step and this guard: the
+# merge gate names the line each of its two calls is written for and this one names none.
+# Every file is still produced, both runs are green, and the two routes describe one graph
+# with two option sets while the runbook beside them claims the options are the same.
+#
+# The option that is missing narrows nothing today, which the gate measured at its own step.
+# What it costs is that a call cannot say which line it was written for, and that a restore
+# per target later would narrow the gate's two calls and leave this one answering for both.
+
+  build:
+    name: Build package
+    steps:
+      - name: Build the plugin package
+        id: jprm
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net9.0"
+
+      - name: Write the component inventory beside the package
+        id: inventory
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          directory="$(dirname "${ARTIFACT}")"
+          dotnet tool install --global CycloneDX --version 6.2.0
+          export PATH="${HOME}/.dotnet/tools:${PATH}"
+          dotnet-CycloneDX "Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj" \
+            --output-format Json \
+            --output "${directory}" \
+            --filename components.cdx.json \
+            --set-nuget-purl \
+            --exclude-test-projects \
+            --disable-package-restore
+          echo "inventory=${directory}/components.cdx.json" >> "${GITHUB_OUTPUT}"
