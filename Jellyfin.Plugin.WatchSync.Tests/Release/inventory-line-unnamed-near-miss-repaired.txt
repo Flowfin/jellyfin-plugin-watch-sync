@@ -1,0 +1,33 @@
+# The repair of the near-miss beside this file, and the one line that separates them. The
+# framework is the tagged line's, taken from the value the gate job derived from the tag
+# rather than typed, so the call names the line the archive beside it was built for and the
+# two routes pass one option set.
+
+  build:
+    name: Build package
+    steps:
+      - name: Build the plugin package
+        id: jprm
+        uses: oddstr13/jellyfin-plugin-repository-manager@9497a0a499416cc572ed2e07a391d9f943a37b4d # v1.1.1
+        with:
+          dotnet-target: "net9.0"
+
+      - name: Write the component inventory beside the package
+        id: inventory
+        env:
+          ARTIFACT: ${{ steps.jprm.outputs.artifact }}
+          FRAMEWORK: ${{ needs.gate.outputs.framework }}
+        run: |
+          set -euo pipefail
+          directory="$(dirname "${ARTIFACT}")"
+          dotnet tool install --global CycloneDX --version 6.2.0
+          export PATH="${HOME}/.dotnet/tools:${PATH}"
+          dotnet-CycloneDX "Jellyfin.Plugin.WatchSync/Jellyfin.Plugin.WatchSync.csproj" \
+            --framework "${FRAMEWORK}" \
+            --output-format Json \
+            --output "${directory}" \
+            --filename components.cdx.json \
+            --set-nuget-purl \
+            --exclude-test-projects \
+            --disable-package-restore
+          echo "inventory=${directory}/components.cdx.json" >> "${GITHUB_OUTPUT}"
